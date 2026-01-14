@@ -1,0 +1,89 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# ML Models (large files - use Git LFS or separate storage)
+models/*.joblib
+models/*.pkl
+models/*.onnx
+!models/.gitkeep
+
+# Data directories
+data/raw/
+data/processed/
+!data/.gitkeep
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node.js (dashboard)
+node_modules/
+dashboard/dist/
+dashboard/build/
+
+# Docker
+docker-compose.override.yml
+
+# ============================================
+# LLM Agent / Planning Documents (gitignored)
+# ============================================
+.agent/
+.llm/
