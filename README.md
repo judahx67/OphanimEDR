@@ -1,62 +1,81 @@
-# Behavioral EDR Agent
+# Ophanim EDR
 
-ML-Enhanced Endpoint Detection and Response Agent for Windows
+ML-Enhanced Endpoint Detection and Response for Windows
 
 ## Overview
 
-A lightweight endpoint agent that monitors running processes in real-time, extracts behavioral features, and uses machine learning to detect potentially malicious activity.
+A lightweight endpoint agent that monitors system activity in real-time, extracts behavioral features, and uses machine learning to detect malicious activity.
 
 ## Project Structure
 
 ```
-behavioral-edr/
-├── agent/          # EDR Agent (deploys to Windows endpoints)
-├── server/         # Management Server (Docker)
-├── dashboard/      # Web UI (React)
-├── shared/         # Shared code between agent & server
-├── config/         # Centralized configuration
-├── models/         # Trained ML models
-├── notebooks/      # Jupyter notebooks for EDA
-├── scripts/        # Utility scripts
-├── tests/          # Test suite
-└── docs/           # Documentation
+ophanim-edr/
+├── agent/          # Windows EDR Agent (Python)
+├── server/         # FastAPI Backend (Docker)
+├── dashboard/      # React Dashboard (Fluent UI)
+├── docs/           # Documentation
+└── docker-compose.yml
 ```
 
 ## Quick Start
 
 ### Prerequisites
-- Python 3.10+
-- Windows 10/11 (for agent)
-- Docker (for server)
+- Python 3.13+ (agent)
+- Docker & Docker Compose (server/dashboard)
+- Windows 10/11 (for agent deployment)
 
-### Development Setup
+### Development
 
 ```bash
-# Clone and setup
+# Clone repository
 git clone <repo-url>
-cd behavioral-edr
+cd ophanim-edr
 
+# Option 1: Hot-reload development (recommended)
+docker compose -f docker-compose.dev.yml up
+
+# Option 2: Production build
+docker compose up --build
+
+# Seed demo data
+curl -X POST http://localhost:8000/api/seed
+```
+
+**Access:**
+- Dashboard: http://localhost:3000
+- API Docs: http://localhost:8000/docs
+
+### Agent Setup (Windows)
+
+```powershell
 # Create virtual environment
 python -m venv venv
-.\venv\Scripts\activate  # Windows
+.\venv\Scripts\Activate
 
 # Install dependencies
 pip install -e ".[dev]"
 
-# Run agent (development)
-python -m edr_agent
+# Configure server URL
+$env:SERVER_URL = "http://192.168.1.100:8000"
 
-# Run server (Docker)
-docker-compose up
+# Run agent
+python -m edr_agent
 ```
+
+## Docker Compose Files
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Production build (nginx frontend) |
+| `docker-compose.dev.yml` | Development with hot-reload |
 
 ## Configuration
 
-Set environment variables on each endpoint:
-```powershell
-[Environment]::SetEnvironmentVariable("SERVER_URL", "http://192.168.1.100:8000", "Machine")
-[Environment]::SetEnvironmentVariable("AGENT_API_KEY", "your-key", "Machine")
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SERVER_URL` | `http://localhost:8000` | Backend API URL |
+| `MONGODB_URL` | `mongodb://localhost:27017` | MongoDB connection |
+| `LOG_LEVEL` | `INFO` | Logging verbosity |
 
 ## License
 
