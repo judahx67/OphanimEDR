@@ -1,0 +1,285 @@
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  /* Ophanim Mystical - Light Theme */
+  --bg-primary: #faf8f5;
+  --bg-secondary: #f3f0eb;
+  --bg-card: #ffffff;
+
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a4a5a;
+  --text-muted: #8a8a9a;
+
+  --accent-indigo: #2d2d5a;
+  --accent-gold: #b8960c;
+  --accent-gold-light: #d4af37;
+
+  --border-light: #e8e4de;
+  --border-subtle: #f0ece6;
+
+  /* Severity */
+  --severity-critical: #8b0000;
+  --severity-high: #c44d00;
+  --severity-medium: #946b00;
+  --severity-low: #2d5a2d;
+
+  /* Status */
+  --status-online: #2d5a2d;
+  --status-offline: #8b3a3a;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #2d2d2d;
+  --bg-card: #252525;
+
+  --text-primary: #e0e0e0;
+  --text-secondary: #b0b0b0;
+  --text-muted: #808080;
+
+  --accent-indigo: #8888cc;
+  --accent-gold: #d4af37;
+  --accent-gold-light: #e8c547;
+
+  --border-light: #3a3a3a;
+  --border-subtle: #333333;
+
+  /* Severity - slightly brighter for dark mode */
+  --severity-critical: #ff6b6b;
+  --severity-high: #ff9f43;
+  --severity-medium: #feca57;
+  --severity-low: #7bed9f;
+
+  /* Status */
+  --status-online: #7bed9f;
+  --status-offline: #ff6b6b;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Geometric grid pattern overlay - subtle */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    linear-gradient(rgba(45, 45, 90, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45, 45, 90, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme="dark"] body::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+}
+
+/* Serif headings for mystical feel */
+h1,
+h2,
+h3 {
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ccc8c0;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
+
+/* Selection */
+::selection {
+  background: rgba(45, 45, 90, 0.15);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] ::selection {
+  background: rgba(136, 136, 204, 0.3);
+}
+
+/* Card styling */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 1px 3px rgba(26, 26, 46, 0.04);
+}
+
+/* Gold accent line - decorative element */
+.gold-line {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+}
+
+/* Eye icon - Ophanim motif */
+.ophanim-eye {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--accent-indigo);
+  border-radius: 50%;
+  position: relative;
+}
+
+.ophanim-eye::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: var(--accent-gold);
+  border-radius: 50%;
+}
+
+/* Badge styles */
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 8px;
+  border: 1px solid;
+}
+
+.badge-critical {
+  color: var(--severity-critical);
+  border-color: var(--severity-critical);
+  background: rgba(139, 0, 0, 0.05);
+}
+
+.badge-high {
+  color: var(--severity-high);
+  border-color: var(--severity-high);
+  background: rgba(196, 77, 0, 0.05);
+}
+
+.badge-medium {
+  color: var(--severity-medium);
+  border-color: var(--severity-medium);
+  background: rgba(148, 107, 0, 0.05);
+}
+
+.badge-low {
+  color: var(--severity-low);
+  border-color: var(--severity-low);
+  background: rgba(45, 90, 45, 0.05);
+}
+
+[data-theme="dark"] .badge-critical {
+  background: rgba(255, 107, 107, 0.1);
+}
+
+[data-theme="dark"] .badge-high {
+  background: rgba(255, 159, 67, 0.1);
+}
+
+[data-theme="dark"] .badge-medium {
+  background: rgba(254, 202, 87, 0.1);
+}
+
+[data-theme="dark"] .badge-low {
+  background: rgba(123, 237, 159, 0.1);
+}
+
+/* OS Badge styles */
+.os-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border: 1px solid;
+  background: transparent;
+}
+
+.os-badge-windows {
+  color: #0078d4;
+  border-color: #0078d4;
+}
+
+.os-badge-linux {
+  color: #dd4814;
+  border-color: #dd4814;
+}
+
+.os-badge-suse {
+  color: #73ba25;
+  border-color: #73ba25;
+}
+
+.os-badge-macos {
+  color: #555555;
+  border-color: #555555;
+}
+
+[data-theme="dark"] .os-badge-windows {
+  color: #5baef7;
+  border-color: #5baef7;
+}
+
+[data-theme="dark"] .os-badge-linux {
+  color: #ff7f50;
+  border-color: #ff7f50;
+}
+
+[data-theme="dark"] .os-badge-suse {
+  color: #98d444;
+  border-color: #98d444;
+}
+
+[data-theme="dark"] .os-badge-macos {
+  color: #888888;
+  border-color: #888888;
+}
+
+/* Fluent UI overrides */
+.fui-FluentProvider {
+  background: transparent !important;
+}
