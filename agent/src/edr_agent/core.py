@@ -54,16 +54,22 @@ class AgentCore:
         
         # Sysmon collector (Windows only)
         if self.config.collection.sysmon_enabled:
-            self._collectors.append(get_sysmon_collector(endpoint_id))
+            try:
+                sysmon = get_sysmon_collector(endpoint_id)
+                self._collectors.append(sysmon)
+            except Exception as e:
+                logger.warning(f"Sysmon collector not available: {e}")
         
         # Filesystem collector
         if self.config.collection.filesystem_enabled:
-            self._collectors.append(
-                FilesystemCollector(
+            try:
+                fs_collector = FilesystemCollector(
                     endpoint_id=endpoint_id,
                     watch_paths=self.config.collection.file_watch_paths,
                 )
-            )
+                self._collectors.append(fs_collector)
+            except Exception as e:
+                logger.warning(f"Filesystem collector not available: {e}")
         
         logger.info(
             f"Initialized {len(self._collectors)} collectors: "
@@ -163,9 +169,27 @@ class AgentCore:
 
 
 def default_event_printer(events: list[Event]) -> None:
-    """Simple event handler that prints events (for testing)."""
+    """Simple event handler that prints event summary (for testing)."""
+    if not events:
+        return
+    
+    # Group by type for summary
+    by_type: dict[str, list[Event]] = {}
     for event in events:
-        print(f"[{event.timestamp.isoformat()}] {event.event_type.value}: {event.data.get('name', event.data.get('path', 'N/A'))}")
+        key = event.event_type.value
+        by_type.setdefault(key, []).append(event)
+    
+    # Print summary
+    for event_type, type_events in by_type.items():
+        if event_type == "process_snapshot":
+            # Skip verbose snapshots
+            continue
+        elif len(type_events) == 1:
+            e = type_events[0]
+            name = e.data.get('name', e.data.get('path', 'N/A'))
+            print(f"[{e.timestamp.strftime('%H:%M:%S')}] {event_type}: {name}")
+        else:
+            print(f"[{type_events[0].timestamp.strftime('%H:%M:%S')}] {event_type}: {len(type_events)} events")
 
 
 async def run_agent(config: AgentConfig | None = None) -> None:

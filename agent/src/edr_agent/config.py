@@ -2,11 +2,63 @@
 
 Loads configuration from environment variables with sensible defaults.
 Designed for thesis-friendly simplicity (Option C from agent-configuration.md).
+
+Automatically loads .env file from:
+- PyInstaller bundle: next to .exe or in temp extraction dir
+- Development: project root (4 parents up from this file)
 """
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+def _find_env_file() -> Path | None:
+    """Find .env file in the appropriate location."""
+    # Check if running as PyInstaller frozen executable
+    if getattr(sys, 'frozen', False):
+        # Running as compiled .exe
+        exe_dir = Path(sys.executable).parent
+        
+        # Option 1: .env next to the .exe (preferred for deployment)
+        env_beside_exe = exe_dir / ".env"
+        if env_beside_exe.exists():
+            return env_beside_exe
+        
+        # Option 2: .env in PyInstaller's temp extraction dir
+        if hasattr(sys, '_MEIPASS'):
+            env_in_bundle = Path(sys._MEIPASS) / ".env"
+            if env_in_bundle.exists():
+                return env_in_bundle
+        
+        # Option 3: Check current working directory
+        env_in_cwd = Path.cwd() / ".env"
+        if env_in_cwd.exists():
+            return env_in_cwd
+    else:
+        # Development mode: look relative to this file
+        # Path: agent/src/edr_agent/config.py -> 4 parents to project root
+        env_path = Path(__file__).parent.parent.parent.parent / ".env"
+        if env_path.exists():
+            return env_path
+        
+        # Also check CWD for development
+        env_in_cwd = Path.cwd() / ".env"
+        if env_in_cwd.exists():
+            return env_in_cwd
+    
+    return None
+
+
+# Load .env file automatically
+try:
+    from dotenv import load_dotenv
+    env_path = _find_env_file()
+    if env_path:
+        load_dotenv(env_path, override=True)
+except ImportError:
+    pass  # python-dotenv not installed, use system env vars only
 
 
 @dataclass

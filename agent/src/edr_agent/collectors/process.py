@@ -36,9 +36,15 @@ class ProcessCollector(BaseCollector):
     intervals, capturing behavioral metrics useful for ML detection.
     """
     
-    def __init__(self, endpoint_id: str = "", poll_interval: float = 2.0):
+    def __init__(
+        self,
+        endpoint_id: str = "",
+        poll_interval: float = 2.0,
+        full_snapshot: bool = False,  # If True, collect all process details (slow)
+    ):
         super().__init__(endpoint_id)
         self.poll_interval = poll_interval
+        self.full_snapshot = full_snapshot
         self._previous_pids: set[int] = set()
         self._process_cache: dict[int, ProcessInfo] = {}
     
@@ -63,31 +69,38 @@ class ProcessCollector(BaseCollector):
         self._process_cache.clear()
     
     async def collect(self) -> list[Event]:
-        """Collect current process snapshot and detect new/ended processes."""
+        """Collect current process snapshot and detect new/ended processes.
+        
+        For performance, we only collect basic info for all processes.
+        Full details (network, files) are only collected for NEW processes.
+        """
         events: list[Event] = []
         current_pids: set[int] = set()
         
-        # Collect process information
-        for proc in psutil.process_iter():
+        # Fast iteration - just get PIDs and basic info
+        for proc in psutil.process_iter(['pid', 'name', 'ppid', 'status', 'create_time']):
             try:
-                info = await self._get_process_info(proc)
-                if info:
-                    current_pids.add(info.pid)
-                    
-                    # Create snapshot event
-                    events.append(self.create_event(
-                        EventType.PROCESS_SNAPSHOT,
-                        self._process_info_to_dict(info)
-                    ))
-                    
-                    # Detect new process
-                    if info.pid not in self._previous_pids:
-                        events.append(self.create_event(
-                            EventType.PROCESS_START,
-                            self._process_info_to_dict(info)
-                        ))
-                    
-                    self._process_cache[info.pid] = info
+                pid = proc.info['pid']
+                current_pids.add(pid)
+                
+                # Only collect full details for NEW processes
+                is_new = pid not in self._previous_pids
+                
+                if is_new or self.full_snapshot:
+                    info = await self._get_process_info(proc, full_details=is_new)
+                    if info:
+                        self._process_cache[pid] = info
+                        
+                        if is_new:
+                            events.append(self.create_event(
+                                EventType.PROCESS_START,
+                                self._process_info_to_dict(info)
+                            ))
+                        elif self.full_snapshot:
+                            events.append(self.create_event(
+                                EventType.PROCESS_SNAPSHOT,
+                                self._process_info_to_dict(info)
+                            ))
                     
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
@@ -105,8 +118,15 @@ class ProcessCollector(BaseCollector):
         self._previous_pids = current_pids
         return events
     
-    async def _get_process_info(self, proc: psutil.Process) -> ProcessInfo | None:
-        """Extract detailed process information."""
+    async def _get_process_info(
+        self, proc: psutil.Process, full_details: bool = False
+    ) -> ProcessInfo | None:
+        """Extract process information.
+        
+        Args:
+            proc: The psutil.Process object
+            full_details: If True, collect network/file info (slower)
+        """
         try:
             # Use oneshot context for efficiency
             with proc.oneshot():
@@ -143,25 +163,27 @@ class ProcessCollector(BaseCollector):
                 memory_mb = memory_info.rss / (1024 * 1024)
                 num_threads = proc.num_threads()
                 
-                # Network connections (may require elevation)
+                # Network connections (slow - only for new processes)
                 connections = []
-                try:
-                    for conn in proc.net_connections(kind='inet'):
-                        connections.append({
-                            "local_addr": f"{conn.laddr.ip}:{conn.laddr.port}" if conn.laddr else None,
-                            "remote_addr": f"{conn.raddr.ip}:{conn.raddr.port}" if conn.raddr else None,
-                            "status": conn.status,
-                        })
-                except (psutil.AccessDenied, psutil.NoSuchProcess):
-                    pass
+                if full_details:
+                    try:
+                        for conn in proc.net_connections(kind='inet'):
+                            connections.append({
+                                "local_addr": f"{conn.laddr.ip}:{conn.laddr.port}" if conn.laddr else None,
+                                "remote_addr": f"{conn.raddr.ip}:{conn.raddr.port}" if conn.raddr else None,
+                                "status": conn.status,
+                            })
+                    except (psutil.AccessDenied, psutil.NoSuchProcess):
+                        pass
                 
-                # Open files (may require elevation)
+                # Open files (slow - only for new processes)
                 open_files = []
-                try:
-                    for f in proc.open_files():
-                        open_files.append(f.path)
-                except (psutil.AccessDenied, psutil.NoSuchProcess):
-                    pass
+                if full_details:
+                    try:
+                        for f in proc.open_files():
+                            open_files.append(f.path)
+                    except (psutil.AccessDenied, psutil.NoSuchProcess):
+                        pass
                 
                 return ProcessInfo(
                     pid=pid,
