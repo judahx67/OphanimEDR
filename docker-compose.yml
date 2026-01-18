@@ -1,0 +1,56 @@
+# Ophanim EDR Stack - Docker Compose Configuration
+# Run with: docker-compose up -d
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: ophanim-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=ophanim_edr
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # FastAPI Backend Server
+  backend:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: ophanim-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - DATABASE_NAME=ophanim_edr
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # React Frontend Dashboard
+  frontend:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: ophanim-dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mongodb-data:
+    driver: local
+
+networks:
+  default:
+    name: ophanim-network
