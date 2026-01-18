@@ -4,6 +4,7 @@ Monitors file system changes in configured directories.
 """
 
 import asyncio
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from queue import Queue, Empty
@@ -23,6 +24,9 @@ from watchdog.events import (
 from watchdog.observers import Observer
 
 from .base import BaseCollector, Event, EventType
+
+
+logger = logging.getLogger(__name__)
 
 
 class FileEventHandler(FileSystemEventHandler):
@@ -109,19 +113,28 @@ class FilesystemCollector(BaseCollector):
         self._handler = FileEventHandler(self._event_queue, self.endpoint_id)
         self._observer = Observer()
         
+        watched_count = 0
         for path in self.watch_paths:
-            if Path(path).exists():
+            path_obj = Path(path)
+            if path_obj.exists() and path_obj.is_dir():
                 try:
                     self._observer.schedule(
                         self._handler,
                         path,
                         recursive=self.recursive
                     )
-                except Exception:
-                    # Path may not be accessible
-                    pass
+                    watched_count += 1
+                    logger.debug(f"Watching: {path}")
+                except Exception as e:
+                    logger.warning(f"Failed to watch {path}: {e}")
+            else:
+                logger.warning(f"Path does not exist or is not a directory: {path}")
         
-        self._observer.start()
+        if watched_count > 0:
+            self._observer.start()
+            logger.info(f"FilesystemCollector watching {watched_count} paths")
+        else:
+            logger.warning("FilesystemCollector: No valid paths to watch")
     
     async def stop(self) -> None:
         """Stop watching and cleanup."""
