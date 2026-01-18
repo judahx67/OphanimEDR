@@ -67,6 +67,7 @@ class CollectionConfig:
     process_poll_interval: float = 2.0  # seconds between process snapshots
     sysmon_enabled: bool = True
     filesystem_enabled: bool = True
+    network_enabled: bool = True
     file_watch_paths: list[str] = field(default_factory=lambda: [
         str(Path.home()),
         "C:\\ProgramData",
@@ -98,8 +99,10 @@ class LoggingConfig:
     level: str = "INFO"
     log_dir: Path = field(default_factory=lambda: Path("logs"))
     events_file: str = "edr-events.jsonl"
-    max_file_size_mb: int = 50
-    backup_count: int = 5
+    max_file_size_mb: int = 10
+    backup_count: int = 10
+    local_logging_enabled: bool = True
+    verbose_output: bool = False
 
 
 @dataclass
@@ -136,11 +139,20 @@ class AgentConfig:
         config.collection.filesystem_enabled = (
             os.environ.get("FILESYSTEM_ENABLED", "true").lower() == "true"
         )
+        config.collection.network_enabled = (
+            os.environ.get("NETWORK_ENABLED", "true").lower() == "true"
+        )
         
         # Logging settings
         config.logging.level = os.environ.get("LOG_LEVEL", config.logging.level)
         if log_dir := os.environ.get("LOG_DIR"):
             config.logging.log_dir = Path(log_dir)
+        config.logging.local_logging_enabled = (
+            os.environ.get("LOCAL_LOGGING_ENABLED", "true").lower() == "true"
+        )
+        config.logging.verbose_output = (
+            os.environ.get("VERBOSE_OUTPUT", "false").lower() == "true"
+        )
         
         # Detection thresholds
         if threshold := os.environ.get("DETECTION_THRESHOLD"):

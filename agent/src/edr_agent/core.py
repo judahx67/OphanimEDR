@@ -15,6 +15,8 @@ from .collectors.base import BaseCollector, Event
 from .collectors.process import ProcessCollector
 from .collectors.sysmon import get_sysmon_collector
 from .collectors.filesystem import FilesystemCollector
+from .collectors.network import NetworkCollector
+from .parser import EventParser
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,7 @@ class AgentCore:
         self._running = False
         self._event_handlers: list[Callable[[list[Event]], None]] = []
         self._shutdown_event = asyncio.Event()
+        self._parser = EventParser()  # Filter engine
     
     def add_event_handler(self, handler: Callable[[list[Event]], None]) -> None:
         """Add a handler to be called with collected events.
@@ -70,6 +73,17 @@ class AgentCore:
                 self._collectors.append(fs_collector)
             except Exception as e:
                 logger.warning(f"Filesystem collector not available: {e}")
+        
+        # Network collector
+        if self.config.collection.network_enabled:
+            try:
+                net_collector = NetworkCollector(
+                    endpoint_id=endpoint_id,
+                    poll_interval=self.config.collection.process_poll_interval,
+                )
+                self._collectors.append(net_collector)
+            except Exception as e:
+                logger.warning(f"Network collector not available: {e}")
         
         logger.info(
             f"Initialized {len(self._collectors)} collectors: "
@@ -111,15 +125,18 @@ class AgentCore:
                         except Exception as e:
                             logger.error(f"Error collecting from {collector.name}: {e}")
                 
-                # Process events through handlers
+                # Filter events through parser (removes noise, deduplicates)
                 if all_events:
-                    for handler in self._event_handlers:
-                        try:
-                            handler(all_events)
-                        except Exception as e:
-                            logger.error(f"Error in event handler: {e}")
+                    filtered_events = self._parser.process(all_events)
                     
-                    logger.debug(f"Processed {len(all_events)} events")
+                    if filtered_events:
+                        for handler in self._event_handlers:
+                            try:
+                                handler(filtered_events)
+                            except Exception as e:
+                                logger.error(f"Error in event handler: {e}")
+                        
+                        logger.debug(f"Processed {len(filtered_events)}/{len(all_events)} events (filtered)")
                 
                 # Wait for next poll interval or shutdown
                 try:
@@ -168,42 +185,91 @@ class AgentCore:
         self._shutdown_event.set()
 
 
-def default_event_printer(events: list[Event]) -> None:
-    """Simple event handler that prints event summary (for testing)."""
-    if not events:
-        return
+def create_event_printer(verbose: bool = False):
+    """Create an event handler that prints events to terminal.
     
-    # Group by type for summary
-    by_type: dict[str, list[Event]] = {}
-    for event in events:
-        key = event.event_type.value
-        by_type.setdefault(key, []).append(event)
-    
-    # Print summary
-    for event_type, type_events in by_type.items():
-        if event_type == "process_snapshot":
-            # Skip verbose snapshots
-            continue
-        elif len(type_events) == 1:
-            e = type_events[0]
-            name = e.data.get('name', e.data.get('path', 'N/A'))
-            print(f"[{e.timestamp.strftime('%H:%M:%S')}] {event_type}: {name}")
+    Args:
+        verbose: If True, print full event details. If False, print summary only.
+    """
+    def event_printer(events: list[Event]) -> None:
+        if not events:
+            return
+        
+        if verbose:
+            # Verbose mode: print each event with full details
+            for e in events:
+                ts = e.timestamp.strftime('%H:%M:%S')
+                event_type = e.event_type.value
+                
+                # Format key data fields based on event type
+                if event_type.startswith('process'):
+                    details = f"pid={e.data.get('pid')} name={e.data.get('name')} exe={e.data.get('exe', 'N/A')}"
+                elif event_type.startswith('file'):
+                    details = f"path={e.data.get('path')}"
+                elif event_type == 'network_connection':
+                    action = e.data.get('action', 'unknown')
+                    details = f"action={action} {e.data.get('remote_addr')}:{e.data.get('remote_port')} proc={e.data.get('process_name')}"
+                elif event_type == 'sysmon_event':
+                    details = f"sysmon_type={e.data.get('sysmon_event_type')} image={e.data.get('image', 'N/A')}"
+                else:
+                    details = str(e.data)[:100]
+                
+                print(f"[{ts}] {event_type}: {details}")
         else:
-            print(f"[{type_events[0].timestamp.strftime('%H:%M:%S')}] {event_type}: {len(type_events)} events")
+            # Summary mode: group by type
+            by_type: dict[str, list[Event]] = {}
+            for event in events:
+                key = event.event_type.value
+                by_type.setdefault(key, []).append(event)
+            
+            for event_type, type_events in by_type.items():
+                if event_type == "process_snapshot":
+                    continue
+                elif len(type_events) == 1:
+                    e = type_events[0]
+                    name = e.data.get('name', e.data.get('path', 'N/A'))
+                    print(f"[{e.timestamp.strftime('%H:%M:%S')}] {event_type}: {name}")
+                else:
+                    print(f"[{type_events[0].timestamp.strftime('%H:%M:%S')}] {event_type}: {len(type_events)} events")
+    
+    return event_printer
 
 
-async def run_agent(config: AgentConfig | None = None, enable_exfil: bool = True) -> None:
+def default_event_printer(events: list[Event]) -> None:
+    """Simple summary event printer (for backwards compatibility)."""
+    create_event_printer(verbose=False)(events)
+
+
+async def run_agent(
+    config: AgentConfig | None = None,
+    enable_exfil: bool = True,
+) -> None:
     """Main entry point to run the agent.
     
     Args:
         config: Optional configuration override
         enable_exfil: Whether to enable server exfiltration (default True)
     """
+    config = config or get_config()
     agent = AgentCore(config)
     exfil_handler = None
+    json_logger = None
     
-    # Add default printer for development
-    agent.add_event_handler(default_event_printer)
+    # Add event printer (verbose controlled by VERBOSE_OUTPUT env var)
+    verbose = config.logging.verbose_output
+    agent.add_event_handler(create_event_printer(verbose=verbose))
+    if verbose:
+        logger.info("Verbose output enabled (VERBOSE_OUTPUT=true)")
+    
+    # Add local JSON logger (controlled by LOCAL_LOGGING_ENABLED env var)
+    if config.logging.local_logging_enabled:
+        try:
+            from .logger import JSONLogger, create_json_logger_handler
+            json_logger = JSONLogger()
+            agent.add_event_handler(create_json_logger_handler(json_logger))
+            logger.info(f"Local logging enabled: {json_logger.log_dir}")
+        except Exception as e:
+            logger.warning(f"Failed to start local logging: {e}")
     
     # Add server exfil handler if enabled and server URL is configured
     if enable_exfil:
@@ -221,4 +287,6 @@ async def run_agent(config: AgentConfig | None = None, enable_exfil: bool = True
     finally:
         if exfil_handler:
             await exfil_handler.stop()
+        if json_logger:
+            json_logger.close()
 
