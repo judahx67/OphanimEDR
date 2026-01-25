@@ -87,3 +87,11 @@ docker-compose.override.yml
 # ============================================
 .agent/
 .llm/
+
+# ============================================
+# Development Artifacts (gitignored)
+# ============================================
+.env
+PROGRESS.md
+
+docs/

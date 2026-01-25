@@ -1,63 +1,88 @@
-# Behavioral EDR Agent
+# Ophanim EDR - Behavioral Malware Detection System
 
-ML-Enhanced Endpoint Detection and Response Agent for Windows
+**Thesis Project**: Machine learning-based endpoint detection and response system for behavioral threat analysis.
 
-## Overview
-
-A lightweight endpoint agent that monitors running processes in real-time, extracts behavioral features, and uses machine learning to detect potentially malicious activity.
+---
 
 ## Project Structure
 
 ```
-behavioral-edr/
-├── agent/          # EDR Agent (deploys to Windows endpoints)
-├── server/         # Management Server (Docker)
-├── dashboard/      # Web UI (React)
-├── shared/         # Shared code between agent & server
-├── config/         # Centralized configuration
-├── models/         # Trained ML models
-├── notebooks/      # Jupyter notebooks for EDA
-├── scripts/        # Utility scripts
-├── tests/          # Test suite
-└── docs/           # Documentation
+THESIS-EDR/
+├── agent/               # EDR Agent (Windows endpoint monitoring)
+│   └── src/edr_agent/   # Process, network, file collectors
+│
+├── server/              # Server & Dashboard
+│   ├── api/             # FastAPI backend
+│   ├── dashboard/       # React frontend
+│   └── docker-compose*.yml
+│
+├── scripts/             # Build & deployment scripts
+├── docs/                # Documentation
+└── .env                 # Centralized configuration
 ```
+
+---
 
 ## Quick Start
 
-### Prerequisites
-- Python 3.10+
-- Windows 10/11 (for agent)
-- Docker (for server)
+### 1. Development (Hot Reload)
 
-### Development Setup
+From `server/` directory:
 
 ```bash
-# Clone and setup
-git clone <repo-url>
-cd behavioral-edr
-
-# Create virtual environment
-python -m venv venv
-.\venv\Scripts\activate  # Windows
-
-# Install dependencies
-pip install -e ".[dev]"
-
-# Run agent (development)
-python -m edr_agent
-
-# Run server (Docker)
-docker-compose up
+# Start backend + dashboard + MongoDB
+docker compose -f docker-compose.dev.yml up
 ```
+
+- Dashboard: http://localhost:3000
+- API: http://localhost:8000/docs
+
+### 2. Agent (Windows Only)
+
+From `agent/src/` directory:
+
+```bash
+# Configure
+cp ../../.env.example ../../.env
+# Edit .env with your settings
+
+# Run agent
+python -m edr_agent
+```
+
+---
 
 ## Configuration
 
-Set environment variables on each endpoint:
-```powershell
-[Environment]::SetEnvironmentVariable("SERVER_URL", "http://192.168.1.100:8000", "Machine")
-[Environment]::SetEnvironmentVariable("AGENT_API_KEY", "your-key", "Machine")
-```
+All settings are centralized in **root `.env`** file:
 
-## License
+- **Agent**: Authentication, collectors, logging
+- **Server**: MongoDB connection, API settings
 
-MIT
+See `.env.example` for all options.
+
+---
+
+## Components
+
+| Component | Purpose | Tech Stack |
+|-----------|---------|------------|
+| **Agent** | Endpoint telemetry collection | Python, psutil, watchdog, Sysmon |
+| **API** | Event ingestion & detection engine | FastAPI, MongoDB, Motor |
+| **Dashboard** | Security operations interface | React, TypeScript, Recharts |
+
+---
+
+## Documentation
+
+- [Agent Architecture](./agent/README.md)
+- [Server API](./server/api/README.md)
+- [Dashboard](./server/dashboard/README.md)
+- [Progress Tracking](./PROGRESS.md)
+
+---
+
+## Development
+
+- **Dataset Alignment**: LANL (auth/lateral movement), BETH (process/kernel)
+- **Next Phase**: Authentication logging, ETW integration, PowerShell monitoring
