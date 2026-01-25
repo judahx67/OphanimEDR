@@ -1,82 +1,88 @@
-# Ophanim EDR
+# Ophanim EDR - Behavioral Malware Detection System
 
-ML-Enhanced Endpoint Detection and Response for Windows
+**Thesis Project**: Machine learning-based endpoint detection and response system for behavioral threat analysis.
 
-## Overview
-
-A lightweight endpoint agent that monitors system activity in real-time, extracts behavioral features, and uses machine learning to detect malicious activity.
+---
 
 ## Project Structure
 
 ```
-ophanim-edr/
-├── agent/          # Windows EDR Agent (Python)
-├── server/         # FastAPI Backend (Docker)
-├── dashboard/      # React Dashboard (Fluent UI)
-├── docs/           # Documentation
-└── docker-compose.yml
+THESIS-EDR/
+├── agent/               # EDR Agent (Windows endpoint monitoring)
+│   └── src/edr_agent/   # Process, network, file collectors
+│
+├── server/              # Server & Dashboard
+│   ├── api/             # FastAPI backend
+│   ├── dashboard/       # React frontend
+│   └── docker-compose*.yml
+│
+├── scripts/             # Build & deployment scripts
+├── docs/                # Documentation
+└── .env                 # Centralized configuration
 ```
+
+---
 
 ## Quick Start
 
-### Prerequisites
-- Python 3.13+ (agent)
-- Docker & Docker Compose (server/dashboard)
-- Windows 10/11 (for agent deployment)
+### 1. Development (Hot Reload)
 
-### Development
+From `server/` directory:
 
 ```bash
-# Clone repository
-git clone <repo-url>
-cd ophanim-edr
-
-# Option 1: Hot-reload development (recommended)
+# Start backend + dashboard + MongoDB
 docker compose -f docker-compose.dev.yml up
-
-# Option 2: Production build
-docker compose up --build
-
-# Seed demo data
-curl -X POST http://localhost:8000/api/seed
 ```
 
-**Access:**
 - Dashboard: http://localhost:3000
-- API Docs: http://localhost:8000/docs
+- API: http://localhost:8000/docs
 
-### Agent Setup (Windows)
+### 2. Agent (Windows Only)
 
-```powershell
-# Create virtual environment
-python -m venv venv
-.\venv\Scripts\Activate
+From `agent/src/` directory:
 
-# Install dependencies
-pip install -e ".[dev]"
-
-# Configure server URL
-$env:SERVER_URL = "http://192.168.1.100:8000"
+```bash
+# Configure
+cp ../../.env.example ../../.env
+# Edit .env with your settings
 
 # Run agent
 python -m edr_agent
 ```
 
-## Docker Compose Files
-
-| File | Purpose |
-|------|---------|
-| `docker-compose.yml` | Production build (nginx frontend) |
-| `docker-compose.dev.yml` | Development with hot-reload |
+---
 
 ## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SERVER_URL` | `http://localhost:8000` | Backend API URL |
-| `MONGODB_URL` | `mongodb://localhost:27017` | MongoDB connection |
-| `LOG_LEVEL` | `INFO` | Logging verbosity |
+All settings are centralized in **root `.env`** file:
 
-## License
+- **Agent**: Authentication, collectors, logging
+- **Server**: MongoDB connection, API settings
 
-MIT
+See `.env.example` for all options.
+
+---
+
+## Components
+
+| Component | Purpose | Tech Stack |
+|-----------|---------|------------|
+| **Agent** | Endpoint telemetry collection | Python, psutil, watchdog, Sysmon |
+| **API** | Event ingestion & detection engine | FastAPI, MongoDB, Motor |
+| **Dashboard** | Security operations interface | React, TypeScript, Recharts |
+
+---
+
+## Documentation
+
+- [Agent Architecture](./agent/README.md)
+- [Server API](./server/api/README.md)
+- [Dashboard](./server/dashboard/README.md)
+- [Progress Tracking](./PROGRESS.md)
+
+---
+
+## Development
+
+- **Dataset Alignment**: LANL (auth/lateral movement), BETH (process/kernel)
+- **Next Phase**: Authentication logging, ETW integration, PowerShell monitoring

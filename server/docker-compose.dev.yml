@@ -30,11 +30,13 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./server/src:/app/src # Mount source for hot reload
+      - ./api:/app # Mount source for hot reload
+    env_file:
+      - ../.env
     environment:
       - MONGODB_URL=mongodb://mongodb:27017
       - DATABASE_NAME=ophanim_edr
-      - PYTHONPATH=/app/src
+      - PYTHONPATH=/app
     depends_on:
       mongodb:
         condition: service_healthy
