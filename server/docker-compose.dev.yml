@@ -1,0 +1,66 @@
+# Ophanim EDR Stack - Development Configuration
+# Hot-reload enabled - no rebuild needed for code changes!
+# Run with: docker compose -f docker-compose.dev.yml up
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: ophanim-mongodb-dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-dev-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=ophanim_edr
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend Server - with hot reload
+  backend:
+    image: python:3.13-slim
+    container_name: ophanim-backend-dev
+    working_dir: /app
+    command: >
+      sh -c "pip install --quiet fastapi uvicorn motor pydantic python-dotenv &&
+             uvicorn edr_server.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app # Mount source for hot reload
+    env_file:
+      - ../.env
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - DATABASE_NAME=ophanim_edr
+      - PYTHONPATH=/app
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  # React Frontend Dashboard - Vite dev server with hot reload
+  frontend:
+    image: node:20-slim
+    container_name: ophanim-dashboard-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "3000:3000" # vite.config.ts uses port 3000
+    volumes:
+      - ./dashboard:/app # Mount entire dashboard for hot reload
+      - /app/node_modules # Exclude node_modules from mount
+    environment:
+      - VITE_API_TARGET=http://backend:8000
+    depends_on:
+      - backend
+
+volumes:
+  mongodb-dev-data:
+    driver: local
+
+networks:
+  default:
+    name: ophanim-dev-network
