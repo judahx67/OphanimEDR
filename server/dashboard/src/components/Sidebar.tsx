@@ -5,6 +5,7 @@ import {
     Shield24Regular,
     WeatherMoon24Regular,
     WeatherSunny24Regular,
+    Settings24Regular,
 } from '@fluentui/react-icons'
 
 interface SidebarProps {
@@ -14,122 +15,179 @@ interface SidebarProps {
 
 const styles = {
     sidebar: {
-        width: '240px',
+        width: '260px',
         height: '100%',
         background: 'var(--bg-card)',
-        borderRight: '1px solid var(--border-light)',
+        borderRight: '2px solid var(--border-strong)',
         display: 'flex',
         flexDirection: 'column' as const,
-        padding: '24px 16px',
+        position: 'relative' as const,
     },
-    brand: {
+    header: {
+        padding: '20px 16px',
+        borderBottom: '2px solid var(--border-strong)',
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        padding: '8px 12px',
-        marginBottom: '8px',
     },
-    brandIcon: {
-        width: '36px',
-        height: '36px',
-        border: '2px solid var(--accent-indigo)',
-        borderRadius: '50%',
+    logo: {
+        width: '40px',
+        height: '40px',
+        background: 'var(--accent-primary)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative' as const,
     },
-    brandEye: {
+    logoInner: {
         width: '16px',
-        height: '10px',
-        background: 'var(--accent-gold)',
-        borderRadius: '50% / 50%',
-        clipPath: 'ellipse(50% 50% at 50% 50%)',
+        height: '16px',
+        background: 'var(--bg-dark)',
+        borderRadius: '50%',
     },
-    brandText: {
-        fontFamily: "'Crimson Pro', Georgia, serif",
-        fontSize: '22px',
-        fontWeight: 600,
-        color: 'var(--accent-indigo)',
-        letterSpacing: '-0.02em',
+    logoText: {
+        fontFamily: 'var(--font-mono)',
+        fontSize: '14px',
+        fontWeight: 700,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
+        color: 'var(--text-primary)',
     },
-    divider: {
-        height: '1px',
-        background: 'linear-gradient(90deg, transparent 0%, var(--border-light) 50%, transparent 100%)',
-        margin: '16px 0',
-    },
-    sectionLabel: {
+    logoSubtext: {
+        fontFamily: 'var(--font-mono)',
         fontSize: '10px',
+        fontWeight: 500,
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.1em',
+    },
+    sectionHeader: {
+        padding: '16px 16px 8px',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '11px',
         fontWeight: 600,
         textTransform: 'uppercase' as const,
         letterSpacing: '0.1em',
         color: 'var(--text-muted)',
-        padding: '0 12px',
-        marginBottom: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+    },
+    sectionPrefix: {
+        color: 'var(--accent-primary)',
+        fontWeight: 700,
     },
     nav: {
         display: 'flex',
         flexDirection: 'column' as const,
-        gap: '2px',
+        padding: '0 8px',
         flex: 1,
     },
     link: {
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        padding: '10px 12px',
+        padding: '12px 12px',
         textDecoration: 'none',
         color: 'var(--text-secondary)',
-        fontSize: '14px',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '13px',
         fontWeight: 500,
-        borderLeft: '2px solid transparent',
-        transition: 'all 0.15s ease',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.03em',
+        border: '2px solid transparent',
+        marginBottom: '4px',
+        transition: 'all 0.1s ease',
+    },
+    linkHover: {
+        background: 'var(--bg-secondary)',
     },
     linkActive: {
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        padding: '10px 12px',
+        padding: '12px 12px',
         textDecoration: 'none',
-        color: 'var(--accent-indigo)',
-        fontSize: '14px',
+        color: '#0a0a0a',  // Dark text on yellow for maximum contrast
+        fontFamily: 'var(--font-mono)',
+        fontSize: '13px',
         fontWeight: 600,
-        background: 'var(--bg-secondary)',
-        borderLeft: '2px solid var(--accent-gold)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.03em',
+        background: 'var(--accent-primary)',
+        border: '2px solid var(--accent-primary)',
+        marginBottom: '4px',
     },
-    options: {
+    linkIcon: {
+        fontSize: '20px',
+        flexShrink: 0,
+    },
+    footer: {
         marginTop: 'auto',
-        padding: '8px 0',
+        borderTop: '2px solid var(--border-strong)',
+        padding: '12px 8px',
     },
-    optionButton: {
+    footerBtn: {
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
         padding: '10px 12px',
         width: '100%',
         background: 'transparent',
-        border: 'none',
+        border: '2px solid var(--border-light)',
         cursor: 'pointer',
         color: 'var(--text-secondary)',
-        fontSize: '14px',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '11px',
         fontWeight: 500,
-        transition: 'all 0.15s ease',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
+        transition: 'all 0.1s ease',
+        marginBottom: '4px',
+    },
+    statusBar: {
+        padding: '12px 16px',
+        background: 'var(--bg-secondary)',
+        borderTop: '1px solid var(--border-light)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+    },
+    statusDot: {
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        background: 'var(--status-success)',
+    },
+    statusText: {
+        fontFamily: 'var(--font-mono)',
+        fontSize: '10px',
+        fontWeight: 500,
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
     },
 }
 
 function Sidebar({ isDarkMode, onToggleTheme }: SidebarProps) {
     return (
         <aside style={styles.sidebar}>
-            <div style={styles.brand}>
-                <div style={styles.brandIcon}>
-                    <div style={styles.brandEye} />
+            {/* Header/Logo */}
+            <div style={styles.header}>
+                <div style={styles.logo}>
+                    <div style={styles.logoInner} />
                 </div>
-                <span style={styles.brandText}>Ophanim</span>
+                <div>
+                    <div style={styles.logoText}>Ophanim</div>
+                    <div style={styles.logoSubtext}>EDR Terminal</div>
+                </div>
             </div>
 
-            <div style={styles.divider} />
-
-            <div style={styles.sectionLabel}>Navigation</div>
+            {/* Navigation Section */}
+            <div style={styles.sectionHeader}>
+                <span style={styles.sectionPrefix}>//</span>
+                <span>Navigation</span>
+            </div>
 
             <nav style={styles.nav}>
                 <NavLink
@@ -137,7 +195,7 @@ function Sidebar({ isDarkMode, onToggleTheme }: SidebarProps) {
                     style={({ isActive }) => isActive ? styles.linkActive : styles.link}
                     end
                 >
-                    <Home24Regular />
+                    <Home24Regular style={styles.linkIcon} />
                     <span>Dashboard</span>
                 </NavLink>
 
@@ -145,7 +203,7 @@ function Sidebar({ isDarkMode, onToggleTheme }: SidebarProps) {
                     to="/endpoints"
                     style={({ isActive }) => isActive ? styles.linkActive : styles.link}
                 >
-                    <Desktop24Regular />
+                    <Desktop24Regular style={styles.linkIcon} />
                     <span>Endpoints</span>
                 </NavLink>
 
@@ -153,20 +211,31 @@ function Sidebar({ isDarkMode, onToggleTheme }: SidebarProps) {
                     to="/problems"
                     style={({ isActive }) => isActive ? styles.linkActive : styles.link}
                 >
-                    <Shield24Regular />
+                    <Shield24Regular style={styles.linkIcon} />
                     <span>Detections</span>
                 </NavLink>
             </nav>
 
-            <div style={styles.options}>
+            {/* Footer Actions */}
+            <div style={styles.footer}>
                 <button
-                    style={styles.optionButton}
+                    style={styles.footerBtn}
                     onClick={onToggleTheme}
                     title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
                 >
                     {isDarkMode ? <WeatherSunny24Regular /> : <WeatherMoon24Regular />}
                     <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
                 </button>
+                <button style={styles.footerBtn}>
+                    <Settings24Regular />
+                    <span>Settings</span>
+                </button>
+            </div>
+
+            {/* Status Bar */}
+            <div style={styles.statusBar}>
+                <div style={styles.statusDot} />
+                <span style={styles.statusText}>System Online</span>
             </div>
         </aside>
     )

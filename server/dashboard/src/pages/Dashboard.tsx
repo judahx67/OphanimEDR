@@ -5,12 +5,10 @@ import {
     Warning24Regular,
     Checkmark24Regular,
     ArrowTrendingLines24Regular,
+    Shield24Regular,
 } from '@fluentui/react-icons'
 import axios from 'axios'
 import {
-    PieChart,
-    Pie,
-    Cell,
     BarChart,
     Bar,
     LineChart,
@@ -20,7 +18,6 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    Legend,
 } from 'recharts'
 
 interface DashboardStats {
@@ -31,166 +28,199 @@ interface DashboardStats {
     criticalAlerts: number
 }
 
-interface EndpointOsData {
-    name: string
-    value: number
-    color: string
-    [key: string]: string | number  // Index signature for Recharts compatibility
-}
-
-interface DetectionTrendData {
-    date: string
-    detections: number
-    [key: string]: string | number  // Index signature for Recharts compatibility
-}
-
-// OS colors matching the Ophanim theme
-const OS_COLORS: Record<string, string> = {
-    windows: '#0078d4',
-    linux: '#dd4814',
-    suse: '#73ba25',
-    macos: '#555555',
-}
-
 const styles = {
     container: {
         display: 'flex',
         flexDirection: 'column' as const,
-        gap: '32px',
+        gap: '24px',
     },
-    titleSection: {
-        marginBottom: '8px',
+    pageHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    titleSection: {},
+    sectionPrefix: {
+        fontFamily: 'var(--font-mono)',
+        fontSize: '11px',
+        fontWeight: 600,
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.1em',
+        marginBottom: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+    },
+    prefixSlash: {
+        color: 'var(--accent-primary)',
+        fontWeight: 700,
     },
     title: {
-        fontFamily: "'Crimson Pro', Georgia, serif",
-        fontSize: '32px',
-        fontWeight: 600,
-        color: 'var(--accent-indigo)',
-        marginBottom: '8px',
-    },
-    subtitle: {
-        fontSize: '14px',
-        color: 'var(--text-muted)',
+        fontFamily: 'var(--font-sans)',
+        fontSize: '28px',
+        fontWeight: 700,
+        color: 'var(--text-primary)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.02em',
     },
     statsGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gridTemplateColumns: 'repeat(4, 1fr)',
         gap: '16px',
     },
     statCard: {
         background: 'var(--bg-card)',
-        border: '1px solid var(--border-light)',
-        padding: '24px',
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '16px',
-    },
-    statIcon: {
-        width: '40px',
-        height: '40px',
-        border: '1px solid var(--border-light)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'var(--accent-indigo)',
-    },
-    statContent: {
+        border: '2px solid var(--border-strong)',
+        padding: '20px',
         display: 'flex',
         flexDirection: 'column' as const,
-        gap: '4px',
+        gap: '12px',
+        position: 'relative' as const,
     },
-    statValue: {
-        fontFamily: "'Crimson Pro', Georgia, serif",
-        fontSize: '28px',
-        fontWeight: 600,
-        color: 'var(--text-primary)',
-        lineHeight: 1,
+    statCardAccent: {
+        background: 'var(--accent-primary)',
+        border: '2px solid var(--accent-primary)',
+        padding: '20px',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: '12px',
+        position: 'relative' as const,
+    },
+    statHeader: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     statLabel: {
-        fontSize: '12px',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '11px',
+        fontWeight: 600,
         color: 'var(--text-muted)',
         textTransform: 'uppercase' as const,
         letterSpacing: '0.08em',
     },
+    statLabelDark: {
+        fontFamily: 'var(--font-mono)',
+        fontSize: '11px',
+        fontWeight: 600,
+        color: 'rgba(0,0,0,0.5)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.08em',
+    },
+    statIcon: {
+        color: 'var(--text-muted)',
+        fontSize: '20px',
+    },
+    statIconDark: {
+        color: 'rgba(0,0,0,0.5)',
+        fontSize: '20px',
+    },
+    statValue: {
+        fontFamily: 'var(--font-mono)',
+        fontSize: '36px',
+        fontWeight: 700,
+        color: 'var(--text-primary)',
+        lineHeight: 1,
+    },
+    statValueDark: {
+        fontFamily: 'var(--font-mono)',
+        fontSize: '36px',
+        fontWeight: 700,
+        color: '#0a0a0a',
+        lineHeight: 1,
+    },
     alertBanner: {
-        background: 'var(--bg-card)',
-        border: '1px solid var(--severity-high)',
-        borderLeft: '3px solid var(--severity-high)',
+        background: 'var(--status-critical)',
+        border: '2px solid var(--status-critical)',
         padding: '16px 20px',
         display: 'flex',
         alignItems: 'center',
         gap: '16px',
+        color: '#ffffff',
+    },
+    alertIcon: {
+        fontSize: '24px',
     },
     alertText: {
         flex: 1,
     },
     alertTitle: {
-        fontSize: '14px',
-        fontWeight: 600,
-        color: 'var(--severity-high)',
-        marginBottom: '4px',
-    },
-    alertDesc: {
+        fontFamily: 'var(--font-mono)',
         fontSize: '13px',
-        color: 'var(--text-secondary)',
+        fontWeight: 700,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
+    },
+    alertBtn: {
+        padding: '8px 16px',
+        background: '#ffffff',
+        border: 'none',
+        color: 'var(--status-critical)',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '11px',
+        fontWeight: 700,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
+        cursor: 'pointer',
+    },
+    chartsGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '16px',
+    },
+    chartCard: {
+        background: 'var(--bg-card)',
+        border: '2px solid var(--border-strong)',
+        display: 'flex',
+        flexDirection: 'column' as const,
+    },
+    chartHeader: {
+        padding: '16px 20px',
+        borderBottom: '1px solid var(--border-light)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+    },
+    chartPrefix: {
+        color: 'var(--accent-primary)',
+        fontFamily: 'var(--font-mono)',
+        fontWeight: 700,
+        fontSize: '12px',
+    },
+    chartTitle: {
+        fontFamily: 'var(--font-mono)',
+        fontSize: '12px',
+        fontWeight: 600,
+        color: 'var(--text-primary)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.08em',
+    },
+    chartBody: {
+        padding: '20px',
+        height: '280px',
     },
     loading: {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        height: '300px',
+        height: '400px',
+        flexDirection: 'column' as const,
+        gap: '16px',
     },
-    sectionTitle: {
-        fontFamily: "'Crimson Pro', Georgia, serif",
-        fontSize: '18px',
-        fontWeight: 600,
-        color: 'var(--accent-indigo)',
-        marginBottom: '16px',
-        paddingBottom: '8px',
-        borderBottom: '1px solid var(--border-light)',
-    },
-    chartsGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-        gap: '24px',
-    },
-    chartCard: {
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-light)',
-        padding: '24px',
-    },
-    chartTitle: {
-        fontFamily: "'Crimson Pro', Georgia, serif",
-        fontSize: '16px',
-        fontWeight: 600,
-        color: 'var(--accent-indigo)',
-        marginBottom: '16px',
-    },
-    chartContainer: {
-        height: '250px',
-    },
-    legendItem: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        marginBottom: '4px',
-    },
-    legendDot: {
-        width: '10px',
-        height: '10px',
-        borderRadius: '50%',
-    },
-    legendText: {
+    loadingText: {
+        fontFamily: 'var(--font-mono)',
         fontSize: '12px',
-        color: '#4a4a5a',
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.1em',
     },
 }
 
 function Dashboard() {
     const [stats, setStats] = useState<DashboardStats | null>(null)
-    const [osData, setOsData] = useState<EndpointOsData[]>([])
-    const [trendData, setTrendData] = useState<DetectionTrendData[]>([])
     const [eventsData, setEventsData] = useState<{ day: string; events: number }[]>([])
+    const [trendData, setTrendData] = useState<{ date: string; detections: number }[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -213,34 +243,18 @@ function Dashboard() {
                     criticalAlerts: detectionsRes.data.new || 0,
                 })
 
-                // Calculate OS breakdown
-                const osCounts: Record<string, number> = {}
-                endpoints.forEach((e: any) => {
-                    const os = e.os_type?.toLowerCase() || 'unknown'
-                    osCounts[os] = (osCounts[os] || 0) + 1
-                })
-
-                const osChartData = Object.entries(osCounts).map(([name, value]) => ({
-                    name: name.charAt(0).toUpperCase() + name.slice(1),
-                    value,
-                    color: OS_COLORS[name] || '#8a8a9a',
-                }))
-                setOsData(osChartData)
-
-                // Simulate events data for the last 7 days
+                // Simulate weekly events data
                 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-                const eventsChartData = days.map(day => ({
+                setEventsData(days.map(day => ({
                     day,
                     events: Math.floor(Math.random() * 5000) + 1000,
-                }))
-                setEventsData(eventsChartData)
+                })))
 
-                // Simulate detection trend data
-                const trendChartData = days.map((day, i) => ({
+                // Simulate detection trend
+                setTrendData(days.map((day, i) => ({
                     date: day,
                     detections: Math.floor(Math.random() * 5) + (i === 6 ? 3 : 1),
-                }))
-                setTrendData(trendChartData)
+                })))
 
             } catch (error) {
                 console.error('Failed to fetch stats:', error)
@@ -264,159 +278,149 @@ function Dashboard() {
     if (loading) {
         return (
             <div style={styles.loading}>
-                <Spinner size="large" label="Loading..." />
+                <Spinner size="large" />
+                <span style={styles.loadingText}>Loading Dashboard...</span>
             </div>
         )
     }
 
-    const statCards = [
-        { icon: <Desktop24Regular />, value: stats?.totalEndpoints || 0, label: 'Endpoints' },
-        { icon: <Checkmark24Regular />, value: stats?.onlineEndpoints || 0, label: 'Online' },
-        { icon: <Warning24Regular />, value: stats?.offlineEndpoints || 0, label: 'Offline' },
-        { icon: <ArrowTrendingLines24Regular />, value: stats?.eventsToday?.toLocaleString() || '0', label: 'Events Today' },
-    ]
-
     return (
         <div style={styles.container}>
-            <div style={styles.titleSection}>
-                <h1 style={styles.title}>Dashboard</h1>
-                <p style={styles.subtitle}>Endpoint security overview</p>
+            {/* Page Header */}
+            <div style={styles.pageHeader}>
+                <div style={styles.titleSection}>
+                    <div style={styles.sectionPrefix}>
+                        <span style={styles.prefixSlash}>//</span>
+                        <span>System Overview</span>
+                    </div>
+                    <h1 style={styles.title}>Dashboard</h1>
+                </div>
             </div>
 
+            {/* Alert Banner */}
             {stats && stats.criticalAlerts > 0 && (
                 <div style={styles.alertBanner}>
-                    <Warning24Regular style={{ color: '#c44d00', fontSize: '20px' }} />
+                    <Warning24Regular style={styles.alertIcon} />
                     <div style={styles.alertText}>
                         <div style={styles.alertTitle}>
-                            {stats.criticalAlerts} Active Detection{stats.criticalAlerts > 1 ? 's' : ''}
-                        </div>
-                        <div style={styles.alertDesc}>
-                            Review the Detections page for investigation.
+                            {stats.criticalAlerts} Active Detection{stats.criticalAlerts > 1 ? 's' : ''} — Requires Investigation
                         </div>
                     </div>
+                    <button style={styles.alertBtn}>View Detections</button>
                 </div>
             )}
 
-            <div>
-                <h2 style={styles.sectionTitle}>Overview</h2>
-                <div style={styles.statsGrid}>
-                    {statCards.map((card, index) => (
-                        <div key={index} style={styles.statCard}>
-                            <div style={styles.statIcon}>
-                                {card.icon}
-                            </div>
-                            <div style={styles.statContent}>
-                                <span style={styles.statValue}>{card.value}</span>
-                                <span style={styles.statLabel}>{card.label}</span>
-                            </div>
-                        </div>
-                    ))}
+            {/* Stats Grid */}
+            <div style={styles.statsGrid}>
+                <div style={styles.statCard}>
+                    <div style={styles.statHeader}>
+                        <span style={styles.statLabel}>Total Endpoints</span>
+                        <Desktop24Regular style={styles.statIcon} />
+                    </div>
+                    <span style={styles.statValue}>{stats?.totalEndpoints || 0}</span>
+                </div>
+
+                <div style={styles.statCardAccent}>
+                    <div style={styles.statHeader}>
+                        <span style={styles.statLabelDark}>Online</span>
+                        <Checkmark24Regular style={styles.statIconDark} />
+                    </div>
+                    <span style={styles.statValueDark}>{stats?.onlineEndpoints || 0}</span>
+                </div>
+
+                <div style={styles.statCard}>
+                    <div style={styles.statHeader}>
+                        <span style={styles.statLabel}>Offline</span>
+                        <Warning24Regular style={styles.statIcon} />
+                    </div>
+                    <span style={styles.statValue}>{stats?.offlineEndpoints || 0}</span>
+                </div>
+
+                <div style={styles.statCard}>
+                    <div style={styles.statHeader}>
+                        <span style={styles.statLabel}>Events Today</span>
+                        <ArrowTrendingLines24Regular style={styles.statIcon} />
+                    </div>
+                    <span style={styles.statValue}>{stats?.eventsToday?.toLocaleString() || '0'}</span>
                 </div>
             </div>
 
-            <div>
-                <h2 style={styles.sectionTitle}>Analytics</h2>
-                <div style={styles.chartsGrid}>
-                    {/* Endpoints by OS - Pie Chart */}
-                    <div style={styles.chartCard}>
-                        <h3 style={styles.chartTitle}>Endpoints by OS</h3>
-                        <div style={styles.chartContainer}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={osData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={50}
-                                        outerRadius={80}
-                                        paddingAngle={2}
-                                        dataKey="value"
-                                    >
-                                        {osData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: '#ffffff',
-                                            border: '1px solid #e8e4de',
-                                            borderRadius: 0,
-                                        }}
-                                    />
-                                    <Legend
-                                        formatter={(value) => (
-                                            <span style={{ color: '#4a4a5a', fontSize: '12px' }}>{value}</span>
-                                        )}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
+            {/* Charts Grid */}
+            <div style={styles.chartsGrid}>
+                {/* Events This Week */}
+                <div style={styles.chartCard}>
+                    <div style={styles.chartHeader}>
+                        <span style={styles.chartPrefix}>//</span>
+                        <span style={styles.chartTitle}>Events This Week</span>
                     </div>
-
-                    {/* Events Timeline - Bar Chart */}
-                    <div style={styles.chartCard}>
-                        <h3 style={styles.chartTitle}>Events This Week</h3>
-                        <div style={styles.chartContainer}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={eventsData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e8e4de" />
-                                    <XAxis
-                                        dataKey="day"
-                                        tick={{ fill: '#8a8a9a', fontSize: 11 }}
-                                        axisLine={{ stroke: '#e8e4de' }}
-                                    />
-                                    <YAxis
-                                        tick={{ fill: '#8a8a9a', fontSize: 11 }}
-                                        axisLine={{ stroke: '#e8e4de' }}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: '#ffffff',
-                                            border: '1px solid #e8e4de',
-                                            borderRadius: 0,
-                                        }}
-                                    />
-                                    <Bar dataKey="events" fill="#2d2d5a" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
+                    <div style={styles.chartBody}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={eventsData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
+                                <XAxis
+                                    dataKey="day"
+                                    tick={{ fill: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
+                                    axisLine={{ stroke: 'var(--border-medium)' }}
+                                />
+                                <YAxis
+                                    tick={{ fill: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
+                                    axisLine={{ stroke: 'var(--border-medium)' }}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        background: 'var(--bg-card)',
+                                        border: '2px solid var(--border-strong)',
+                                        borderRadius: 0,
+                                        fontFamily: 'var(--font-mono)',
+                                        fontSize: '12px',
+                                    }}
+                                />
+                                <Bar dataKey="events" fill="var(--accent-primary)" />
+                            </BarChart>
+                        </ResponsiveContainer>
                     </div>
+                </div>
 
-                    {/* Detection Trend - Line Chart */}
-                    <div style={styles.chartCard}>
-                        <h3 style={styles.chartTitle}>Detection Trend</h3>
-                        <div style={styles.chartContainer}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={trendData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e8e4de" />
-                                    <XAxis
-                                        dataKey="date"
-                                        tick={{ fill: '#8a8a9a', fontSize: 11 }}
-                                        axisLine={{ stroke: '#e8e4de' }}
-                                    />
-                                    <YAxis
-                                        tick={{ fill: '#8a8a9a', fontSize: 11 }}
-                                        axisLine={{ stroke: '#e8e4de' }}
-                                        allowDecimals={false}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: '#ffffff',
-                                            border: '1px solid #e8e4de',
-                                            borderRadius: 0,
-                                        }}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="detections"
-                                        stroke="#b8960c"
-                                        strokeWidth={2}
-                                        dot={{ fill: '#b8960c', strokeWidth: 0, r: 4 }}
-                                        activeDot={{ r: 6, fill: '#b8960c' }}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
+                {/* Detection Trend */}
+                <div style={styles.chartCard}>
+                    <div style={styles.chartHeader}>
+                        <span style={styles.chartPrefix}>//</span>
+                        <span style={styles.chartTitle}>Detection Trend</span>
+                        <Shield24Regular style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '16px' }} />
+                    </div>
+                    <div style={styles.chartBody}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={trendData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
+                                <XAxis
+                                    dataKey="date"
+                                    tick={{ fill: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
+                                    axisLine={{ stroke: 'var(--border-medium)' }}
+                                />
+                                <YAxis
+                                    tick={{ fill: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
+                                    axisLine={{ stroke: 'var(--border-medium)' }}
+                                    allowDecimals={false}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        background: 'var(--bg-card)',
+                                        border: '2px solid var(--border-strong)',
+                                        borderRadius: 0,
+                                        fontFamily: 'var(--font-mono)',
+                                        fontSize: '12px',
+                                    }}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="detections"
+                                    stroke="var(--status-critical)"
+                                    strokeWidth={2}
+                                    dot={{ fill: 'var(--status-critical)', strokeWidth: 0, r: 4 }}
+                                    activeDot={{ r: 6, fill: 'var(--status-critical)' }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
             </div>
