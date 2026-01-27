@@ -1,5 +1,5 @@
-import { Button, Tooltip } from '@fluentui/react-components'
-import { Settings24Regular } from '@fluentui/react-icons'
+import { useLocation } from 'react-router-dom'
+import { Alert24Regular, Search24Regular } from '@fluentui/react-icons'
 
 interface HeaderProps {
     onToggleTheme: () => void
@@ -7,64 +7,153 @@ interface HeaderProps {
 
 const styles = {
     header: {
-        height: '56px',
+        height: '60px',
         background: 'var(--bg-card)',
-        borderBottom: '1px solid var(--border-light)',
+        borderBottom: '2px solid var(--border-strong)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 40px',
+        padding: '0 24px',
     },
     left: {
         display: 'flex',
         alignItems: 'center',
         gap: '16px',
     },
-    status: {
+    breadcrumb: {
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        fontSize: '12px',
-        color: 'var(--text-secondary)',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '13px',
+        fontWeight: 600,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
     },
-    statusDot: {
-        width: '6px',
-        height: '6px',
-        borderRadius: '50%',
-        background: 'var(--status-online)',
+    breadcrumbPrefix: {
+        color: 'var(--accent-primary)',
+        fontWeight: 700,
+    },
+    breadcrumbText: {
+        color: 'var(--text-primary)',
+    },
+    breadcrumbSep: {
+        color: 'var(--text-muted)',
+        margin: '0 4px',
+    },
+    center: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '24px',
+    },
+    searchBox: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '8px 16px',
+        background: 'var(--bg-secondary)',
+        border: '2px solid var(--border-light)',
+        minWidth: '300px',
+    },
+    searchIcon: {
+        color: 'var(--text-muted)',
+        fontSize: '18px',
+    },
+    searchInput: {
+        background: 'transparent',
+        border: 'none',
+        outline: 'none',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '12px',
+        color: 'var(--text-primary)',
+        flex: 1,
+    },
+    searchPlaceholder: {
+        color: 'var(--text-muted)',
     },
     right: {
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
+        gap: '12px',
     },
-    iconButton: {
-        minWidth: '32px',
-        height: '32px',
-        border: '1px solid var(--border-light)',
+    alertBtn: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '40px',
+        height: '40px',
         background: 'transparent',
-        color: 'var(--text-secondary)',
+        border: '2px solid var(--border-strong)',
+        cursor: 'pointer',
+        color: 'var(--text-primary)',
+        position: 'relative' as const,
+    },
+    alertBadge: {
+        position: 'absolute' as const,
+        top: '-4px',
+        right: '-4px',
+        width: '16px',
+        height: '16px',
+        background: 'var(--status-critical)',
+        color: '#ffffff',
+        fontSize: '10px',
+        fontWeight: 700,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'var(--font-mono)',
+    },
+    timestamp: {
+        fontFamily: 'var(--font-mono)',
+        fontSize: '11px',
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
     },
 }
 
+const routeTitles: Record<string, string> = {
+    '/': 'Dashboard',
+    '/endpoints': 'Endpoints',
+    '/problems': 'Detections',
+}
+
 function Header({ onToggleTheme: _onToggleTheme }: HeaderProps) {
+    const location = useLocation()
+    const currentRoute = location.pathname
+    const pageTitle = routeTitles[currentRoute] || 'Unknown'
+
+    const now = new Date()
+    const timeStr = now.toLocaleTimeString('en-US', { hour12: false })
+
     return (
         <header style={styles.header}>
             <div style={styles.left}>
-                <div style={styles.status}>
-                    <div style={styles.statusDot} />
-                    <span>All systems operational</span>
+                <div style={styles.breadcrumb}>
+                    <span style={styles.breadcrumbPrefix}>//</span>
+                    <span style={styles.breadcrumbText}>Ophanim</span>
+                    <span style={styles.breadcrumbSep}>/</span>
+                    <span style={styles.breadcrumbText}>{pageTitle}</span>
+                </div>
+            </div>
+
+            <div style={styles.center}>
+                <div style={styles.searchBox}>
+                    <Search24Regular style={styles.searchIcon} />
+                    <input
+                        type="text"
+                        placeholder="Search endpoints, detections..."
+                        style={styles.searchInput}
+                    />
                 </div>
             </div>
 
             <div style={styles.right}>
-                <Tooltip content="Settings" relationship="label">
-                    <Button
-                        appearance="subtle"
-                        icon={<Settings24Regular />}
-                        style={styles.iconButton}
-                    />
-                </Tooltip>
+                <span style={styles.timestamp}>{timeStr}</span>
+                <button style={styles.alertBtn}>
+                    <Alert24Regular />
+                    <span style={styles.alertBadge}>3</span>
+                </button>
             </div>
         </header>
     )
