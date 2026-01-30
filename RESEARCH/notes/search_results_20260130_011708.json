@@ -1,0 +1,525 @@
+[
+  {
+    "title": "Are we there yet? An Industrial Viewpoint on Provenance-based Endpoint Detection and Response Tools",
+    "authors": [
+      "Feng Dong",
+      "Shaofei Li",
+      "Peng Jiang",
+      "Ding Li",
+      "Haoyu Wang"
+    ],
+    "abstract": "Provenance-Based Endpoint Detection and Response (P-EDR) systems are deemed crucial for future APT defenses. Despite the fact that numerous new techniques to improve P-EDR systems have been proposed in academia, it is still unclear whether the industry will adopt P-EDR systems and what improvements the industry desires for P-EDR systems. To this end, we conduct the first set of systematic studies on the effectiveness and the limitations of P-EDR systems. Our study consists of four components: a one-to-one interview, an online questionnaire study, a survey of the relevant literature, and a systematic measurement study. Our research indicates that all industry experts consider P-EDR systems to be more effective than conventional Endpoint Detection and Response (EDR) systems. However, industry experts are concerned about the operating cost of P-EDR systems. In addition, our research reveals three significant gaps between academia and industry: (1) overlooking client-side overhead; (2) imbalanced alarm triage cost and interpretation cost; and (3) excessive server-side memory consumption. This paper's findings provide objective data on the effectiveness of P-EDR systems and how much improvements are needed to adopt P-EDR systems in industry.",
+    "year": 2023,
+    "url": "http://arxiv.org/abs/2307.08349v1",
+    "pdf_url": "https://arxiv.org/pdf/2307.08349v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR"
+    ],
+    "published_date": "2023-07-17"
+  },
+  {
+    "title": "Endpoint Security Agent: A Comprehensive Approach to Real-time System Monitoring and Threat Detection",
+    "authors": [
+      "Srihari R",
+      "Ayesha Taranum",
+      "Karthik",
+      "Mohammed Usman Hussain"
+    ],
+    "abstract": "As cyber threats continue to evolve in complexity and frequency, robust endpoint protection is essential for organizational security. This paper presents \"Endpoint Security Agent: A Comprehensive Approach to Real-time System Monitoring and Threat Detection\" a modular, real-time security solution for Windows endpoints. The agent leverages native tools like WMI and ETW for lowlevel monitoring of system activities such as process execution, registry modifications, and network behaviour. A machine learning-based detection engine, trained on labelled datasets of benign and malicious activity, enables accurate threat identification with minimal false positives. Detection techniques are mapped to the MITRE ATT&CK framework for standardized threat classification. Designed for extensibility, the system includes a centralized interface for alerting and forensic analysis. Preliminary evaluation shows promising results in detecting diverse attack vectors with high accuracy and efficiency.",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2511.08352v1",
+    "pdf_url": "https://arxiv.org/pdf/2511.08352v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR"
+    ],
+    "published_date": "2025-11-11"
+  },
+  {
+    "title": "LeakGuard: Detecting Memory Leaks Accurately and Scalably",
+    "authors": [
+      "Hongliang Liang",
+      "Luming Yin",
+      "Guohao Wu",
+      "Yuxiang Li",
+      "Qiuping Yi"
+    ],
+    "abstract": "Memory leaks are prevalent in various real-world software projects, thereby leading to serious attacks like denial-of-service. Though prior methods for detecting memory leaks made significant advance, they often suffer from low accuracy and weak scalability for testing large and complex programs. In this paper we present LeakGuard, a memory leak detection tool which provides satisfactory balance of accuracy and scalability. For accuracy, LeakGuard analyzes the behaviors of library and developer-defined memory allocation and deallocation functions in a path-sensitive manner and generates function summaries for them in a bottom-up approach. Additionally, we develop a pointer escape analysis technique to model the transfer of pointer ownership. For scalability, LeakGuard examines each function of interest independently by using its function summary and under-constrained symbolic execution technique, which effectively mitigates path explosion problem. Our extensive evaluation on 18 real-world software projects and standard benchmark datasets demonstrates that LeakGuard achieves significant advancements in multiple aspects: it exhibits superior MAD function identification capability compared to Goshawk, outperforms five state-of-the-art methods in defect detection accuracy, and successfully identifies 129 previously undetected memory leak bugs, all of which have been independently verified and confirmed by the respective development teams.",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2504.04422v1",
+    "pdf_url": "https://arxiv.org/pdf/2504.04422v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR",
+      "cs.SE"
+    ],
+    "published_date": "2025-04-06"
+  },
+  {
+    "title": "Phishsense-1B: A Technical Perspective on an AI-Powered Phishing Detection Model",
+    "authors": [
+      "SE Blake"
+    ],
+    "abstract": "Phishing is a persistent cybersecurity threat in today's digital landscape. This paper introduces Phishsense-1B, a refined version of the Llama-Guard-3-1B model, specifically tailored for phishing detection and reasoning. This adaptation utilizes Low-Rank Adaptation (LoRA) and the GuardReasoner finetuning methodology. We outline our LoRA-based fine-tuning process, describe the balanced dataset comprising phishing and benign emails, and highlight significant performance improvements over the original model. Our findings indicate that Phishsense-1B achieves an impressive 97.5% accuracy on a custom dataset and maintains strong performance with 70% accuracy on a challenging real-world dataset. This performance notably surpasses both unadapted models and BERT-based detectors. Additionally, we examine current state-of-the-art detection methods, compare prompt-engineering with fine-tuning strategies, and explore potential deployment scenarios.",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2503.10944v1",
+    "pdf_url": "https://arxiv.org/pdf/2503.10944v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR",
+      "cs.LG"
+    ],
+    "published_date": "2025-03-13"
+  },
+  {
+    "title": "IoTEdu: Access Control, Detection, and Automatic Incident Response in Academic IoT Networks",
+    "authors": [
+      "Joner Assolin",
+      "Diego Kreutz",
+      "Leandro Bertholdo"
+    ],
+    "abstract": "The growing presence of IoT devices in academic environments has increased operational complexity and exposed security weaknesses, especially in academic institutions without unified policies for registration, monitoring, and incident response involving IoT. This work presents IoTEdu, an integrated platform that combines access control, incident detection, and automatic blocking of IoT devices. The solution was evaluated in a controlled environment with simulated attacks, achieving an average time of 28.6 seconds between detection and blocking. The results show a reduction in manual intervention, standardization of responses, and unification of the processes of registration, monitoring, and incident response.",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2512.09934v1",
+    "pdf_url": "https://arxiv.org/pdf/2512.09934v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR",
+      "cs.AI",
+      "cs.NI",
+      "cs.SE"
+    ],
+    "published_date": "2025-11-28"
+  },
+  {
+    "title": "GNN-based Anomaly Detection for Encoded Network Traffic",
+    "authors": [
+      "Anasuya Chattopadhyay",
+      "Daniel Reti",
+      "Hans D. Schotten"
+    ],
+    "abstract": "The early research report explores the possibility of using Graph Neural Networks (GNNs) for anomaly detection in internet traffic data enriched with information. While recent studies have made significant progress in using GNNs for anomaly detection in finance, multivariate time-series, and biochemistry domains, there is limited research in the context of network flow data. In this report, we explore the idea that leverages information-enriched features extracted from network flow packet data to improve the performance of GNN in anomaly detection. The idea is to utilize feature encoding (binary, numerical, and string) to capture the relationships between the network components, allowing the GNN to learn latent relationships and better identify anomalies.",
+    "year": 2024,
+    "url": "http://arxiv.org/abs/2405.13670v1",
+    "pdf_url": "https://arxiv.org/pdf/2405.13670v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.SI",
+      "cs.CR",
+      "cs.LG"
+    ],
+    "published_date": "2024-05-22"
+  },
+  {
+    "title": "Unsupervised Network Anomaly Detection with Autoencoders and Traffic Images",
+    "authors": [
+      "Michael Neri",
+      "Sara Baldoni"
+    ],
+    "abstract": "Due to the recent increase in the number of connected devices, the need to promptly detect security issues is emerging. Moreover, the high number of communication flows creates the necessity of processing huge amounts of data. Furthermore, the connected devices are heterogeneous in nature, having different computational capacities. For this reason, in this work we propose an image-based representation of network traffic which allows to realize a compact summary of the current network conditions with 1-second time windows. The proposed representation highlights the presence of anomalies thus reducing the need for complex processing architectures. Finally, we present an unsupervised learning approach which effectively detects the presence of anomalies. The code and the dataset are available at https://github.com/michaelneri/image-based-network-traffic-anomaly-detection.",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2505.16650v1",
+    "pdf_url": "https://arxiv.org/pdf/2505.16650v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": "10.23919/EUSIPCO63237.2025.11226720",
+    "keywords": [
+      "cs.CV",
+      "cs.CR",
+      "eess.IV",
+      "eess.SP"
+    ],
+    "published_date": "2025-05-22"
+  },
+  {
+    "title": "Meta-UAD: A Meta-Learning Scheme for User-level Network Traffic Anomaly Detection",
+    "authors": [
+      "Tongtong Feng",
+      "Qi Qi",
+      "Lingqi Guo",
+      "Jingyu Wang"
+    ],
+    "abstract": "Accuracy anomaly detection in user-level network traffic is crucial for network security. Compared with existing models that passively detect specific anomaly classes with large labeled training samples, user-level network traffic contains sizeable new anomaly classes with few labeled samples and has an imbalance, self-similar, and data-hungry nature. Motivation on those limitations, in this paper, we propose \\textit{Meta-UAD}, a Meta-learning scheme for User-level network traffic Anomaly Detection. Meta-UAD uses the CICFlowMeter to extract 81 flow-level statistical features and remove some invalid ones using cumulative importance ranking. Meta-UAD adopts a meta-learning training structure and learns from the collection of K-way-M-shot classification tasks, which can use a pre-trained model to adapt any new class with few samples by few iteration steps. We evaluate our scheme on two public datasets. Compared with existing models, the results further demonstrate the superiority of Meta-UAD with 15{\\%} - 43{\\%} gains in F1-score.",
+    "year": 2024,
+    "url": "http://arxiv.org/abs/2408.17031v2",
+    "pdf_url": "https://arxiv.org/pdf/2408.17031v2",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR"
+    ],
+    "published_date": "2024-08-30"
+  },
+  {
+    "title": "BLADE: Behavior-Level Anomaly Detection Using Network Traffic in Web Services",
+    "authors": [
+      "Zhibo Dong",
+      "Yong Huang",
+      "Shubao Sun",
+      "Wentao Cui",
+      "Zhihua Wang"
+    ],
+    "abstract": "With their widespread popularity, web services have become the main targets of various cyberattacks. Existing traffic anomaly detection approaches focus on flow-level attacks, yet fail to recognize behavior-level attacks, which appear benign in individual flows but reveal malicious purpose using multiple network flows. To transcend this limitation, we propose a novel unsupervised traffic anomaly detection system, BLADE, capable of detecting not only flow-level but also behavior-level attacks in web services. Our key observation is that application-layer operations of web services exhibit distinctive communication patterns at the network layer from a multi-flow perspective. BLADE first exploits a flow autoencoder to learn a latent feature representation and calculates its reconstruction losses per flow. Then, the latent representation is assigned a pseudo operation label using an unsupervised clustering method. Next, an anomaly score is computed based on the reconstruction losses. Finally, the triplets of timestamps, pseudo labels, and anomaly scores from multiple flows are aggregated and fed into a one-class classifier to characterize the behavior patterns of legitimate web operations, enabling the detection of flow-level and behavior-level anomalies. BLADE is extensively evaluated on both the custom dataset and the CIC-IDS2017 dataset. The experimental results demonstrate BLADE's superior performance, achieving high F1 scores of 0.9732 and 0.9801, respectively, on the two da",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2511.05193v1",
+    "pdf_url": "https://arxiv.org/pdf/2511.05193v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR"
+    ],
+    "published_date": "2025-11-07"
+  },
+  {
+    "title": "Intelligent Detection of Non-Essential IoT Traffic on the Home Gateway",
+    "authors": [
+      "Fabio Palmese",
+      "Anna Maria Mandalari",
+      "Hamed Haddadi",
+      "Alessandro Enrico Cesare Redondi"
+    ],
+    "abstract": "The rapid expansion of Internet of Things (IoT) devices, particularly in smart home environments, has introduced considerable security and privacy concerns due to their persistent connectivity and interaction with cloud services. Despite advancements in IoT security, effective privacy measures remain uncovered, with existing solutions often relying on cloud-based threat detection that exposes sensitive data or outdated allow-lists that inadequately restrict non-essential network traffic. This work presents ML-IoTrim, a system for detecting and mitigating non-essential IoT traffic (i.e., not influencing the device operations) by analyzing network behavior at the edge, leveraging Machine Learning to classify network destinations. Our approach includes building a labeled dataset based on IoT device behavior and employing a feature-extraction pipeline to enable a binary classification of essential vs. non-essential network destinations. We test our framework in a consumer smart home setup with IoT devices from five categories, demonstrating that the model can accurately identify and block non-essential traffic, including previously unseen destinations, without relying on traditional allow-lists. We implement our solution on a home access point, showing the framework has strong potential for scalable deployment, supporting near-real-time traffic classification in large-scale IoT environments with hundreds of devices. This research advances privacy-aware traffic control in smart ho",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2504.18571v1",
+    "pdf_url": "https://arxiv.org/pdf/2504.18571v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR",
+      "cs.LG"
+    ],
+    "published_date": "2025-04-22"
+  },
+  {
+    "title": "Research on CNN-BiLSTM Network Traffic Anomaly Detection Model Based on MindSpore",
+    "authors": [
+      "Qiuyan Xiang",
+      "Shuang Wu",
+      "Dongze Wu",
+      "Yuxin Liu",
+      "Zhenkai Qin"
+    ],
+    "abstract": "With the widespread adoption of the Internet of Things (IoT) and Industrial IoT (IIoT) technologies, network architectures have become increasingly complex, and the volume of traffic has grown substantially. This evolution poses significant challenges to traditional security mechanisms, particularly in detecting high-frequency, diverse, and highly covert network attacks. To address these challenges, this study proposes a novel network traffic anomaly detection model that integrates a Convolutional Neural Network (CNN) with a Bidirectional Long Short-Term Memory (BiLSTM) network, implemented on the MindSpore framework. Comprehensive experiments were conducted using the NF-BoT-IoT dataset. The results demonstrate that the proposed model achieves 99% across accuracy, precision, recall, and F1-score, indicating its strong performance and robustness in network intrusion detection tasks.",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2504.21008v1",
+    "pdf_url": "https://arxiv.org/pdf/2504.21008v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR",
+      "cs.AI"
+    ],
+    "published_date": "2025-04-14"
+  },
+  {
+    "title": "Multimedia Traffic Anomaly Detection",
+    "authors": [
+      "Tongtong Feng",
+      "Qi Qi",
+      "Jingyu Wang"
+    ],
+    "abstract": "Accuracy anomaly detection in user-level social multimedia traffic is crucial for privacy security. Compared with existing models that passively detect specific anomaly classes with large labeled training samples, user-level social multimedia traffic contains sizeable new anomaly classes with few labeled samples and has an imbalance, self-similar, and data-hungry nature. Recent advances, such as Generative Adversarial Networks (GAN), solve it by learning a sample generator only from seen class samples to synthesize new samples. However, if we detect many new classes, the number of synthesizing samples would be unfeasibly estimated, and this operation will drastically increase computational complexity and energy consumption. Motivation on these limitations, in this paper, we propose \\textit{Meta-UAD}, a Meta-learning scheme for User-level social multimedia traffic Anomaly Detection. This scheme relies on the episodic training paradigm and learns from the collection of K-way-M-shot classification tasks, which can use the pre-trained model to adapt any new class with few samples by going through few iteration steps. Since user-level social multimedia traffic emerges from a complex interaction process of users and social applications, we further develop a feature extractor to improve scheme performance. It extracts statistical features using cumulative importance ranking and time-series features using an LSTM-based AutoEncoder. We evaluate our scheme on two public datasets and th",
+    "year": 2024,
+    "url": "http://arxiv.org/abs/2408.14884v3",
+    "pdf_url": "https://arxiv.org/pdf/2408.14884v3",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR"
+    ],
+    "published_date": "2024-08-27"
+  },
+  {
+    "title": "Semi-Supervised Learning for Anomaly Traffic Detection via Bidirectional Normalizing Flows",
+    "authors": [
+      "Zhangxuan Dang",
+      "Yu Zheng",
+      "Xinglin Lin",
+      "Chunlei Peng",
+      "Qiuyu Chen"
+    ],
+    "abstract": "With the rapid development of the Internet, various types of anomaly traffic are threatening network security. We consider the problem of anomaly network traffic detection and propose a three-stage anomaly detection framework using only normal traffic. Our framework can generate pseudo anomaly samples without prior knowledge of anomalies to achieve the detection of anomaly data. Firstly, we employ a reconstruction method to learn the deep representation of normal samples. Secondly, these representations are normalized to a standard normal distribution using a bidirectional flow module. To simulate anomaly samples, we add noises to the normalized representations which are then passed through the generation direction of the bidirectional flow module. Finally, a simple classifier is trained to differentiate the normal samples and pseudo anomaly samples in the latent space. During inference, our framework requires only two modules to detect anomalous samples, leading to a considerable reduction in model size. According to the experiments, our method achieves the state of-the-art results on the common benchmarking datasets of anomaly network traffic detection. The code is given in the https://github.com/ZxuanDang/ATD-via-Flows.git",
+    "year": 2024,
+    "url": "http://arxiv.org/abs/2403.10550v1",
+    "pdf_url": "https://arxiv.org/pdf/2403.10550v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CR"
+    ],
+    "published_date": "2024-03-13"
+  },
+  {
+    "title": "Interpretable Anomaly Detection in Encrypted Traffic Using SHAP with Machine Learning Models",
+    "authors": [
+      "Kalindi Singh",
+      "Aayush Kashyap",
+      "Aswani Kumar Cherukuri"
+    ],
+    "abstract": "The widespread adoption of encrypted communication protocols such as HTTPS and TLS has enhanced data privacy but also rendered traditional anomaly detection techniques less effective, as they often rely on inspecting unencrypted payloads. This study aims to develop an interpretable machine learning-based framework for anomaly detection in encrypted network traffic. This study proposes a model-agnostic framework that integrates multiple machine learning classifiers, with SHapley Additive exPlanations SHAP to ensure post-hoc model interpretability. The models are trained and evaluated on three benchmark encrypted traffic datasets. Performance is assessed using standard classification metrics, and SHAP is used to explain model predictions by attributing importance to individual input features. SHAP visualizations successfully revealed the most influential traffic features contributing to anomaly predictions, enhancing the transparency and trustworthiness of the models. Unlike conventional approaches that treat machine learning as a black box, this work combines robust classification techniques with explainability through SHAP, offering a novel interpretable anomaly detection system tailored for encrypted traffic environments. While the framework is generalizable, real-time deployment and performance under adversarial conditions require further investigation. Future work may explore adaptive models and real-time interpretability in operational network environments. This interpret",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2505.16261v1",
+    "pdf_url": "https://arxiv.org/pdf/2505.16261v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR"
+    ],
+    "published_date": "2025-05-22"
+  },
+  {
+    "title": "Binary Anomaly Detection in Streaming IoT Traffic under Concept Drift",
+    "authors": [
+      "Rodrigo Matos Carnier",
+      "Laura Lahesoo",
+      "Kensuke Fukuda"
+    ],
+    "abstract": "With the growing volume of Internet of Things (IoT) network traffic, machine learning (ML)-based anomaly detection is more relevant than ever. Traditional batch learning models face challenges such as high maintenance and poor adaptability to rapid anomaly changes, known as concept drift. In contrast, streaming learning integrates online and incremental learning, enabling seamless updates and concept drift detection to improve robustness. This study investigates anomaly detection in streaming IoT traffic as binary classification, comparing batch and streaming learning approaches while assessing the limitations of current IoT traffic datasets. We simulated heterogeneous network data streams by carefully mixing existing datasets and streaming the samples one by one. Our results highlight the failure of batch models to handle concept drift, but also reveal persisting limitations of current datasets to expose model limitations due to low traffic heterogeneity. We also investigated the competitiveness of tree-based ML algorithms, well-known in batch anomaly detection, and compared it to non-tree-based ones, confirming the advantages of the former. Adaptive Random Forest achieved F1-score of 0.990 $\\pm$ 0.006 at one-third the computational cost of its batch counterpart. Hoeffding Adaptive Tree reached F1-score of 0.910 $\\pm$ 0.007, reducing computational cost by four times, making it a viable choice for online applications despite a slight trade-off in stability.",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2510.27304v1",
+    "pdf_url": "https://arxiv.org/pdf/2510.27304v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.LG",
+      "cs.CR"
+    ],
+    "published_date": "2025-10-31"
+  },
+  {
+    "title": "Toward Autonomous and Efficient Cybersecurity: A Multi-Objective AutoML-based Intrusion Detection System",
+    "authors": [
+      "Li Yang",
+      "Abdallah Shami"
+    ],
+    "abstract": "With increasingly sophisticated cybersecurity threats and rising demand for network automation, autonomous cybersecurity mechanisms are becoming critical for securing modern networks. The rapid expansion of Internet of Things (IoT) systems amplifies these challenges, as resource-constrained IoT devices demand scalable and efficient security solutions. In this work, an innovative Intrusion Detection System (IDS) utilizing Automated Machine Learning (AutoML) and Multi-Objective Optimization (MOO) is proposed for autonomous and optimized cyber-attack detection in modern networking environments. The proposed IDS framework integrates two primary innovative techniques: Optimized Importance and Percentage-based Automated Feature Selection (OIP-AutoFS) and Optimized Performance, Confidence, and Efficiency-based Combined Algorithm Selection and Hyperparameter Optimization (OPCE-CASH). These components optimize feature selection and model learning processes to strike a balance between intrusion detection effectiveness and computational efficiency. This work presents the first IDS framework that integrates all four AutoML stages and employs multi-objective optimization to jointly optimize detection effectiveness, efficiency, and confidence for deployment in resource-constrained systems. Experimental evaluations over two benchmark cybersecurity datasets demonstrate that the proposed MOO-AutoML IDS outperforms state-of-the-art IDSs, establishing a new benchmark for autonomous, efficient, ",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2511.08491v1",
+    "pdf_url": "https://arxiv.org/pdf/2511.08491v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": "10.1109/TMLCN.2025.3631379",
+    "keywords": [
+      "cs.CR",
+      "cs.LG",
+      "cs.NI"
+    ],
+    "published_date": "2025-11-11"
+  },
+  {
+    "title": "Towards Autonomous Cybersecurity: An Intelligent AutoML Framework for Autonomous Intrusion Detection",
+    "authors": [
+      "Li Yang",
+      "Abdallah Shami"
+    ],
+    "abstract": "The rapid evolution of mobile networks from 5G to 6G has necessitated the development of autonomous network management systems, such as Zero-Touch Networks (ZTNs). However, the increased complexity and automation of these networks have also escalated cybersecurity risks. Existing Intrusion Detection Systems (IDSs) leveraging traditional Machine Learning (ML) techniques have shown effectiveness in mitigating these risks, but they often require extensive manual effort and expert knowledge. To address these challenges, this paper proposes an Automated Machine Learning (AutoML)-based autonomous IDS framework towards achieving autonomous cybersecurity for next-generation networks. To achieve autonomous intrusion detection, the proposed AutoML framework automates all critical procedures of the data analytics pipeline, including data pre-processing, feature engineering, model selection, hyperparameter tuning, and model ensemble. Specifically, it utilizes a Tabular Variational Auto-Encoder (TVAE) method for automated data balancing, tree-based ML models for automated feature selection and base model learning, Bayesian Optimization (BO) for hyperparameter optimization, and a novel Optimized Confidence-based Stacking Ensemble (OCSE) method for automated model ensemble. The proposed AutoML-based IDS was evaluated on two public benchmark network security datasets, CICIDS2017 and 5G-NIDD, and demonstrated improved performance compared to state-of-the-art cybersecurity methods. This resear",
+    "year": 2024,
+    "url": "http://arxiv.org/abs/2409.03141v1",
+    "pdf_url": "https://arxiv.org/pdf/2409.03141v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": "10.1145/3689933.3690833",
+    "keywords": [
+      "cs.LG",
+      "cs.CR",
+      "cs.NI"
+    ],
+    "published_date": "2024-09-05"
+  },
+  {
+    "title": "Online Self-Supervised Deep Learning for Intrusion Detection Systems",
+    "authors": [
+      "Mert Nakıp",
+      "Erol Gelenbe"
+    ],
+    "abstract": "This paper proposes a novel Self-Supervised Intrusion Detection (SSID) framework, which enables a fully online Deep Learning (DL) based Intrusion Detection System (IDS) that requires no human intervention or prior off-line learning. The proposed framework analyzes and labels incoming traffic packets based only on the decisions of the IDS itself using an Auto-Associative Deep Random Neural Network, and on an online estimate of its statistically measured trustworthiness. The SSID framework enables IDS to adapt rapidly to time-varying characteristics of the network traffic, and eliminates the need for offline data collection. This approach avoids human errors in data labeling, and human labor and computational costs of model training and data collection. The approach is experimentally evaluated on public datasets and compared with well-known {machine learning and deep learning} models, showing that this SSID framework is very useful and advantageous as an accurate and online learning DL-based IDS for IoT systems.",
+    "year": 2023,
+    "url": "http://arxiv.org/abs/2306.13030v2",
+    "pdf_url": "https://arxiv.org/pdf/2306.13030v2",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": "10.1109/TIFS.2024.3402148",
+    "keywords": [
+      "cs.CR",
+      "cs.LG",
+      "cs.NI"
+    ],
+    "published_date": "2023-06-22"
+  },
+  {
+    "title": "Adaptive Intrusion Detection System Leveraging Dynamic Neural Models with Adversarial Learning for 5G/6G Networks",
+    "authors": [
+      "Neha",
+      "Tarunpreet Bhatia"
+    ],
+    "abstract": "Intrusion Detection Systems (IDS) are critical components in safeguarding 5G/6G networks from both internal and external cyber threats. While traditional IDS approaches rely heavily on signature-based methods, they struggle to detect novel and evolving attacks. This paper presents an advanced IDS framework that leverages adversarial training and dynamic neural networks in 5G/6G networks to enhance network security by providing robust, real-time threat detection and response capabilities. Unlike conventional models, which require costly retraining to update knowledge, the proposed framework integrates incremental learning algorithms, reducing the need for frequent retraining. Adversarial training is used to fortify the IDS against poisoned data. By using fewer features and incorporating statistical properties, the system can efficiently detect potential threats. Extensive evaluations using the NSL- KDD dataset demonstrate that the proposed approach provides better accuracy of 82.33% for multiclass classification of various network attacks while resisting dataset poisoning. This research highlights the potential of adversarial-trained, dynamic neural networks for building resilient IDS solutions.",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2512.10637v2",
+    "pdf_url": "https://arxiv.org/pdf/2512.10637v2",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": "10.1109/ICCTech66294.2025.00028",
+    "keywords": [
+      "cs.CR",
+      "cs.LG"
+    ],
+    "published_date": "2025-12-11"
+  },
+  {
+    "title": "CST-AFNet: A dual attention-based deep learning framework for intrusion detection in IoT networks",
+    "authors": [
+      "Waqas Ishtiaq",
+      "Ashrafun Zannat",
+      "A. H. M. Shahariar Parvez",
+      "Md. Alamgir Hossain",
+      "Muntasir Hasan Kanchan"
+    ],
+    "abstract": "The rapid expansion of the Internet of Things (IoT) has revolutionized modern industries by enabling smart automation and real time connectivity. However, this evolution has also introduced complex cybersecurity challenges due to the heterogeneous, resource constrained, and distributed nature of these environments. To address these challenges, this research presents CST AFNet, a novel dual attention based deep learning framework specifically designed for robust intrusion detection in IoT networks. The model integrates multi scale Convolutional Neural Networks (CNNs) for spatial feature extraction, Bidirectional Gated Recurrent Units (BiGRUs) for capturing temporal dependencies, and a dual attention mechanism, channel and temporal attention, to enhance focus on critical patterns in the data. The proposed method was trained and evaluated on the Edge IIoTset dataset, a comprehensive and realistic benchmark containing more than 2.2 million labeled instances spanning 15 attack types and benign traffic, collected from a seven layer industrial testbed. Our proposed model achieves outstanding accuracy for both 15 attack types and benign traffic. CST AFNet achieves 99.97 percent accuracy. Moreover, this model demonstrates exceptional performance with macro averaged precision, recall, and F1 score all above 99.3 percent. Experimental results show that CST AFNet achieves superior detection accuracy, significantly outperforming traditional deep learning models. The findings confirm that ",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2510.02717v1",
+    "pdf_url": "https://arxiv.org/pdf/2510.02717v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": "10.1016/j.array.2025.100501",
+    "keywords": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CR"
+    ],
+    "published_date": "2025-10-03"
+  },
+  {
+    "title": "Privacy-preserving machine learning for healthcare: open challenges and future perspectives",
+    "authors": [
+      "Alejandro Guerra-Manzanares",
+      "L. Julian Lechuga Lopez",
+      "Michail Maniatakos",
+      "Farah E. Shamout"
+    ],
+    "abstract": "Machine Learning (ML) has recently shown tremendous success in modeling various healthcare prediction tasks, ranging from disease diagnosis and prognosis to patient treatment. Due to the sensitive nature of medical data, privacy must be considered along the entire ML pipeline, from model training to inference. In this paper, we conduct a review of recent literature concerning Privacy-Preserving Machine Learning (PPML) for healthcare. We primarily focus on privacy-preserving training and inference-as-a-service, and perform a comprehensive review of existing trends, identify challenges, and discuss opportunities for future research directions. The aim of this review is to guide the development of private and efficient ML models in healthcare, with the prospects of translating research efforts into real-world settings.",
+    "year": 2023,
+    "url": "http://arxiv.org/abs/2303.15563v1",
+    "pdf_url": "https://arxiv.org/pdf/2303.15563v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": "10.1007/978-3-031-39539-0_3",
+    "keywords": [
+      "cs.LG",
+      "cs.CR"
+    ],
+    "published_date": "2023-03-27"
+  },
+  {
+    "title": "Preserving Privacy in Large Language Models: A Survey on Current Threats and Solutions",
+    "authors": [
+      "Michele Miranda",
+      "Elena Sofia Ruzzetti",
+      "Andrea Santilli",
+      "Fabio Massimo Zanzotto",
+      "Sébastien Bratières"
+    ],
+    "abstract": "Large Language Models (LLMs) represent a significant advancement in artificial intelligence, finding applications across various domains. However, their reliance on massive internet-sourced datasets for training brings notable privacy issues, which are exacerbated in critical domains (e.g., healthcare). Moreover, certain application-specific scenarios may require fine-tuning these models on private data. This survey critically examines the privacy threats associated with LLMs, emphasizing the potential for these models to memorize and inadvertently reveal sensitive information. We explore current threats by reviewing privacy attacks on LLMs and propose comprehensive solutions for integrating privacy mechanisms throughout the entire learning pipeline. These solutions range from anonymizing training datasets to implementing differential privacy during training or inference and machine unlearning after training. Our comprehensive review of existing literature highlights ongoing challenges, available tools, and future directions for preserving privacy in LLMs. This work aims to guide the development of more secure and trustworthy AI systems by providing a thorough understanding of privacy preservation methods and their effectiveness in mitigating risks.",
+    "year": 2024,
+    "url": "http://arxiv.org/abs/2408.05212v2",
+    "pdf_url": "https://arxiv.org/pdf/2408.05212v2",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR",
+      "cs.AI",
+      "cs.CL",
+      "cs.LG"
+    ],
+    "published_date": "2024-08-10"
+  },
+  {
+    "title": "Improving Network Threat Detection by Knowledge Graph, Large Language Model, and Imbalanced Learning",
+    "authors": [
+      "Lili Zhang",
+      "Quanyan Zhu",
+      "Herman Ray",
+      "Ying Xie"
+    ],
+    "abstract": "Network threat detection has been challenging due to the complexities of attack activities and the limitation of historical threat data to learn from. To help enhance the existing practices of using analytics, machine learning, and artificial intelligence methods to detect the network threats, we propose an integrated modelling framework, where Knowledge Graph is used to analyze the users' activity patterns, Imbalanced Learning techniques are used to prune and weigh Knowledge Graph, and LLM is used to retrieve and interpret the users' activities from Knowledge Graph. The proposed framework is applied to Agile Threat Detection through Online Sequential Learning. The preliminary results show the improved threat capture rate by 3%-4% and the increased interpretabilities of risk predictions based on the users' activities.",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2501.16393v2",
+    "pdf_url": "https://arxiv.org/pdf/2501.16393v2",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.LG",
+      "cs.CR",
+      "stat.ML"
+    ],
+    "published_date": "2025-01-26"
+  },
+  {
+    "title": "Adaptive Dual-Layer Web Application Firewall (ADL-WAF) Leveraging Machine Learning for Enhanced Anomaly and Threat Detection",
+    "authors": [
+      "Ahmed Sameh",
+      "Sahar Selim"
+    ],
+    "abstract": "Web Application Firewalls are crucial for protecting web applications against a wide range of cyber threats. Traditional Web Application Firewalls often struggle to effectively distinguish between malicious and legitimate traffic, leading to limited efficacy in threat detection. To overcome these limitations, this paper proposes an Adaptive Dual-Layer WAF employing a two-layered Machine Learning model designed to enhance the accuracy of anomaly and threat detection. The first layer employs a Decision Tree (DT) algorithm to detect anomalies by identifying traffic deviations from established normal patterns. The second layer employs Support Vector Machine to classify these anomalies as either threat anomalies or benign anomalies. Our Adaptive Dual Layer WAF incorporates comprehensive data pre-processing and feature engineering techniques and has been thoroughly evaluated using five large benchmark datasets. Evaluation using these datasets shows that ADL WAF achieves a detection accuracy of 99.88% and a precision of 100%, significantly enhancing anomaly detection and reducing false positives. These findings suggest that integrating machine learning techniques into WAFs can substantially improve web application security by providing more accurate and efficient threat detection.",
+    "year": 2025,
+    "url": "http://arxiv.org/abs/2511.12643v1",
+    "pdf_url": "https://arxiv.org/pdf/2511.12643v1",
+    "source": "arxiv",
+    "citations": 0,
+    "venue": null,
+    "doi": null,
+    "keywords": [
+      "cs.CR",
+      "cs.LG",
+      "cs.NI"
+    ],
+    "published_date": "2025-11-16"
+  }
+]
