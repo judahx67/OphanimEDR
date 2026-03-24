@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ophanim-EDR — Understanding the Causality Engine</title>
+  <meta name="description" content="Interactive guide to the Ophanim-EDR causality engine architecture for graph-based threat hunting using GAT, GRU, and anomaly scoring.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="bg-mesh"></div>
+
+<!-- ═══ Navigation ═══════════════════════════════════════ -->
+<nav class="nav" id="nav">
+  <div class="nav-brand">⊛ Ophanim-EDR</div>
+  <ul class="nav-links">
+    <li><a href="#hero">Home</a></li>
+    <li><a href="#problem">The Problem</a></li>
+    <li><a href="#concepts">Key Concepts</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#choices">Design Choices</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#literature">Literature</a></li>
+  </ul>
+</nav>
+
+<!-- ═══ Hero ═════════════════════════════════════════════ -->
+<section class="hero" id="hero">
+  <div class="hero-badge"><span class="dot"></span> Phase 1 — Architecture Validated</div>
+  <h1 class="section-title">Understanding the<br>Ophanim-EDR Causality Engine</h1>
+  <p class="section-subtitle">
+    An interactive guide to how graph neural networks detect cyber attacks
+    by learning what "normal" looks like — and flagging everything else.
+  </p>
+
+  <div class="hero-graph" id="heroGraph">
+    <svg viewBox="0 0 700 350" id="graphSvg">
+      <!-- Edges drawn by JS -->
+      <!-- Nodes drawn by JS -->
+    </svg>
+  </div>
+</section>
+
+<!-- ═══ The Problem ══════════════════════════════════════ -->
+<section id="problem">
+  <div class="reveal">
+    <span class="section-label">The Challenge</span>
+    <h2 class="section-title">Why can't antivirus catch advanced attacks?</h2>
+    <p class="section-subtitle">
+      Traditional security tools look at individual files or events in isolation.
+      But sophisticated attackers chain together dozens of <em>legitimate</em> operations
+      to achieve malicious goals — each step looks normal on its own.
+    </p>
+  </div>
+
+  <div class="card-grid">
+    <div class="card reveal" style="animation-delay: 0.1s">
+      <div class="card-icon" style="background: rgba(251,113,133,0.12); color: var(--accent-rose);">🔍</div>
+      <h3>The Needle in a Haystack</h3>
+      <p>A modern enterprise endpoint generates millions of events per day. An APT attack
+         might touch only 50 edges out of 2 million. Finding that 0.0025% is the challenge.</p>
+    </div>
+    <div class="card reveal" style="animation-delay: 0.2s">
+      <div class="card-icon" style="background: rgba(251,191,36,0.12); color: var(--accent-amber);">⏱️</div>
+      <h3>The 15-Minute Blind Spot</h3>
+      <p>The best current system (KAIROS) waits until a 15-minute time window closes before
+         making a detection decision. That's 15 minutes for an attacker to establish persistence.</p>
+    </div>
+    <div class="card reveal" style="animation-delay: 0.3s">
+      <div class="card-icon" style="background: rgba(74,222,128,0.12); color: var(--accent-green);">🔄</div>
+      <h3>The Drift Problem</h3>
+      <p>What's "normal" changes over time — new software, new users, seasonal patterns.
+         A static model trained in January becomes inaccurate by March. Current systems can't adapt.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Key Concepts ═════════════════════════════════════ -->
+<section id="concepts">
+  <div class="reveal">
+    <span class="section-label">Key Concepts</span>
+    <h2 class="section-title">ML concepts you need to know</h2>
+    <p class="section-subtitle">
+      Don't worry if you're new to machine learning. Here's each concept explained
+      with everyday analogies.
+    </p>
+  </div>
+
+  <div class="card-grid">
+    <!-- Concept 1: Provenance Graphs -->
+    <div class="card reveal">
+      <div class="card-icon" style="background: rgba(96,165,250,0.12); color: var(--accent-blue);">🕸️</div>
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)">
+        <div>
+          <h3>Provenance Graphs</h3>
+          <p style="margin-top: 0.3rem;">How we represent system activity as a network</p>
+        </div>
+        <span class="arrow">▼</span>
+      </button>
+      <div class="collapsible-body">
+        <p>A <strong>provenance graph</strong> connects every system entity (processes, files, network connections)
+           with directed edges showing "who did what to whom." If <code>chrome.exe</code> writes to <code>cookies.db</code>,
+           that's an edge labeled WRITE from the chrome process node to the cookies file node.</p>
+        <p style="margin-top: 0.8rem;">These graphs grow in real time as events happen. A typical enterprise host generates
+           a graph with <strong>690,000+ nodes</strong> over a few days.</p>
+        <div class="analogy">
+          💡 <strong>Analogy:</strong> Think of it like a security camera system for your OS — except instead of video frames,
+          it records every interaction between every program, file, and network connection.
+        </div>
+      </div>
+    </div>
+
+    <!-- Concept 2: Graph Neural Networks -->
+    <div class="card reveal">
+      <div class="card-icon" style="background: rgba(167,139,250,0.12); color: var(--accent-purple);">🧠</div>
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)">
+        <div>
+          <h3>Graph Neural Networks (GNN)</h3>
+          <p style="margin-top: 0.3rem;">Neural networks that understand relationships</p>
+        </div>
+        <span class="arrow">▼</span>
+      </button>
+      <div class="collapsible-body">
+        <p>Regular neural networks process fixed-size inputs (like images or text). But our data is a <em>graph</em>
+           with varying numbers of nodes and edges. GNNs solve this through <strong>message passing</strong>:
+           each node collects information from its neighbors, updates its own representation, and repeats.</p>
+        <p style="margin-top: 0.8rem;">After message passing, each node's representation encodes not just its own features,
+           but also the structure of its local neighborhood.</p>
+        <div class="analogy">
+          💡 <strong>Analogy:</strong> Like a neighborhood watch — each person talks to their direct neighbors,
+          forming an understanding of what's happening in their part of the street. After a few rounds of gossip,
+          everyone has a picture of the whole neighborhood.
+        </div>
+      </div>
+    </div>
+
+    <!-- Concept 3: Attention Mechanism (GAT) -->
+    <div class="card reveal">
+      <div class="card-icon" style="background: rgba(45,212,191,0.12); color: var(--accent-teal);">👁️</div>
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)">
+        <div>
+          <h3>Attention Mechanism (GAT)</h3>
+          <p style="margin-top: 0.3rem;">Not all neighbors matter equally</p>
+        </div>
+        <span class="arrow">▼</span>
+      </button>
+      <div class="collapsible-body">
+        <p>A basic GNN treats all neighbors equally. But in security, a process's <em>parent</em>
+           is far more important than a random file it read once. <strong>Graph Attention Networks (GAT)</strong>
+           learn <em>attention weights</em> — a score for each neighbor saying "how much should I listen to you?"</p>
+        <p style="margin-top: 0.8rem;">We use <strong>4 attention heads</strong>, each with 16-dimensional attention.
+           Different heads can focus on different types of relationships simultaneously.</p>
+        <div class="analogy">
+          💡 <strong>Analogy:</strong> Imagine you're at a noisy party. You can't listen to everyone equally — 
+          you automatically pay more attention to the person saying something important, and tune out the small talk.
+          GAT does this for graph nodes.
+        </div>
+      </div>
+    </div>
+
+    <!-- Concept 4: Encoder-Decoder -->
+    <div class="card reveal">
+      <div class="card-icon" style="background: rgba(251,191,36,0.12); color: var(--accent-amber);">🔧</div>
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)">
+        <div>
+          <h3>Encoder-Decoder Architecture</h3>
+          <p style="margin-top: 0.3rem;">Learn what's normal, flag what's not</p>
+        </div>
+        <span class="arrow">▼</span>
+      </button>
+      <div class="collapsible-body">
+        <p>The <strong>encoder</strong> compresses each node into a compact 64-dimensional representation that
+           captures its identity and relationships. The <strong>decoder</strong> then tries to predict: "Given these
+           two nodes, does an edge exist between them? If so, what type?"</p>
+        <p style="margin-top: 0.8rem;">The model is trained <em>only on benign data</em>. It learns what normal system
+           behavior looks like. When it sees an attack, it fails to reconstruct those edges correctly — and that
+           failure (the reconstruction error) IS the anomaly signal.</p>
+        <div class="analogy">
+          💡 <strong>Analogy:</strong> Like training a bank teller to recognize legitimate signatures.
+          You don't need to show them every possible forgery — you show them thousands of real signatures,
+          and anything that doesn't "look right" gets flagged.
+        </div>
+      </div>
+    </div>
+
+    <!-- Concept 5: GRU (Temporal) -->
+    <div class="card reveal">
+      <div class="card-icon" style="background: rgba(251,113,133,0.12); color: var(--accent-rose);">⏳</div>
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)">
+        <div>
+          <h3>GRU — Temporal Memory</h3>
+          <p style="margin-top: 0.3rem;">Remembering how behavior evolves over time</p>
+        </div>
+        <span class="arrow">▼</span>
+      </button>
+      <div class="collapsible-body">
+        <p>A <strong>Gated Recurrent Unit (GRU)</strong> is a type of recurrent neural network that maintains a
+           "hidden state" — a compact summary of everything it's seen so far. Each node in our graph gets its
+           own GRU state that updates every time a new event involves that node.</p>
+        <p style="margin-top: 0.8rem;">The "gates" (reset and update) control how much old information to keep
+           vs. how much new information to let in, preventing important long-term patterns from being overwritten
+           by recent noise.</p>
+        <div class="analogy">
+          💡 <strong>Analogy:</strong> Like a detective's notebook for each suspect. Every time the suspect does
+          something new, the detective updates their notes — keeping the important observations and letting go of
+          irrelevant details. The notebook IS the GRU hidden state.
+        </div>
+      </div>
+    </div>
+
+    <!-- Concept 6: IDF Scoring -->
+    <div class="card reveal">
+      <div class="card-icon" style="background: rgba(74,222,128,0.12); color: var(--accent-green);">📊</div>
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)">
+        <div>
+          <h3>IDF Weighting</h3>
+          <p style="margin-top: 0.3rem;">Rare events deserve more attention</p>
+        </div>
+        <span class="arrow">▼</span>
+      </button>
+      <div class="collapsible-body">
+        <p><strong>Inverse Document Frequency (IDF)</strong> is borrowed from information retrieval. Common words
+           like "the" carry little meaning; rare words like "exfiltration" carry a lot. We apply the same logic
+           to edges: a <code>process→WRITE→file</code> is so common it's boring. A <code>socket→EXECUTE→process</code>
+           is rare and screams "something unusual is happening."</p>
+        <p style="margin-top: 0.8rem;">The formula: <code>IDF = log(N / (1 + count))</code>, where N is total
+           training triples and count is how often this specific pattern appeared.</p>
+        <div class="analogy">
+          💡 <strong>Analogy:</strong> In a school, a student walking to class is unremarkable.
+          A student walking backward through the hallway at 3 AM deserves attention. IDF is the "weirdness multiplier."
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Architecture ═════════════════════════════════════ -->
+<section id="architecture">
+  <div class="reveal">
+    <span class="section-label">Architecture Deep-Dive</span>
+    <h2 class="section-title">How data flows through the model</h2>
+    <p class="section-subtitle">
+      Click each stage to see what it does, why it's designed that way, and what the actual code produces.
+    </p>
+  </div>
+
+  <div class="pipeline reveal" id="pipeline">
+    <div class="pipeline-stage" data-stage="input"
+         onclick="toggleStage(this)">
+      <div class="stage-name">① Raw Event Features</div>
+      <div class="stage-spec">heterogeneous: 3–8 dims per CDM node type</div>
+      <div class="stage-detail" id="detail-input">
+        <p>Every system entity gets a feature vector based on its type. A <strong>process</strong> has 8 features
+           (pid, ppid, uid, gid, start_time, cmd_hash, privilege_level, session_id), while a <strong>file</strong>
+           has only 4 (path_hash, size, permissions, inode).</p>
+        <p style="margin-top: 0.5rem;">The challenge: you can't feed vectors of different sizes into the same neural network layer.
+           That's why the next stage exists.</p>
+      </div>
+    </div>
+    <div class="pipeline-arrow">↓</div>
+
+    <div class="pipeline-stage" data-stage="project"
+         onclick="toggleStage(this)">
+      <div class="stage-name">② NodeTypeProjection</div>
+      <div class="stage-spec">6 × nn.Linear → 64-dim common space (~3K params)</div>
+      <div class="stage-detail" id="detail-project">
+        <p>Each node type gets its own small <code>nn.Linear</code> layer that projects its raw features
+           to a common 64-dimensional space. After this step, every node — whether process, file, or socket —
+           lives in the same vector space and can be compared directly.</p>
+        <div class="code-block">
+          <span class="comment"># Process: 8-dim → 64-dim</span><br>
+          x_proc = <span class="fn">Linear</span>(<span class="num">8</span>, <span class="num">64</span>)(raw_process_features)<br>
+          <span class="comment"># File: 4-dim → 64-dim</span><br>
+          x_file = <span class="fn">Linear</span>(<span class="num">4</span>, <span class="num">64</span>)(raw_file_features)
+        </div>
+      </div>
+    </div>
+    <div class="pipeline-arrow">↓</div>
+
+    <div class="pipeline-stage" data-stage="gat"
+         onclick="toggleStage(this)">
+      <div class="stage-name">③ 1-Layer GAT</div>
+      <div class="stage-spec">4 heads × 16-dim = 64-dim · LayerNorm + ELU · k=10</div>
+      <div class="stage-detail" id="detail-gat">
+        <p>The Graph Attention Network layer performs <strong>message passing</strong>: each node looks at its
+           up to 10 nearest neighbors, computes attention weights, and updates its embedding. With 4 heads,
+           the model can attend to 4 different types of relationships simultaneously.</p>
+        <p style="margin-top: 0.5rem;"><strong>Why only 1 layer?</strong> Most provenance graph nodes have ≤20 neighbors.
+           A second layer would expand the receptive field to 100 nodes at 10× the computation cost — but those 2-hop
+           neighbors mostly don't exist. So 1 layer is both sufficient and efficient.</p>
+      </div>
+    </div>
+    <div class="pipeline-arrow">↓</div>
+
+    <div class="pipeline-stage" data-stage="gru"
+         onclick="toggleStage(this)">
+      <div class="stage-name">④ GRU Cell</div>
+      <div class="stage-spec">64-dim hidden state · per-node temporal memory</div>
+      <div class="stage-detail" id="detail-gru">
+        <p>Each node maintains a persistent 64-dim hidden state that accumulates temporal context.
+           The GRU's <strong>reset gate</strong> decides which old information to discard, and the
+           <strong>update gate</strong> decides how much new information to integrate.</p>
+        <p style="margin-top: 0.5rem;">This is the "memory" of the model. A process that was benign yesterday but starts
+           behaving differently today will produce a different GRU state — even if the spatial snapshot (GAT output) hasn't
+           changed dramatically.</p>
+      </div>
+    </div>
+    <div class="pipeline-arrow">↓</div>
+
+    <div class="pipeline-stage" data-stage="decoder"
+         onclick="toggleStage(this)">
+      <div class="stage-name">⑤ EdgeDecoder (Dual-Head)</div>
+      <div class="stage-spec">concat(z_src, z_dst) = 128-dim → P(exists) + P(type)</div>
+      <div class="stage-detail" id="detail-decoder">
+        <p>For each edge, we concatenate the source and target node embeddings into a 128-dim vector and
+           pass it through a shared MLP trunk, then split into two heads:</p>
+        <p style="margin-top: 0.5rem;"><strong>Head 1 (Existence):</strong> "Should this connection exist at all?"
+           → sigmoid output (0 to 1).</p>
+        <p><strong>Head 2 (Type):</strong> "If it exists, what type of operation is it?" → 9-class classification
+           (WRITE, READ, EXECUTE, FORK_CLONE, CONNECT, SEND, RECEIVE, MMAP, RENAME_LINK).</p>
+        <p style="margin-top: 0.5rem;">Two heads catch two types of anomalies: an unexpected <em>connection</em>
+           vs. an unexpected <em>operation type</em>.</p>
+      </div>
+    </div>
+    <div class="pipeline-arrow">↓</div>
+
+    <div class="pipeline-stage" data-stage="score"
+         onclick="toggleStage(this)">
+      <div class="stage-name">⑥ Anomaly Score</div>
+      <div class="stage-spec">raw = BCE + CE · final = raw × IDF(src, edge, dst)</div>
+      <div class="stage-detail" id="detail-score">
+        <p>The raw anomaly score is the sum of two losses:</p>
+        <p>• <strong>BCE</strong> (Binary Cross-Entropy) — how wrong the existence prediction was</p>
+        <p>• <strong>CE</strong> (Cross-Entropy) — how wrong the type prediction was</p>
+        <p style="margin-top: 0.5rem;">This raw score is multiplied by the <strong>IDF weight</strong> of the edge's
+           (source_type, edge_type, destination_type) triple. Rare patterns get amplified; common patterns get damped.</p>
+        <p style="margin-top: 0.5rem;">For graph-level scoring, we take the mean of the <strong>top 10%</strong> highest
+           edge scores — because attacks affect only a small fraction of all edges.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Design Choices ═══════════════════════════════════ -->
+<section id="choices">
+  <div class="reveal">
+    <span class="section-label">Design Choices</span>
+    <h2 class="section-title">Why these technologies?</h2>
+    <p class="section-subtitle">
+      Every design decision is backed by published research. Here's what was chosen — and what was rejected.
+    </p>
+  </div>
+
+  <!-- Choice 1: GAT vs GCN -->
+  <div class="card reveal" style="margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 1rem;">Spatial Encoder: GAT vs GCN</h3>
+    <div class="comparison">
+      <div class="option chosen">
+        <div class="option-label">GAT <span class="option-badge badge-chosen">CHOSEN</span></div>
+        <p><strong>~98.3% accuracy</strong> on IDS benchmarks. Learns per-edge attention weights
+           — naturally shows <em>which</em> neighbor caused the anomaly. 4 heads × 16-dim = 64-dim output.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--accent-green);">
+          📄 Veličković et al., ICLR 2018 · Validated by KAIROS (IEEE S&P 2024)</p>
+      </div>
+      <div class="option rejected">
+        <div class="option-label">GCN <span class="option-badge badge-alt">ALTERNATIVE</span></div>
+        <p><strong>~96.25% accuracy</strong> on same benchmarks. Treats all neighbors equally (degree-normalized
+           aggregation). Simpler, but no per-edge interpretability for SOC triage.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--accent-rose);">
+          ❌ Lower accuracy, uniform neighbor weights ≈ no explainability</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Choice 2: GRU vs LSTM -->
+  <div class="card reveal" style="margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 1rem;">Temporal Memory: GRU vs LSTM</h3>
+    <div class="comparison">
+      <div class="option chosen">
+        <div class="option-label">GRU <span class="option-badge badge-chosen">CHOSEN</span></div>
+        <p><strong>~25% fewer parameters</strong> than LSTM (2 gates vs 3). Comparable or superior performance
+           on sequential tasks. Lower overfitting risk with limited training data.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--accent-green);">
+          📄 Cho et al., EMNLP 2014 · Validated by KAIROS (IEEE S&P 2024)</p>
+      </div>
+      <div class="option rejected">
+        <div class="option-label">LSTM <span class="option-badge badge-alt">ALTERNATIVE</span></div>
+        <p><strong>3 gates + cell state</strong> = ~33% more parameters. Theoretically handles longer sequences,
+           but provenance temporal patterns (process lifecycles, file access) are well within GRU's capacity.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--accent-rose);">
+          ❌ No accuracy gain, higher parameter count, higher overfitting risk</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Choice 3: 64-dim vs 128-dim -->
+  <div class="card reveal" style="margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 1rem;">Embedding Dimension: 64 vs 128</h3>
+    <div class="comparison">
+      <div class="option chosen">
+        <div class="option-label">64-dim <span class="option-badge badge-chosen">CHOSEN</span></div>
+        <p><strong>177 MB</strong> for 690K node embeddings. Diminishing returns beyond 64 for provenance graphs.
+           Total model: 61K parameters.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--accent-green);">
+          📄 ORCHID (arXiv 2024) finds no accuracy improvement beyond 64-dim</p>
+      </div>
+      <div class="option rejected">
+        <div class="option-label">128-dim <span class="option-badge badge-alt">ALTERNATIVE</span></div>
+        <p><strong>354 MB</strong> for the same 690K nodes — 2× memory. Critical because persistent GRU states
+           must coexist with model weights during online adaptation.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--accent-rose);">
+          ❌ Double memory, negligible accuracy gain</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Choice 4: Edge vs Window -->
+  <div class="card reveal">
+    <h3 style="margin-bottom: 1rem;">Detection Granularity: Per-Edge vs Per-Window</h3>
+    <div class="comparison">
+      <div class="option chosen">
+        <div class="option-label">Per-Edge <span class="option-badge badge-chosen">CHOSEN</span></div>
+        <p><strong>&lt;1s target latency.</strong> Each event gets an individual score the moment it arrives.
+           No waiting for window boundaries. Critical for catching attacks during reconnaissance.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--accent-green);">
+          📄 ORCHID demonstrates feasibility: 0.002s/event</p>
+      </div>
+      <div class="option rejected">
+        <div class="option-label">15-min Windows <span class="option-badge badge-alt">KAIROS</span></div>
+        <p><strong>Up to 15 min detection latency.</strong> Anomalous edges at start of window can't trigger alerts
+           until window closes. Simpler implementation, but misses early attack stages entirely.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--accent-rose);">
+          ❌ Architectural latency, not computational — can't be optimized away</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Results ══════════════════════════════════════════ -->
+<section id="results">
+  <div class="reveal">
+    <span class="section-label">Phase 1 Results</span>
+    <h2 class="section-title">Does the architecture work?</h2>
+    <p class="section-subtitle">
+      We validated on 600 synthetic provenance graphs. The model was trained on 500 benign graphs — 
+      it never saw any attacks during training.
+    </p>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row reveal">
+    <div class="stat-card">
+      <div class="stat-value" data-animate data-target="61194" data-suffix="">0</div>
+      <div class="stat-label">Total Parameters</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" data-animate data-target="111.53" data-suffix="" data-decimals="2">0</div>
+      <div class="stat-label">Score Separation</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" data-animate data-target="10" data-suffix="×">0</div>
+      <div class="stat-label">Attack vs Benign</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" data-animate data-target="500" data-suffix="">0</div>
+      <div class="stat-label">Training Graphs</div>
+    </div>
+  </div>
+
+  <!-- Training Loss Chart -->
+  <div class="chart-container reveal">
+    <div class="chart-title">TRAINING LOSS OVER 10 EPOCHS</div>
+    <canvas id="lossChart" width="660" height="300"></canvas>
+    <div class="chart-legend">
+      <span><span class="swatch" style="background: var(--accent-purple);"></span> Total Loss (BCE + CE)</span>
+      <span><span class="swatch" style="background: var(--accent-teal);"></span> Random Guessing Baseline (ln(9) ≈ 2.20)</span>
+    </div>
+  </div>
+
+  <!-- Anomaly Separation Chart -->
+  <div class="chart-container reveal">
+    <div class="chart-title">ANOMALY SCORE DISTRIBUTION — BENIGN vs ATTACK</div>
+    <canvas id="separationChart" width="660" height="300"></canvas>
+    <div class="chart-legend">
+      <span><span class="swatch" style="background: rgba(96,165,250,0.7);"></span> Benign (n=500) μ=12.97</span>
+      <span><span class="swatch" style="background: rgba(251,113,133,0.7);"></span> Attack (n=100) μ=124.51</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Literature Map ═══════════════════════════════════ -->
+<section id="literature">
+  <div class="reveal">
+    <span class="section-label">Where We Fit</span>
+    <h2 class="section-title">Literature positioning</h2>
+    <p class="section-subtitle">
+      Two axes define the landscape: <strong>detection granularity</strong> (window vs edge-level)
+      and <strong>model adaptability</strong> (static vs online learning).
+    </p>
+  </div>
+
+  <div class="lit-grid reveal">
+    <!-- Top-left: Edge + Static -->
+    <div class="lit-quadrant" style="border-right: 1px solid var(--border-glass); border-bottom: 1px solid var(--border-glass);">
+      <div class="lit-quadrant-label">Edge-Level · Static</div>
+      <span class="lit-item" style="background: rgba(96,165,250,0.08); color: var(--accent-blue);">ORCHID</span>
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.5rem;">
+        0.002s/event, 2.7 GB memory. RNN on versioned graphs. Can't adapt to drift.
+      </p>
+    </div>
+    <!-- Top-right: Edge + Online ← OUR CELL -->
+    <div class="lit-quadrant" style="border-bottom: 1px solid var(--border-glass);">
+      <div class="lit-quadrant-label">Edge-Level · Online ← Our Target</div>
+      <span class="lit-item ours">⊛ Ophanim-EDR</span>
+      <span class="lit-item" style="background: rgba(251,191,36,0.08); color: var(--accent-amber);">CAPTAIN*</span>
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.5rem;">
+        *CAPTAIN uses rule-based adaptation, not neural. We're the first <em>neural</em> system here.
+      </p>
+    </div>
+    <!-- Bottom-left: Window + Static -->
+    <div class="lit-quadrant" style="border-right: 1px solid var(--border-glass);">
+      <div class="lit-quadrant-label">Window-Level · Static</div>
+      <span class="lit-item" style="background: rgba(251,113,133,0.08); color: var(--accent-rose);">KAIROS</span>
+      <span class="lit-item" style="background: rgba(74,222,128,0.08); color: var(--accent-green);">MAGIC</span>
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.5rem;">
+        KAIROS: 100% recall, IEEE S&P 2024. MAGIC: F1 99.71%, USENIX Security 2024.
+      </p>
+    </div>
+    <!-- Bottom-right: Window + Online -->
+    <div class="lit-quadrant">
+      <div class="lit-quadrant-label">Window-Level · Online</div>
+      <span class="lit-item" style="background: rgba(167,139,250,0.08); color: var(--accent-purple);">METANOIA</span>
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.5rem;">
+        +30–54% precision over KAIROS via continual learning. Still window-based.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Footer ═══════════════════════════════════════════ -->
+<footer class="footer">
+  <p>Ophanim-EDR Causality Engine — Phase 1 Architecture Guide</p>
+  <p style="margin-top: 0.3rem;">
+    Thesis: <em>Applying Causality Tracking and Incremental Alignment for Graph-Based Threat Hunting</em>
+    — Tran Thai Huy, 2026
+  </p>
+  <p style="margin-top: 0.5rem;">
+    <a href="https://arxiv.org/abs/2308.05034">KAIROS</a> ·
+    <a href="https://arxiv.org/abs/2408.13347">ORCHID</a> ·
+    <a href="https://arxiv.org/abs/2501.00438">METANOIA</a> ·
+    <a href="https://arxiv.org/abs/2404.14720">CAPTAIN</a> ·
+    <a href="https://arxiv.org/abs/2310.09831">MAGIC</a>
+  </p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
