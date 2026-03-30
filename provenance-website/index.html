@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Provenance Graphs: From Zero to Hero</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+  <ul>
+    <li><a href="#hero">Home</a></li>
+    <li><a href="#provenance">What is Provenance?</a></li>
+    <li><a href="#blocks">Building Blocks</a></li>
+    <li><a href="#causality">Causality</a></li>
+    <li><a href="#scenario">Full Scenario</a></li>
+    <li><a href="#analysis">Forward & Backward</a></li>
+    <li><a href="#why">Why Graphs?</a></li>
+    <li><a href="#summary">Summary</a></li>
+  </ul>
+</nav>
+
+<!-- Hero Section -->
+<section id="hero">
+  <h1>Provenance Graphs</h1>
+  <p><strong>From Zero to Hero:</strong> Understanding system causality and forensic tracing</p>
+  <p style="font-size: 1rem; color: #666; margin-top: 2rem;">
+    A provenance graph is a directed acyclic graph (DAG) that captures <strong>who caused what</strong>
+    in a computer system, preserving the complete causal history of events.
+  </p>
+</section>
+
+<!-- Section 1: What is Provenance? -->
+<section id="provenance">
+  <h2>1. What is Provenance?</h2>
+
+  <p>
+    <strong>Provenance</strong> means <em>origin</em> and <em>history of creation</em>. In the context of
+    operating systems and cybersecurity, provenance refers to the <strong>complete causal chain
+    of events</strong> that led to a particular state.
+  </p>
+
+  <h3>Why Provenance Matters</h3>
+  <p>
+    Consider a malware infection. A traditional security alert might say:
+    <code>Suspicious file write detected in C:\Windows\System32</code>
+  </p>
+  <p>
+    But this raises critical questions:
+  </p>
+  <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+    <li><strong>Who</strong> wrote to that location?</li>
+    <li><strong>Why</strong> did they do it?</li>
+    <li><strong>What</strong> were the earlier steps that led to this event?</li>
+    <li><strong>What</strong> came after? (impact assessment)</li>
+  </ul>
+
+  <p>
+    <strong>Provenance graphs answer all of these.</strong> By tracking every event (process creation,
+    file reads/writes, network connections) and linking them causally, you create a forensic record
+    that reveals the entire attack chain.
+  </p>
+
+  <h3>Key Insight: "Who Caused What, and When"</h3>
+  <p>
+    Every system event has <strong>prerequisites</strong> (what made it possible) and <strong>consequences</strong>
+    (what it enabled). Provenance preserves these cause-effect relationships.
+  </p>
+</section>
+
+<!-- Section 2: Building Blocks -->
+<section id="blocks">
+  <h2>2. The Building Blocks</h2>
+
+  <p>
+    A provenance graph has two core components: <strong>nodes</strong> (system entities) and <strong>edges</strong>
+    (causal relationships between them).
+  </p>
+
+  <h3>Nodes: What Can Be Entities?</h3>
+  <p>
+    In OS-level provenance, nodes represent system resources. The main types are:
+  </p>
+
+  <div class="node-selector">
+    <div class="node-type-box" onclick="selectNodeType(this, 'process')">
+      <div class="node-icon">◉</div>
+      <h4 style="color: #e07b39;">Process</h4>
+      <p>Running program instance</p>
+    </div>
+    <div class="node-type-box" onclick="selectNodeType(this, 'file')">
+      <div class="node-icon">▭</div>
+      <h4 style="color: #3a7fc1;">File</h4>
+      <p>Data at rest on disk</p>
+    </div>
+    <div class="node-type-box" onclick="selectNodeType(this, 'socket')">
+      <div class="node-icon">◇</div>
+      <h4 style="color: #2e9e5b;">Socket</h4>
+      <p>Network endpoint</p>
+    </div>
+    <div class="node-type-box" onclick="selectNodeType(this, 'registry')">
+      <div class="node-icon">⬡</div>
+      <h4 style="color: #7c4db8;">Registry</h4>
+      <p>System configuration</p>
+    </div>
+  </div>
+
+  <div class="description-panel" id="description-panel">
+    <h4>Process</h4>
+    <p>
+      A process is a running instance of a program. Each process has a unique ID (PID),
+      owns memory, file handles, and can perform actions like reading files or creating network connections.
+    </p>
+  </div>
+
+  <h3>Edges: How Are They Connected?</h3>
+  <p>
+    Edges represent <strong>causality</strong> between nodes. An edge always points from <em>cause</em>
+    to <em>effect</em>. Common edge types include:
+  </p>
+
+  <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+    <li><strong>WRITE:</strong> Process wrote to a file or registry</li>
+    <li><strong>READ:</strong> Process read from a file</li>
+    <li><strong>EXECUTE:</strong> Process executed a binary</li>
+    <li><strong>FORK:</strong> Process created a child process</li>
+    <li><strong>CONNECT:</strong> Process connected to a network socket</li>
+    <li><strong>SEND:</strong> Process sent data over a socket</li>
+  </ul>
+
+  <p>
+    Each edge is <strong>timestamped</strong>, meaning we know the exact moment the event occurred.
+    This ensures edges always point forward in time: the source node's timestamp is always earlier than
+    the destination node's timestamp.
+  </p>
+</section>
+
+<!-- Section 3: Causality -->
+<section id="causality">
+  <h2>3. Causality: The Heart of Provenance</h2>
+
+  <p>
+    <strong>Causality</strong> is the core concept. Event B is <em>caused by</em> Event A if:
+  </p>
+
+  <div class="interactive-section">
+    <strong>A happened first, AND</strong><br>
+    <strong>The output of A became the input to B.</strong>
+  </div>
+
+  <p>
+    Example: A process reads a file's contents. The <strong>act of reading</strong> is caused by
+    <strong>the file's existence and the process's decision to open it</strong>.
+  </p>
+
+  <h3>Why Directed Edges?</h3>
+  <p>
+    By directing edges from cause to effect, we create a <strong>dependency chain</strong>.
+    If you follow an edge backward, you're asking "what made this possible?" If you follow
+    forward, you're asking "what did this enable?"
+  </p>
+
+  <p>
+    This structure is called a <strong>Directed Acyclic Graph (DAG)</strong> because:
+  </p>
+  <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+    <li><strong>Directed:</strong> Edges have direction (cause → effect)</li>
+    <li><strong>Acyclic:</strong> No cycles (can't go back in time)</li>
+    <li><strong>Graph:</strong> Nodes and edges structure</li>
+  </ul>
+
+  <h3>Temporal Ordering</h3>
+  <p>
+    The timestamp on each event ensures correct temporal ordering. You cannot have an edge
+    from a later event to an earlier one — causality always flows forward in time.
+  </p>
+</section>
+
+<!-- Section 4: Full Scenario -->
+<section id="scenario">
+  <h2>4. A Real Scenario: Step-by-Step</h2>
+
+  <p>
+    Let's build a provenance graph for a realistic malware scenario. Click <strong>Next Step</strong>
+    to see each event added to the graph as it happens.
+  </p>
+
+  <div class="step-counter">
+    <span id="step-display">Step 0 of 5</span>
+  </div>
+
+  <svg id="scenario-graph" width="100%" height="400" style="border: 1px solid #ddd;"></svg>
+
+  <div class="button-group">
+    <button onclick="nextScenarioStep()">Next Step</button>
+    <button onclick="resetScenario()" class="secondary">Replay</button>
+  </div>
+
+  <h3>What Happened?</h3>
+  <p id="scenario-explanation">
+    Click <strong>Next Step</strong> to begin. Each step will add a node and an edge to the graph,
+    building the complete attack chain.
+  </p>
+
+  <div style="margin-top: 2rem; padding: 1rem; background-color: #f0f0f0; border-radius: 4px;">
+    <h4>Scenario Breakdown</h4>
+    <ol style="margin-left: 2rem;">
+      <li><code>word.exe</code> opens <code>invoice.docx</code> (READ)</li>
+      <li><code>word.exe</code> spawns <code>cmd.exe</code> (FORK)</li>
+      <li><code>cmd.exe</code> reads configuration file <code>config.ini</code> (READ)</li>
+      <li><code>cmd.exe</code> connects to <code>192.168.1.100:443</code> (CONNECT)</li>
+      <li><code>cmd.exe</code> writes to registry <code>HKLM\Run</code> for persistence (WRITE)</li>
+    </ol>
+  </div>
+</section>
+
+<!-- Section 5: Forward & Backward Analysis -->
+<section id="analysis">
+  <h2>5. Forward & Backward Analysis</h2>
+
+  <p>
+    Provenance graphs enable two powerful forensic techniques:
+  </p>
+
+  <h3>Backward Tracing (Root Cause Analysis)</h3>
+  <p>
+    <strong>Question:</strong> "How did we get here?"<br>
+    <strong>Method:</strong> Follow edges backward from a suspicious node.
+  </p>
+  <p>
+    Example: You find suspicious registry modifications. By tracing backward, you discover:
+  </p>
+  <pre>Registry change ← cmd.exe ← word.exe ← invoice.docx</pre>
+  <p>
+    Now you know the infection came through a malicious Office document!
+  </p>
+
+  <h3>Forward Tracing (Impact Assessment)</h3>
+  <p>
+    <strong>Question:</strong> "What did this compromise?"<br>
+    <strong>Method:</strong> Follow edges forward from a compromised node.
+  </p>
+  <p>
+    Example: You realize <code>cmd.exe</code> was compromised. By tracing forward, you see:
+  </p>
+  <pre>cmd.exe → Network socket → exfiltration
+cmd.exe → Registry key → persistence
+cmd.exe → Other files → lateral movement</pre>
+  <p>
+    Now you understand the full scope of the attack!
+  </p>
+
+  <h3>Interactive Demo</h3>
+  <p>
+    The graph below shows the malware scenario from Section 4. <strong>Click any node to highlight
+    its ancestors</strong> (backward tracing). Click again to toggle.
+  </p>
+
+  <svg id="analysis-graph" width="100%" height="450" style="border: 1px solid #ddd;"></svg>
+
+  <p style="font-size: 14px; color: #666; margin-top: 1rem;">
+    <em>Highlighted nodes show all upstream causes (ancestors) of the clicked node.</em>
+  </p>
+</section>
+
+<!-- Section 6: Why Graphs? -->
+<section id="why">
+  <h2>6. Why Graphs? The Power of Structure</h2>
+
+  <p>
+    You might ask: "Why not just use a log file?" Let's compare:
+  </p>
+
+  <table class="comparison-table">
+    <thead>
+      <tr>
+        <th>Aspect</th>
+        <th>Flat Log</th>
+        <th>Provenance Graph</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Question:</strong> "What happened?"</td>
+        <td>Lists all events sequentially</td>
+        <td>Shows cause-effect relationships</td>
+      </tr>
+      <tr>
+        <td><strong>Example output:</strong></td>
+        <td>
+          <code>cmd.exe wrote to registry</code><br>
+          <code>word.exe opened file</code><br>
+          <code>cmd.exe connected to socket</code>
+        </td>
+        <td>
+          Shows that <code>word.exe → cmd.exe → registry</code> in one visual chain
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Backward tracing:</strong></td>
+        <td>Must manually search logs, context-switching</td>
+        <td>Follow edges backward efficiently</td>
+      </tr>
+      <tr>
+        <td><strong>Multi-hop relationships:</strong></td>
+        <td>Hard to see (5+ hops requires reading many logs)</td>
+        <td>Immediately visible in the graph structure</td>
+      </tr>
+      <tr>
+        <td><strong>Visual understanding:</strong></td>
+        <td>Sequential only; hard to see global patterns</td>
+        <td>Graph visualization reveals attack structure</td>
+      </tr>
+      <tr>
+        <td><strong>Computational efficiency:</strong></td>
+        <td>Linear search through all logs</td>
+        <td>Fast graph queries (find all ancestors, descendants, paths)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Key Properties of Graphs</h3>
+  <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+    <li><strong>Transitivity:</strong> If A caused B and B caused C, then A transitively caused C</li>
+    <li><strong>Temporal Ordering:</strong> Edges respect the arrow of time</li>
+    <li><strong>Multi-hop Detection:</strong> Find long attack chains in seconds</li>
+    <li><strong>Actionable Structure:</strong> Graph algorithms enable threat hunting at scale</li>
+  </ul>
+</section>
+
+<!-- Section 7: Summary & Glossary -->
+<section id="summary">
+  <h2>7. Summary: Key Terms & Concepts</h2>
+
+  <p>
+    Congratulations! You now understand the fundamentals of provenance graphs. Here's a quick reference:
+  </p>
+
+  <div class="glossary-grid">
+    <div class="glossary-card">
+      <h4>Provenance</h4>
+      <p>Complete causal history of how a system reached its current state.</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>Subject</h4>
+      <p>The entity performing an action (usually a process).</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>Object</h4>
+      <p>The entity being acted upon (file, socket, registry, etc.).</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>Event</h4>
+      <p>A single action at a specific timestamp (e.g., "process wrote to file").</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>Node</h4>
+      <p>A system entity in the graph (process, file, socket, registry).</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>Edge</h4>
+      <p>A directed link representing causality between two nodes.</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>Dependency Chain</h4>
+      <p>A sequence of edges showing how one event led to the next.</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>Forward Analysis</h4>
+      <p>Tracing forward from a compromised node to assess impact.</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>Backward Analysis</h4>
+      <p>Tracing backward from a suspicious event to find the root cause.</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>Temporal Ordering</h4>
+      <p>Property that edges respect the flow of time (no cycles).</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>DAG</h4>
+      <p>Directed Acyclic Graph — the mathematical structure of provenance.</p>
+    </div>
+
+    <div class="glossary-card">
+      <h4>Threat Hunting</h4>
+      <p>Using provenance graphs to proactively discover and investigate attacks.</p>
+    </div>
+  </div>
+
+  <h3>Next Steps</h3>
+  <p>
+    Now that you understand provenance graphs at a conceptual level, you're ready to explore:
+  </p>
+  <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+    <li>How to <strong>extract</strong> provenance from OS logs</li>
+    <li>How to <strong>build</strong> provenance graphs at scale</li>
+    <li>How to apply <strong>machine learning</strong> on provenance graphs for anomaly detection</li>
+    <li>How to use graphs for <strong>automated threat hunting</strong></li>
+  </ul>
+
+  <p style="margin-top: 2rem; padding: 1rem; background-color: #f0f0f0; border-radius: 4px;">
+    <strong>Congratulations!</strong> You've completed the "From Zero to Hero" introduction to provenance graphs.
+    These concepts form the foundation for advanced topics like causality tracking, graph neural networks,
+    and behavioral anomaly detection in modern EDR systems.
+  </p>
+</section>
+
+<!-- Scripts -->
+<script src="graph.js"></script>
+<script>
+  // Initialize renderers
+  const scenarioRenderer = new SVGRenderer('scenario-graph');
+  const analysisRenderer = new SVGRenderer('analysis-graph');
+
+  // Build scenario
+  const scenario = new ScenarioBuilder(scenarioRenderer);
+
+  // Step 1: word.exe opens invoice.docx
+  scenario.addStep('addNode', {
+    id: 'word',
+    label: 'word.exe',
+    type: 'process',
+    x: 150,
+    y: 200
+  });
+  scenario.addStep('addNode', {
+    id: 'doc',
+    label: 'invoice.docx',
+    type: 'file',
+    x: 350,
+    y: 200
+  });
+  scenario.addStep('addEdge', {
+    src: 'word',
+    dst: 'doc',
+    type: 'READ',
+    label: 'READ'
+  });
+
+  // Step 2: word.exe spawns cmd.exe
+  scenario.addStep('addNode', {
+    id: 'cmd',
+    label: 'cmd.exe',
+    type: 'process',
+    x: 150,
+    y: 320
+  });
+  scenario.addStep('addEdge', {
+    src: 'word',
+    dst: 'cmd',
+    type: 'FORK',
+    label: 'FORK'
+  });
+
+  // Step 3: cmd.exe reads config.ini
+  scenario.addStep('addNode', {
+    id: 'config',
+    label: 'config.ini',
+    type: 'file',
+    x: 350,
+    y: 320
+  });
+  scenario.addStep('addEdge', {
+    src: 'cmd',
+    dst: 'config',
+    type: 'READ',
+    label: 'READ'
+  });
+
+  // Step 4: cmd.exe connects to socket
+  scenario.addStep('addNode', {
+    id: 'socket',
+    label: '192.168.1.100',
+    type: 'socket',
+    x: 550,
+    y: 320
+  });
+  scenario.addStep('addEdge', {
+    src: 'cmd',
+    dst: 'socket',
+    type: 'CONNECT',
+    label: 'CONNECT'
+  });
+
+  // Step 5: cmd.exe writes to registry
+  scenario.addStep('addNode', {
+    id: 'registry',
+    label: 'HKLM\\Run',
+    type: 'registry',
+    x: 550,
+    y: 200
+  });
+  scenario.addStep('addEdge', {
+    src: 'cmd',
+    dst: 'registry',
+    type: 'WRITE',
+    label: 'WRITE'
+  });
+
+  // Explanations for each step
+  const explanations = [
+    'Click <strong>Next Step</strong> to begin. Each step will add a node and an edge to the graph.',
+    'Step 1: <code>word.exe</code> opens a document. This is the entry point for the attack.',
+    'Step 2: <code>word.exe</code> spawns a command shell (<code>cmd.exe</code>) via a FORK event.',
+    'Step 3: <code>cmd.exe</code> reads a configuration file to understand the target system.',
+    'Step 4: <code>cmd.exe</code> connects to a remote server at 192.168.1.100:443 for command & control.',
+    'Step 5: <code>cmd.exe</code> writes to the Windows registry to ensure persistence across reboots.'
+  ];
+
+  function nextScenarioStep() {
+    if (scenario.nextStep()) {
+      const stepNum = scenario.currentStep;
+      document.getElementById('step-display').textContent = `Step ${stepNum} of 5`;
+      document.getElementById('scenario-explanation').innerHTML = explanations[stepNum];
+
+      if (scenario.isComplete()) {
+        document.getElementById('scenario-explanation').innerHTML +=
+          '<br><br><strong>Attack chain complete!</strong> Click <strong>Replay</strong> to start over.';
+      }
+    }
+  }
+
+  function resetScenario() {
+    scenario.reset();
+    document.getElementById('step-display').textContent = 'Step 0 of 5';
+    document.getElementById('scenario-explanation').innerHTML = explanations[0];
+  }
+
+  // Rebuild analysis graph with same structure (for interaction demo)
+  function buildAnalysisGraph() {
+    analysisRenderer.addNode('word', 'word.exe', 'process', 150, 200);
+    analysisRenderer.addNode('doc', 'invoice.docx', 'file', 350, 200);
+    analysisRenderer.addEdge('word', 'doc', 'READ', 'READ');
+
+    analysisRenderer.addNode('cmd', 'cmd.exe', 'process', 150, 320);
+    analysisRenderer.addEdge('word', 'cmd', 'FORK', 'FORK');
+
+    analysisRenderer.addNode('config', 'config.ini', 'file', 350, 320);
+    analysisRenderer.addEdge('cmd', 'config', 'READ', 'READ');
+
+    analysisRenderer.addNode('socket', '192.168.1.100', 'socket', 550, 320);
+    analysisRenderer.addEdge('cmd', 'socket', 'CONNECT', 'CONNECT');
+
+    analysisRenderer.addNode('registry', 'HKLM\\Run', 'registry', 550, 200);
+    analysisRenderer.addEdge('cmd', 'registry', 'WRITE', 'WRITE');
+  }
+
+  // Initialize analysis graph
+  buildAnalysisGraph();
+
+  // Node type selector
+  function selectNodeType(element, type) {
+    // Remove active class from all
+    document.querySelectorAll('.node-type-box').forEach(el => {
+      el.classList.remove('active');
+    });
+
+    // Add active class to clicked
+    element.classList.add('active');
+
+    // Update description panel
+    const descriptions = {
+      process: {
+        title: 'Process',
+        text: 'A process is a running instance of a program. Each process has a unique ID (PID), owns memory and file handles, and can perform actions like reading files, writing data, spawning child processes, or creating network connections.'
+      },
+      file: {
+        title: 'File',
+        text: 'A file is data stored on disk. Files can be read by processes, written to by processes, or executed. The provenance of a file tracks all processes that touched it and in what order.'
+      },
+      socket: {
+        title: 'Socket (Network Endpoint)',
+        text: 'A socket represents a network endpoint — an address and port that a process can connect to or listen on. Sockets are critical for tracking network-based attacks and command-and-control communications.'
+      },
+      registry: {
+        title: 'Registry (Configuration Store)',
+        text: 'On Windows systems, the registry is a hierarchical database of system and application settings. Malware often writes to the registry for persistence, hiding itself from detection, or stealing credentials.'
+      }
+    };
+
+    const desc = descriptions[type];
+    const panel = document.getElementById('description-panel');
+    panel.innerHTML = `<h4>${desc.title}</h4><p>${desc.text}</p>`;
+    panel.classList.add('active');
+  }
+
+  // Auto-select first node type on page load
+  window.addEventListener('load', () => {
+    const firstBox = document.querySelector('.node-type-box');
+    if (firstBox) {
+      selectNodeType(firstBox, 'process');
+    }
+  });
+</script>
+
+</body>
+</html>
