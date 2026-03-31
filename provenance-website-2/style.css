@@ -499,6 +499,450 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
+/* ---- Architecture Diagram (Card-based) ---- */
+.arch-diagram {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: #f8f9fb;
+  border: 1px solid #e0e3e8;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.arch-zone-labels {
+  display: grid;
+  grid-template-columns: 1fr 30px 1fr 30px 1fr 30px 1fr;
+  text-align: center;
+  margin-bottom: 0.8rem;
+}
+
+.arch-zone-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.arch-zone-labels .arch-zone-label:nth-child(1) { grid-column: 1; }
+.arch-zone-labels .arch-zone-label:nth-child(2) { grid-column: 3; }
+.arch-zone-labels .arch-zone-label:nth-child(3) { grid-column: 5; }
+.arch-zone-labels .arch-zone-label:nth-child(4) { grid-column: 7; }
+
+.arch-grid {
+  display: grid;
+  grid-template-columns: 1fr 30px 1fr 30px 1fr 30px 1fr;
+  gap: 0;
+  align-items: start;
+}
+
+.arch-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* ── Arrows between columns ── */
+.arch-arrow-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding-top: 4rem;
+}
+
+.arch-arrow-right {
+  font-size: 1.6rem;
+  color: #bbb;
+  font-weight: 300;
+}
+
+/* ── Pipes (down arrows within columns) ── */
+.arch-pipe {
+  text-align: center;
+  color: #bbb;
+  font-size: 1.2rem;
+  line-height: 1;
+  margin: -0.1rem 0;
+}
+
+/* ── ENDPOINTS ── */
+.arch-endpoint-card {
+  background: #fff;
+  border: 2px solid #d0d5dd;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.arch-endpoint-card:hover {
+  border-color: #e07b39;
+  box-shadow: 0 2px 8px rgba(224, 123, 57, 0.15);
+}
+
+.arch-endpoint-header {
+  background: #dce5f0;
+  padding: 0.35rem 0.6rem;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4a5568;
+  letter-spacing: 0.04em;
+}
+
+.arch-endpoint-body {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.arch-os-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arch-agent-box {
+  background: #f0f4f8;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2d3748;
+  flex-grow: 1;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.arch-agent-box small {
+  font-weight: 400;
+  color: #718096;
+  font-size: 10px;
+}
+
+.arch-flow-label {
+  font-size: 11px;
+  color: #aaa;
+  text-align: center;
+  font-style: italic;
+  margin-top: 0.3rem;
+}
+
+/* ── SERVER ── */
+.arch-server-container {
+  background: #fff;
+  border: 2px solid #d0d5dd;
+  border-radius: 8px;
+  padding: 0.6rem;
+  overflow: hidden;
+}
+
+.arch-server-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4a5568;
+  text-align: center;
+  letter-spacing: 0.04em;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 0.5rem;
+}
+
+.arch-server-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  background: #f7fafc;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  font-size: 12px;
+}
+
+.arch-server-card:hover {
+  border-color: #3a7fc1;
+  background: #ebf4ff;
+}
+
+.arch-server-card--muted {
+  opacity: 0.8;
+  border-style: dashed;
+}
+
+.arch-card-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.arch-server-card strong { font-size: 12px; }
+.arch-server-card small { color: #888; font-size: 10px; }
+
+/* ── ML / AI ── */
+.arch-ml-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.6rem;
+  background: #fff;
+  border: 2px solid #2e9e5b;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  text-align: center;
+}
+
+.arch-ml-card:hover {
+  box-shadow: 0 2px 8px rgba(46, 158, 91, 0.2);
+}
+
+.arch-ml-card--llm {
+  border-color: #7c4db8;
+}
+
+.arch-ml-card--llm:hover {
+  box-shadow: 0 2px 8px rgba(124, 77, 184, 0.2);
+}
+
+.arch-ml-badge {
+  background: #e07b39;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+
+.arch-ml-card strong { font-size: 12px; color: #222; }
+.arch-ml-card small { font-size: 10px; color: #888; }
+
+/* ── OUTPUT ── */
+.arch-output-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.6rem;
+  background: #fff;
+  border: 2px solid #d0d5dd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  text-align: center;
+}
+
+.arch-output-card:hover {
+  border-color: #c4383a;
+  box-shadow: 0 2px 8px rgba(196, 56, 58, 0.15);
+}
+
+.arch-output-card--action {
+  border-color: #e07b39;
+}
+
+.arch-output-icon {
+  font-size: 1.4rem;
+}
+
+.arch-output-card strong { font-size: 12px; color: #222; }
+.arch-output-card small { font-size: 10px; color: #888; }
+
+/* ── Feedback Loop ── */
+.arch-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.5rem;
+  border-top: 1px dashed #ddd;
+}
+
+.arch-feedback-arrow {
+  color: #ccc;
+  font-size: 14px;
+  letter-spacing: 2px;
+}
+
+.arch-feedback-label {
+  font-size: 11px;
+  color: #aaa;
+  font-style: italic;
+}
+
+/* ── Data Format Labels ── */
+.arch-data-labels {
+  display: grid;
+  grid-template-columns: 1fr 30px 1fr 30px 1fr 30px 1fr;
+  text-align: center;
+  margin-top: 0.8rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #eee;
+}
+
+.arch-data-labels span {
+  font-size: 10px;
+  color: #bbb;
+  font-weight: 600;
+}
+
+.arch-data-labels span:nth-child(1) { grid-column: 1; }
+.arch-data-labels span:nth-child(2) { grid-column: 3; }
+.arch-data-labels span:nth-child(3) { grid-column: 5; }
+.arch-data-labels span:nth-child(4) { grid-column: 7; }
+
+/* ---- Data Flow Pipeline Diagram ---- */
+.dataflow-diagram {
+  margin: 2rem 0;
+  padding: 1.2rem;
+  background: #f8f9fb;
+  border: 1px solid #e0e3e8;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.dataflow-title {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 0.8rem;
+}
+
+.dataflow-pipeline {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  min-width: 700px;
+}
+
+.dataflow-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.dataflow-stage-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+  margin-bottom: 0.3rem;
+}
+
+.dataflow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  color: #ccc;
+  padding: 0 0.1rem;
+  padding-top: 2rem;
+  flex-shrink: 0;
+}
+
+.dataflow-pipe {
+  text-align: center;
+  color: #bbb;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.dataflow-card {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  background: #fff;
+  border: 1.5px solid #d0d5dd;
+  border-radius: 6px;
+  width: 100%;
+  min-height: 42px;
+}
+
+.dataflow-card strong { font-size: 11px; display: block; color: #222; }
+.dataflow-card small { font-size: 9px; color: #888; display: block; }
+
+.dataflow-card-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 22px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dataflow-card-badge {
+  background: #e07b39;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.dataflow-card--endpoint { border-color: #e07b39; }
+.dataflow-card--server   { border-color: #3a7fc1; }
+.dataflow-card--ml       { border-color: #2e9e5b; }
+.dataflow-card--llm      { border-color: #7c4db8; }
+.dataflow-card--output   { border-color: #3a7fc1; }
+.dataflow-card--action   { border-color: #e07b39; }
+
+.dataflow-card--llm-out {
+  border-color: #7c4db8;
+  flex-direction: column;
+  padding: 0.4rem;
+}
+
+.dataflow-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 10px;
+  color: #555;
+  width: 100%;
+}
+
+.dataflow-checklist span {
+  padding: 1px 0;
+}
+
+.dataflow-output-label {
+  font-size: 9px;
+  color: #bbb;
+  text-align: center;
+  font-style: italic;
+}
+
+.dataflow-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #ddd;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
   h1 { font-size: 2rem; }
@@ -510,4 +954,18 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   nav a { font-size: 12px; }
   .node-selector { grid-template-columns: repeat(2, 1fr); }
   svg.graph { height: 350px; }
+  .arch-grid {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+  .arch-zone-labels,
+  .arch-data-labels {
+    grid-template-columns: 1fr;
+  }
+  .arch-arrow-col {
+    padding: 0;
+  }
+  .arch-arrow-right {
+    transform: rotate(90deg);
+  }
 }
