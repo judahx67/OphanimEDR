@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Provenance Graphs: From Zero to Hero</title>
+  <meta name="description" content="A complete educational guide to provenance graphs for Endpoint Detection & Response (EDR). Learn system causality, forensic tracing, graph-based threat detection, and how GNN models detect intrusions on audit-log-derived graphs.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -53,10 +54,11 @@
 
   <div class="study-guide-banner">
     <strong>Study Guide:</strong>
-    Part I (Day 1-2) Foundations &middot;
-    Part II (Day 3-4) Modeling &middot;
-    Part III (Day 5-6) Challenges &middot;
-    Part IV (Day 7) Review
+    Part I (Day 1&ndash;2) Foundations <em>~30 min</em> &middot;
+    Part II (Day 3&ndash;4) Modeling <em>~40 min</em> &middot;
+    Part III (Day 5&ndash;6) Challenges <em>~25 min</em> &middot;
+    Part IV (Day 7) Review <em>~20 min</em> &middot;
+    Part V (Bonus) Architecture <em>~30 min</em>
   </div>
 </section>
 
@@ -181,7 +183,7 @@
     <tr>
       <td><strong>Provenance Graph</strong></td>
       <td>Causal relationships between <em>system entities</em> over time</td>
-      <td>Directed acyclic graph with timestamps</td>
+      <td>Directed graph with timestamps (acyclic at the event level)</td>
     </tr>
   </table>
 
@@ -230,7 +232,7 @@
     <div class="node-type-box" onclick="selectNodeType(this,'memory')">
       <div class="node-icon" style="color:#c4383a;">&#9684;</div>
       <h4 style="color:#c4383a;">Memory</h4>
-      <p>Mapped regions</p>
+      <p>Mapped regions (CDM: MemoryObject)</p>
     </div>
   </div>
 
@@ -340,7 +342,8 @@
 
   <h3>Edge Types in Detail</h3>
   <p>
-    The CDM defines 9 edge types. Understanding each one is critical because the edge type determines
+    The CDM defines over 20 event types in total, but 9 are most relevant to security analysis.
+    Understanding each one is critical because the edge type determines
     the <strong>direction of information flow</strong>, which is <em>not always the same</em> as
     the direction of causality:
   </p>
@@ -423,7 +426,7 @@
       <li><strong>Flow-directed:</strong> Edge points in the direction that <em>data flows</em>.
       READ: file &rarr; process.</li>
     </ul>
-    <p>Most modern provenance systems (DARPA TC, KAIROS, ORCHID) use <strong>flow-directed</strong>
+    <p>Most modern provenance systems (DARPA TC, KAIROS, SPADE, CamFlow) use <strong>flow-directed</strong>
     edges, because information flow is what matters for tracking how data (and compromise) propagates.</p>
   </div>
 
@@ -524,17 +527,20 @@
     Causality is <strong>transitive</strong>: if A caused B and B caused C, then A <em>transitively</em>
     caused C. This is what makes provenance graphs so powerful &mdash; you can trace multi-hop chains.
   </p>
-  <pre>email.exe ──READ──▶ attachment.zip ──EXECUTE──▶ dropper.exe ──FORK──▶ payload.exe ──WRITE──▶ secret.doc</pre>
+  <pre>email.exe ──READ──▶ attachment.zip ──WRITE──▶ dropper.exe ──EXECUTE──▶ payload.exe ──READ──▶ secret.doc ──SEND──▶ exfil:443</pre>
   <p>
     The exfiltration of <code>secret.doc</code> is transitively caused by opening the email attachment,
-    even though four hops separate them.
+    even though five hops separate them. (Note: the attachment is <em>extracted</em> to dropper.exe
+    via a WRITE, then the dropper is executed.)
   </p>
 
-  <h3>The DAG Property</h3>
+  <h3>The DAG Property (at the Event Level)</h3>
   <p>
     Because causality requires temporal precedence (the cause must happen <em>before</em> the effect),
-    provenance graphs are <strong>Directed Acyclic Graphs (DAGs)</strong>. There cannot be a cycle
-    because that would require an event to cause itself, which violates the arrow of time.
+    provenance graphs are <strong>acyclic at the event level</strong> &mdash; each individual event
+    edge is unique in time and cannot form a cycle. However, at the <em>entity</em> level, the same
+    pair of nodes (e.g., a process and a file) can be connected by multiple edges in both directions
+    over time, which may appear cyclic when timestamps are ignored.
   </p>
   <p>Formally:</p>
   <ul>
@@ -579,8 +585,9 @@
 
   <h3>Happens-Before: The Formal Foundation</h3>
   <p>
-    Leslie Lamport's <em>happens-before</em> relation (1978) provides the mathematical foundation.
-    In provenance:
+    Leslie Lamport's <em>happens-before</em> relation (1978), originally developed for distributed
+    systems and logical clocks, provides a useful conceptual foundation. While provenance systems
+    typically rely on physical timestamps rather than logical clocks, the same principles apply:
   </p>
   <ul>
     <li>If event <em>a</em> and event <em>b</em> are in the same process, and <em>a</em> comes
@@ -682,7 +689,7 @@
   <p>CDM defines:</p>
   <ul>
     <li><strong>5 entity types:</strong> Subject (process), FileObject, NetFlowObject, SrcSinkObject (registry, IPC), MemoryObject</li>
-    <li><strong>13 event types:</strong> READ, WRITE, EXECUTE, FORK, CLONE, CONNECT, ACCEPT, SEND, RECEIVE, MMAP, RENAME, LINK, UNLINK</li>
+    <li><strong>13 core event types</strong> (most relevant to security): READ, WRITE, EXECUTE, FORK, CLONE, CONNECT, ACCEPT, SEND, RECEIVE, MMAP, RENAME, LINK, UNLINK. (The full CDM schema defines additional event types such as OPEN, CLOSE, SIGNAL, MODIFY_FILE_ATTRIBUTES, etc.)</li>
     <li><strong>Standard attributes:</strong> UUIDs for entities, timestamps, sequence numbers, properties maps</li>
   </ul>
 
@@ -1122,9 +1129,9 @@
     <li><strong>Out-degree</strong> (outgoing edges): How many entities this node sent data to.</li>
   </ul>
   <p>
-    Provenance graphs typically follow a <strong>power-law distribution</strong>: most nodes have
-    very few edges, but a small number of "hub" nodes have extremely many. These hubs are usually
-    long-running system processes (init, systemd, svchost.exe).
+    Provenance graphs typically follow a <strong>power-law distribution</strong> (as observed by
+    Han et al. in UNICORN, 2020): most nodes have very few edges, but a small number of "hub" nodes
+    have extremely many. These hubs are usually long-running system processes (init, systemd, svchost.exe).
   </p>
 
   <h3>Fan-In and Fan-Out</h3>
@@ -1164,8 +1171,8 @@
     every other node if you ignore edge direction. In provenance graphs:
   </p>
   <ul>
-    <li>There is usually one <strong>giant component</strong> containing 80-95% of all nodes (because
-    most processes share libraries, config files, etc.).</li>
+    <li>There is usually one <strong>giant component</strong> containing the vast majority of nodes
+    (because most processes share libraries, config files, etc.).</li>
     <li>A few small isolated components represent truly independent activities.</li>
   </ul>
   <p>
@@ -1176,9 +1183,9 @@
   <h3>Temporal Diameter</h3>
   <p>
     The <strong>diameter</strong> of the graph is the longest shortest path between any two nodes.
-    In provenance graphs, this reflects the maximum number of causal hops in the system. Typical
-    values range from 10 to 50, meaning the most complex causal chains involve 10-50 intermediate
-    entities.
+    In provenance graphs, this reflects the maximum number of causal hops in the system. In
+    datasets like DARPA TC, the most complex causal chains can involve dozens of intermediate
+    entities, though the exact diameter depends on system workload and observation period.
   </p>
 
   <div class="callout takeaway">
@@ -1306,9 +1313,11 @@
 
   <h3>Challenge 1: Storage &amp; Scalability</h3>
   <p>
-    A single enterprise host generates <strong>1-5 GB</strong> of audit data per day. An organization
-    with 10,000 endpoints produces 10-50 TB/day. Storing, indexing, and querying provenance graphs
-    at this scale requires specialized graph databases and compression techniques.
+    A single enterprise host typically generates <strong>1&ndash;5 GB</strong> of audit data per day,
+    though heavily loaded servers can produce <strong>10+ GB/day</strong> (Pasquier et al., 2023). An
+    organization with 10,000 endpoints produces tens of terabytes daily. Storing, indexing, and
+    querying provenance graphs at this scale requires specialized graph databases and compression
+    techniques.
   </p>
   <p>Research directions: lossy compression, tiered storage (hot/warm/cold), stream processing that
   discards provenance for events classified as benign.</p>
@@ -1361,11 +1370,20 @@
     attacks is an active research area.
   </p>
 
+  <h3>Challenge 7: Ground Truth Scarcity</h3>
+  <p>
+    Most provenance-based detection systems are evaluated on a small number of datasets (primarily
+    DARPA TC Engagements 3 and 5). There is a critical lack of <strong>diverse, labeled provenance
+    datasets</strong> for training and evaluation. As Goyal et al. (2025) demonstrate, evaluation on
+    limited datasets can overstate the effectiveness of complex models when simpler baselines
+    perform comparably.
+  </p>
+
   <div class="callout takeaway">
     <div class="callout-label">Key Takeaway</div>
     <p>Provenance graph research is an active field with major open problems in storage, real-time
-    processing, evasion resistance, and false positive reduction. These challenges are why this
-    remains an area of active research rather than a solved problem.</p>
+    processing, evasion resistance, false positive reduction, and evaluation methodology. These
+    challenges are why this remains an area of active research rather than a solved problem.</p>
   </div>
 </section>
 
@@ -1380,7 +1398,7 @@
   <ul>
     <li><strong>Part I:</strong> Provenance is the causal history of system events. Nodes are typed
     entities (process, file, socket, registry, memory). Edges are timestamped events with information
-    flow direction. Causality is transitive and forms a DAG.</li>
+    flow direction. Causality is transitive and the graph is acyclic at the event level.</li>
     <li><strong>Part II:</strong> Raw audit events become (subject, event, object) triples assembled
     into a graph. Backward/forward tracing enables root cause and impact analysis. Attack campaigns
     map to graph patterns aligned with ATT&amp;CK stages.</li>
@@ -1479,8 +1497,8 @@
       <p>A timestamped, typed, directed link from subject to object (or vice versa, depending on information flow).</p>
     </div>
     <div class="glossary-card">
-      <h4>DAG</h4>
-      <p>Directed Acyclic Graph. The mathematical structure of provenance: directed edges, no cycles.</p>
+      <h4>DAG (Event-Level)</h4>
+      <p>Directed Acyclic Graph. Each event edge is unique in time, preventing cycles at the event level. Entity-level cycles may appear when timestamps are ignored.</p>
     </div>
     <div class="glossary-card">
       <h4>Information Flow</h4>
@@ -1500,7 +1518,7 @@
     </div>
     <div class="glossary-card">
       <h4>CDM</h4>
-      <p>Common Data Model &mdash; DARPA TC's standardized schema for provenance data (5 entity types, 13 event types).</p>
+      <p>CDM defines 13 core event types relevant to security analysis; the full schema includes additional types.</p>
     </div>
     <div class="glossary-card">
       <h4>Fan-In / Fan-Out</h4>
@@ -1534,8 +1552,9 @@
     <li><strong>King &amp; Chen (2003)</strong> &mdash; "Backtracking Intrusions" &mdash; foundational work on backward tracing for intrusion analysis.</li>
     <li><strong>Pohly et al. (2012)</strong> &mdash; "Hi-Fi: Collecting High-Fidelity Whole-System Provenance" &mdash; kernel-level provenance capture.</li>
     <li><strong>Pasquier et al. (2017)</strong> &mdash; "Practical Whole-System Provenance Capture" &mdash; CamFlow, a Linux provenance framework.</li>
-    <li><strong>Cheng et al. (2023)</strong> &mdash; "KAIROS: Practical Intrusion Detection and Investigation using Whole-system Provenance" &mdash; GNN-based anomaly detection on provenance graphs.</li>
+    <li><strong>Cheng et al. (2024)</strong> &mdash; "KAIROS: Practical Intrusion Detection and Investigation using Whole-system Provenance" (IEEE S&amp;P 2024) &mdash; GNN-based anomaly detection on provenance graphs.</li>
     <li><strong>Yang et al. (2023)</strong> &mdash; "PROGRAPHER: An Anomaly Detection System based on Provenance Graph Embedding" &mdash; graph embedding for threat detection.</li>
+    <li><strong>Goyal et al. (2025)</strong> &mdash; "Sometimes Simpler is Better: A Comprehensive Analysis of State-of-the-Art Provenance-Based Intrusion Detection Systems" (USENIX Security 2025) &mdash; critical evaluation showing simpler baselines can match complex PIDS systems.</li>
   </ul>
 
   <p style="margin-top:2rem; padding:1.5rem; border:2px solid #e07b39; border-radius:6px; text-align:center;">
@@ -1563,15 +1582,192 @@
     and how a <strong>Graph ML model</strong> and an <strong>LLM</strong> work together.
   </p>
 
+  <div class="callout definition">
+    <div class="callout-label">Note</div>
+    <p>The architecture described below is the <strong>proposed design for the Ophanim-EDR
+    system</strong> (this thesis project). While individual components (GNN-based detection, LLM
+    forensics) are grounded in the literature, the specific two-model pipeline combining both is
+    a novel architectural contribution of this work.</p>
+  </div>
+
   <h3>High-Level Architecture</h3>
   <p>Click each component in the diagram below to learn what it does:</p>
 
-  <svg id="arch-svg" class="graph" width="780" height="700" viewBox="0 0 780 700"
-       style="cursor:default;"></svg>
+  <!-- ═══════════ NEW CARD-BASED ARCHITECTURE DIAGRAM ═══════════ -->
+  <div class="arch-diagram">
+
+    <!-- ── ZONE HEADERS ── -->
+    <div class="arch-zone-labels">
+      <span class="arch-zone-label">ENDPOINTS</span>
+      <span class="arch-zone-label">SERVER</span>
+      <span class="arch-zone-label">ML / AI</span>
+      <span class="arch-zone-label">OUTPUT</span>
+    </div>
+
+    <div class="arch-grid">
+
+      <!-- ═══ COLUMN 1: ENDPOINTS ═══ -->
+      <div class="arch-col arch-col-endpoints">
+
+        <div class="arch-endpoint-card" data-arch="ep1">
+          <div class="arch-endpoint-header">ENDPOINT 1</div>
+          <div class="arch-endpoint-body">
+            <div class="arch-os-icon">
+              <svg viewBox="0 0 88 88" width="36" height="36"><path fill="#00adef" d="M0 12.4L36 7.6V42.4H0zM40 7L88 0V42.4H40zM88 45.6V88L40 81V45.6zM36 45.6V80.5L0 75.6V45.6z"/></svg>
+            </div>
+            <div class="arch-agent-box">EDR Agent<br><small>ETW hooks</small></div>
+          </div>
+        </div>
+
+        <div class="arch-endpoint-card" data-arch="ep2">
+          <div class="arch-endpoint-header">ENDPOINT 2</div>
+          <div class="arch-endpoint-body">
+            <div class="arch-os-icon">
+              <svg viewBox="0 0 100 100" width="36" height="36"><circle cx="50" cy="50" r="45" fill="#333"/><circle cx="50" cy="50" r="20" fill="#fff"/><circle cx="50" cy="50" r="9" fill="#333"/><rect x="48" y="5" width="4" height="20" fill="#fff" rx="2"/><rect x="48" y="75" width="4" height="20" fill="#fff" rx="2"/><rect x="5" y="48" width="20" height="4" fill="#fff" rx="2"/><rect x="75" y="48" width="20" height="4" fill="#fff" rx="2"/></svg>
+            </div>
+            <div class="arch-agent-box">EDR Agent<br><small>auditd / eBPF</small></div>
+          </div>
+        </div>
+
+        <div class="arch-endpoint-card" data-arch="ep3">
+          <div class="arch-endpoint-header">ENDPOINT N</div>
+          <div class="arch-endpoint-body">
+            <div class="arch-os-icon">
+              <svg viewBox="0 0 100 100" width="36" height="36"><rect x="15" y="20" width="70" height="55" rx="4" fill="none" stroke="#0db7ed" stroke-width="5"/><rect x="28" y="35" width="12" height="10" rx="2" fill="#0db7ed"/><rect x="44" y="35" width="12" height="10" rx="2" fill="#0db7ed"/><rect x="60" y="35" width="12" height="10" rx="2" fill="#0db7ed"/><rect x="28" y="50" width="12" height="10" rx="2" fill="#0db7ed"/><rect x="44" y="50" width="12" height="10" rx="2" fill="#0db7ed"/><rect x="60" y="50" width="12" height="10" rx="2" fill="#0db7ed"/></svg>
+            </div>
+            <div class="arch-agent-box">EDR Agent<br><small>Container / VM</small></div>
+          </div>
+        </div>
+
+        <div class="arch-flow-label">&darr; raw events (stream)</div>
+      </div>
+
+      <!-- ═══ ARROW: Endpoints → Server ═══ -->
+      <div class="arch-arrow-col">
+        <div class="arch-arrow-right">&xrarr;</div>
+      </div>
+
+      <!-- ═══ COLUMN 2: SERVER ═══ -->
+      <div class="arch-col arch-col-server">
+        <div class="arch-server-container">
+          <div class="arch-server-title">CENTRAL SERVER</div>
+
+          <div class="arch-server-card" data-arch="ingest">
+            <div class="arch-card-icon">&#9881;</div>
+            <div><strong>Event Ingestion</strong><br><small>Kafka / Redis queue</small></div>
+          </div>
+
+          <div class="arch-pipe">&darr;</div>
+
+          <div class="arch-server-card" data-arch="gb">
+            <div class="arch-card-icon">&#9670;</div>
+            <div><strong>Graph Builder</strong><br><small>Parse &rarr; Normalize &rarr; Edges</small></div>
+          </div>
+
+          <div class="arch-pipe">&darr;</div>
+
+          <div class="arch-server-card" data-arch="gdb">
+            <div class="arch-card-icon">&#128451;</div>
+            <div><strong>Graph Database</strong><br><small>Provenance Store (Neo4j)</small></div>
+          </div>
+
+          <div class="arch-pipe">&darr;</div>
+
+          <div class="arch-server-card arch-server-card--muted" data-arch="ti">
+            <div class="arch-card-icon">&#128274;</div>
+            <div><strong>Threat Intel</strong><br><small>VirusTotal &bull; AbuseIPDB</small></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ ARROW: Server → ML ═══ -->
+      <div class="arch-arrow-col">
+        <div class="arch-arrow-right">&xrarr;</div>
+      </div>
+
+      <!-- ═══ COLUMN 3: ML / AI ═══ -->
+      <div class="arch-col arch-col-ml">
+
+        <div class="arch-ml-card" data-arch="ml">
+          <div class="arch-ml-badge">GNN</div>
+          <strong>Graph ML (GAT)</strong>
+          <small>Per-edge anomaly scoring</small>
+        </div>
+
+        <div class="arch-pipe">&darr;</div>
+
+        <div class="arch-ml-card" data-arch="threshold">
+          <div class="arch-ml-badge" style="background:#2e9e5b;">&#9888;</div>
+          <strong>Alert Grouping</strong>
+          <small>Threshold &rarr; subgraph</small>
+        </div>
+
+        <div class="arch-pipe">&darr;</div>
+
+        <div class="arch-ml-card" data-arch="extract">
+          <div class="arch-ml-badge" style="background:#2e9e5b;">&#10697;</div>
+          <strong>Subgraph Extract</strong>
+          <small>+ context neighborhood</small>
+        </div>
+
+        <div class="arch-pipe">&darr;</div>
+
+        <div class="arch-ml-card arch-ml-card--llm" data-arch="llm">
+          <div class="arch-ml-badge" style="background:#7c4db8;">LLM</div>
+          <strong>LLM Forensics</strong>
+          <small>Narrative &bull; ATT&amp;CK &bull; IOCs</small>
+        </div>
+      </div>
+
+      <!-- ═══ ARROW: ML → Output ═══ -->
+      <div class="arch-arrow-col">
+        <div class="arch-arrow-right">&xrarr;</div>
+      </div>
+
+      <!-- ═══ COLUMN 4: OUTPUT ═══ -->
+      <div class="arch-col arch-col-output">
+
+        <div class="arch-output-card" data-arch="dash">
+          <div class="arch-output-icon">&#128200;</div>
+          <strong>Dashboard</strong>
+          <small>Alerts &bull; Graph Viz</small>
+        </div>
+
+        <div class="arch-output-card" data-arch="llm_report">
+          <div class="arch-output-icon">&#128196;</div>
+          <strong>LLM Report</strong>
+          <small>Forensic Narrative</small>
+        </div>
+
+        <div class="arch-output-card arch-output-card--action" data-arch="resp">
+          <div class="arch-output-icon">&#9889;</div>
+          <strong>Response</strong>
+          <small>Kill &bull; Block &bull; Isolate</small>
+        </div>
+      </div>
+
+    </div><!-- .arch-grid -->
+
+    <!-- ── FEEDBACK LOOP ── -->
+    <div class="arch-feedback">
+      <span class="arch-feedback-arrow">&larr;&larr;&larr;</span>
+      <span class="arch-feedback-label">response actions &rarr; agents</span>
+      <span class="arch-feedback-arrow">&larr;&larr;&larr;</span>
+    </div>
+
+    <!-- ── DATA FORMAT LABELS ── -->
+    <div class="arch-data-labels">
+      <span>Raw syscalls / ETW</span>
+      <span>CDM triples &rarr; Graph</span>
+      <span>Scores &rarr; Subgraph &rarr; Narrative</span>
+      <span>Actions</span>
+    </div>
+
+  </div><!-- .arch-diagram -->
 
   <div id="arch-info" class="callout definition">
     <div class="callout-label">Component Detail</div>
-    <p>Click any box in the diagram to see its description.</p>
+    <p>Click any component in the diagram to see its description.</p>
   </div>
 
   <h3>The Five Layers</h3>
@@ -1596,8 +1792,8 @@
   <div class="callout key-insight">
     <div class="callout-label">Key Design Decision</div>
     <p>All heavy computation (graph construction, ML inference, LLM analysis) happens on the
-    <strong>server</strong>, not the endpoint. This keeps the agent's CPU/memory footprint under
-    ~2%, which is critical for deployment on production machines.</p>
+    <strong>server</strong>, not the endpoint. This keeps the agent's CPU/memory footprint at a
+    target of &lt; 2%, which is critical for deployment on production machines.</p>
   </div>
 
   <h4>Layer 2 &mdash; Ingestion &amp; Graph Construction (Server)</h4>
@@ -1608,7 +1804,8 @@
   <ol>
     <li><strong>Parse:</strong> Deserialize raw audit events (JSON, Avro, or binary format).</li>
     <li><strong>Normalize:</strong> Map OS-specific event types to the CDM schema (e.g., Windows
-    event ID 4688 &rarr; FORK, Linux <code>execve</code> &rarr; EXECUTE).</li>
+    event ID 4688 "A new process has been created" &rarr; FORK/EXECUTE, Linux <code>execve</code> &rarr; EXECUTE).
+    Note: Event 4688 combines the fork+exec pattern into a single event.</li>
     <li><strong>Entity Resolution:</strong> Match events to existing nodes (by PID, file path, socket
     tuple) or create new nodes.</li>
     <li><strong>Edge Creation:</strong> Create a typed, timestamped edge for each event.</li>
@@ -1729,61 +1926,150 @@
   <h3>Data Flow Summary</h3>
   <p>The complete pipeline in one view:</p>
 
-  <pre style="font-size:12px; line-height:1.8;">
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DATA FLOW PIPELINE                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ENDPOINTS                 SERVER                         OUTPUT            │
-│  ─────────                 ──────                         ──────            │
-│                                                                             │
-│  ┌──────────┐   stream    ┌──────────────┐                                  │
-│  │ Agent    │────────────▶│ Graph Builder │                                  │
-│  │ (ETW /   │  raw events │ (parse,       │                                  │
-│  │  auditd) │             │  normalize,   │                                  │
-│  └──────────┘             │  construct)   │                                  │
-│                           └──────┬───────┘                                  │
-│  ┌──────────┐                    │                                          │
-│  │ Agent    │───────────────────▶│  provenance                              │
-│  └──────────┘                    │  graph                                   │
-│                                  ▼                                          │
-│  ┌──────────┐             ┌──────────────┐                                  │
-│  │ Agent    │───────────▶ │ Graph ML     │                                  │
-│  └──────────┘             │ Model (GAT)  │                                  │
-│                           │              │                                  │
-│                           │ Per-edge     │                                  │
-│                           │ anomaly      │    ┌────────────────────────┐    │
-│                           │ scoring      │───▶│ Anomalous Subgraph    │    │
-│                           └──────────────┘    │ Extraction             │    │
-│                                               └──────────┬─────────────┘    │
-│                                                          │                  │
-│                                                          ▼                  │
-│                                               ┌────────────────────────┐    │
-│                                               │ LLM Forensics          │    │
-│                                               │ ┌────────────────────┐ │    │
-│                                               │ │ Subgraph + context │ │    │
-│                                               │ │ + threat intel     │ │    │
-│                                               │ └────────┬───────────┘ │    │
-│                                               │          ▼             │    │
-│                                               │ ┌────────────────────┐ │    │
-│                                               │ │ Attack narrative   │ │    │
-│                                               │ │ ATT&CK mapping    │ │    │
-│                                               │ │ Root cause         │ │    │
-│                                               │ │ IOCs + remediation │ │    │
-│                                               │ └────────────────────┘ │    │
-│                                               └──────────┬─────────────┘    │
-│                                                          │                  │
-│                                                          ▼                  │
-│                                               ┌────────────────────────┐    │
-│                                               │ Dashboard              │    │
-│                                               │  • Alert ranking       │    │
-│                                               │  • Graph visualization │    │
-│                                               │  • LLM report          │    │
-│                                               │  • Response actions    │    │
-│                                               └────────────────────────┘    │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-</pre>
+  <!-- ═══════════ DATA FLOW PIPELINE DIAGRAM ═══════════ -->
+  <div class="dataflow-diagram">
+    <div class="dataflow-title">DATA FLOW PIPELINE</div>
+
+    <div class="dataflow-pipeline">
+
+      <!-- Stage 1: Collection -->
+      <div class="dataflow-stage">
+        <div class="dataflow-stage-label">1 &mdash; COLLECTION</div>
+
+        <div class="dataflow-card dataflow-card--endpoint">
+          <div class="dataflow-card-icon">
+            <svg viewBox="0 0 88 88" width="22" height="22"><path fill="#00adef" d="M0 12.4L36 7.6V42.4H0zM40 7L88 0V42.4H40zM88 45.6V88L40 81V45.6zM36 45.6V80.5L0 75.6V45.6z"/></svg>
+          </div>
+          <div>
+            <strong>Agents</strong>
+            <small>ETW / auditd / eBPF</small>
+          </div>
+        </div>
+
+        <div class="dataflow-output-label">raw events &darr;</div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="dataflow-arrow">&xrarr;</div>
+
+      <!-- Stage 2: Construction -->
+      <div class="dataflow-stage">
+        <div class="dataflow-stage-label">2 &mdash; CONSTRUCTION</div>
+
+        <div class="dataflow-card dataflow-card--server">
+          <div class="dataflow-card-icon">&#9881;</div>
+          <div>
+            <strong>Ingestion</strong>
+            <small>Kafka / Redis</small>
+          </div>
+        </div>
+
+        <div class="dataflow-pipe">&darr;</div>
+
+        <div class="dataflow-card dataflow-card--server">
+          <div class="dataflow-card-icon">&#9670;</div>
+          <div>
+            <strong>Graph Builder</strong>
+            <small>Parse &rarr; Normalize &rarr; Edges</small>
+          </div>
+        </div>
+
+        <div class="dataflow-output-label">provenance graph &darr;</div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="dataflow-arrow">&xrarr;</div>
+
+      <!-- Stage 3: Detection -->
+      <div class="dataflow-stage">
+        <div class="dataflow-stage-label">3 &mdash; DETECTION</div>
+
+        <div class="dataflow-card dataflow-card--ml">
+          <div class="dataflow-card-badge">GNN</div>
+          <div>
+            <strong>Graph ML</strong>
+            <small>Per-edge anomaly scoring</small>
+          </div>
+        </div>
+
+        <div class="dataflow-pipe">&darr;</div>
+
+        <div class="dataflow-card dataflow-card--ml">
+          <div class="dataflow-card-icon">&#9888;</div>
+          <div>
+            <strong>Alert Grouping</strong>
+            <small>Threshold &rarr; subgraph</small>
+          </div>
+        </div>
+
+        <div class="dataflow-output-label">anomalous subgraph &darr;</div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="dataflow-arrow">&xrarr;</div>
+
+      <!-- Stage 4: Analysis -->
+      <div class="dataflow-stage">
+        <div class="dataflow-stage-label">4 &mdash; ANALYSIS</div>
+
+        <div class="dataflow-card dataflow-card--llm">
+          <div class="dataflow-card-badge" style="background:#7c4db8;">LLM</div>
+          <div>
+            <strong>LLM Forensics</strong>
+            <small>Subgraph + context + TI</small>
+          </div>
+        </div>
+
+        <div class="dataflow-pipe">&darr;</div>
+
+        <div class="dataflow-card dataflow-card--llm-out">
+          <div class="dataflow-checklist">
+            <span>&#10003; Attack narrative</span>
+            <span>&#10003; ATT&amp;CK mapping</span>
+            <span>&#10003; Root cause</span>
+            <span>&#10003; IOCs + remediation</span>
+          </div>
+        </div>
+
+        <div class="dataflow-output-label">forensic report &darr;</div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="dataflow-arrow">&xrarr;</div>
+
+      <!-- Stage 5: Response -->
+      <div class="dataflow-stage">
+        <div class="dataflow-stage-label">5 &mdash; RESPONSE</div>
+
+        <div class="dataflow-card dataflow-card--output">
+          <div class="dataflow-card-icon">&#128200;</div>
+          <div>
+            <strong>Dashboard</strong>
+            <small>Alerts &bull; Graph viz &bull; Report</small>
+          </div>
+        </div>
+
+        <div class="dataflow-pipe">&darr;</div>
+
+        <div class="dataflow-card dataflow-card--action">
+          <div class="dataflow-card-icon">&#9889;</div>
+          <div>
+            <strong>Response</strong>
+            <small>Kill &bull; Block &bull; Isolate</small>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- .dataflow-pipeline -->
+
+    <!-- Feedback loop -->
+    <div class="dataflow-feedback">
+      <span class="arch-feedback-arrow">&larr;&larr;&larr;</span>
+      <span class="arch-feedback-label">response actions fed back to agents</span>
+      <span class="arch-feedback-arrow">&larr;&larr;&larr;</span>
+    </div>
+  </div><!-- .dataflow-diagram -->
+
 
   <h3>Where Each Component Runs</h3>
   <table class="edge-table">
@@ -2089,10 +2375,10 @@ scenario2.addStep(
   ]
 );
 scenario2.addStep(
-  '<strong>Stage 2 — Exploitation:</strong> The victim opens <code>report.pdf</code>. The PDF exploits a vulnerability in <code>acrobat.exe</code>, which spawns a hidden <code>powershell.exe</code>.',
+  '<strong>Stage 2 — Exploitation:</strong> The victim opens <code>report.pdf</code>. Acrobat reads the PDF, which exploits a vulnerability in the reader, causing it to spawn a hidden <code>powershell.exe</code>.',
   [
     { type: 'node', id: 'acrobat', label: 'acrobat.exe', nodeType: 'process', x: 390, y: 180 },
-    { type: 'edge', src: 'pdf', dst: 'acrobat', edgeType: 'EXECUTE', label: 'EXEC' },
+    { type: 'edge', src: 'pdf', dst: 'acrobat', edgeType: 'READ', label: 'READ' },
     { type: 'node', id: 'ps', label: 'powershell', nodeType: 'process', x: 390, y: 60 },
     { type: 'edge', src: 'acrobat', dst: 'ps', edgeType: 'FORK', label: 'FORK' }
   ]
@@ -2244,10 +2530,10 @@ function checkQuiz(qId, el, isCorrect) {
     fb.textContent = quizFeedback[qId].correct;
   } else {
     el.classList.add('wrong');
-    // Highlight correct answer
+    // Highlight the correct answer in green
     options.forEach(opt => {
-      if (opt !== el && !opt.classList.contains('wrong')) {
-        // We can't easily know which is correct, so just show feedback
+      if (opt.getAttribute('onclick') && opt.getAttribute('onclick').includes('true')) {
+        opt.classList.add('correct');
       }
     });
     fb.className = 'quiz-feedback show wrong-fb';
@@ -2256,302 +2542,40 @@ function checkQuiz(qId, el, isCorrect) {
 }
 
 
-// ── Architecture Diagram (Section 14) — Linear Pipeline ─────
-function drawArchDiagram() {
-  const svg = document.getElementById('arch-svg');
-  if (!svg) return;
-  const ns = 'http://www.w3.org/2000/svg';
+// ── Architecture Diagram (Section 14) — Card-based ──────────
+const archDesc = {
+  ep1: '<strong>Workstation (Windows)</strong>: Runs a lightweight agent that hooks into <strong>ETW</strong> (Event Tracing for Windows). Captures process creation (Event 4688), file I/O, registry access, and network connections. Streams raw events over TLS to the central server. CPU overhead: target &lt; 2%.',
+  ep2: '<strong>Server (Linux)</strong>: Agent uses <strong>auditd + eBPF</strong> to intercept system calls at the kernel level. Captures: open, read, write, execve, fork, connect, sendmsg. Same streaming format as Windows agents.',
+  ep3: '<strong>Container / Cloud VM</strong>: Agents can also run inside Docker containers or cloud instances. Uses the host OS audit framework (eBPF on Linux). Adds container-ID and namespace metadata to each event for multi-tenant environments.',
+  ingest: '<strong>Event Ingestion</strong>: A message queue (Kafka or Redis Streams) buffers incoming events from all endpoints. Handles burst traffic and ensures no events are lost during processing spikes. Events are ordered by timestamp and grouped by host.',
+  gb: '<strong>Graph Builder</strong>: Consumes events from the queue and constructs the provenance graph. Steps: (1) parse raw event, (2) normalize to CDM schema, (3) resolve entity identity (PID → process node, path → file node), (4) create typed timestamped edge. Outputs a live streaming graph.',
+  gdb: '<strong>Graph Database</strong>: Persists the provenance graph. Options: Neo4j, DGraph, or a custom temporal graph store. Stores nodes with full metadata (process command lines, file hashes, IP geolocations) and edges with timestamps. Supports backward/forward traversal queries.',
+  ti: '<strong>Threat Intelligence Enrichment</strong>: Before sending to the LLM, enrich the subgraph with external data: file hashes checked against VirusTotal, IPs checked against AbuseIPDB, process names checked against known LOLBins (Living Off the Land Binaries).',
+  ml: '<strong>Graph ML Model (GAT)</strong>: A Graph Attention Network trained on benign provenance data. During inference, it scores each new edge: "how expected is this event given the source and destination nodes?" Low probability → high anomaly score. Processes edges in time windows (e.g., 5-15 min). Runs on GPU for speed.',
+  threshold: '<strong>Anomaly Threshold &amp; Grouping</strong>: Edges with anomaly scores above a configurable threshold are flagged. Flagged edges within the same time window are grouped into connected subgraphs — each subgraph is one "alert." The alert severity is the max anomaly score in the subgraph.',
+  extract: '<strong>Subgraph Extraction</strong>: For each alert, extract the anomalous edges plus a 1-2 hop neighborhood of context (to include related benign events). This gives the LLM the full "attack story" rather than isolated edges.',
+  llm: '<strong>LLM Forensics Engine</strong>: Receives the enriched subgraph serialized as structured text. A pre-trained LLM analyzes it with a forensic prompt. Produces: (1) attack narrative, (2) MITRE ATT&CK mapping, (3) root cause identification, (4) impact assessment, (5) IOC extraction, (6) remediation steps.',
+  llm_report: '<strong>LLM Report</strong>: The forensic narrative generated by the LLM, combining ATT&CK technique mapping, root cause analysis, and remediation recommendations into a single analyst-ready document.',
+  dash: '<strong>Analyst Dashboard</strong>: Web UI showing: ranked alerts by severity, interactive provenance graph visualization (click to trace), LLM-generated forensic report, one-click response (kill process, quarantine file, block IP, isolate host).',
+  resp: '<strong>Response Actions</strong>: Automated or analyst-approved actions sent back to endpoint agents: kill process, quarantine file, delete registry key, block IP at firewall, isolate host from network. The feedback loop closes the pipeline.',
+};
 
-  // ── Defs: arrowheads ──
-  const defs = document.createElementNS(ns, 'defs');
-  ['#888','#e07b39'].forEach((color, i) => {
-    const m = document.createElementNS(ns, 'marker');
-    m.setAttribute('id', 'a-arr-' + i);
-    m.setAttribute('markerWidth', '10'); m.setAttribute('markerHeight', '7');
-    m.setAttribute('refX', '9'); m.setAttribute('refY', '3.5');
-    m.setAttribute('orient', 'auto');
-    const p = document.createElementNS(ns, 'polygon');
-    p.setAttribute('points', '0 0, 10 3.5, 0 7');
-    p.setAttribute('fill', color);
-    m.appendChild(p); defs.appendChild(m);
-  });
-  svg.appendChild(defs);
-
-  // ── Layout constants ──
-  const W = 780, pad = 20;
-  const colX = [60, 290, 390, 390, 390, 390];  // will position manually
-  const rowH = 50;
-
-  // ── Helpers ──
-  function rect(x, y, w, h, fill, rx) {
-    const r = document.createElementNS(ns, 'rect');
-    r.setAttribute('x', x); r.setAttribute('y', y);
-    r.setAttribute('width', w); r.setAttribute('height', h);
-    r.setAttribute('rx', rx || 6); r.setAttribute('fill', fill);
-    return r;
+// Delegate clicks on architecture cards
+document.addEventListener('click', function(e) {
+  const card = e.target.closest('[data-arch]');
+  if (!card) return;
+  const id = card.getAttribute('data-arch');
+  if (archDesc[id]) {
+    document.getElementById('arch-info').innerHTML =
+      '<div class="callout-label">Component Detail</div><p>' + archDesc[id] + '</p>';
   }
-  function txt(x, y, str, size, weight, fill, anchor) {
-    const t = document.createElementNS(ns, 'text');
-    t.setAttribute('x', x); t.setAttribute('y', y);
-    t.setAttribute('font-size', size || 12);
-    t.setAttribute('font-weight', weight || '400');
-    t.setAttribute('fill', fill || '#333');
-    t.setAttribute('text-anchor', anchor || 'middle');
-    t.setAttribute('pointer-events', 'none');
-    t.textContent = str;
-    return t;
-  }
-  function arrow(x1, y1, x2, y2, dashed, highlight) {
-    const l = document.createElementNS(ns, 'line');
-    l.setAttribute('x1', x1); l.setAttribute('y1', y1);
-    l.setAttribute('x2', x2); l.setAttribute('y2', y2);
-    l.setAttribute('stroke', highlight ? '#e07b39' : '#999');
-    l.setAttribute('stroke-width', highlight ? 2.5 : 1.8);
-    if (dashed) l.setAttribute('stroke-dasharray', '6,4');
-    l.setAttribute('marker-end', `url(#a-arr-${highlight ? 1 : 0})`);
-    return l;
-  }
-  function label(x, y, str) {
-    const t = document.createElementNS(ns, 'text');
-    t.setAttribute('x', x); t.setAttribute('y', y);
-    t.setAttribute('font-size', '10'); t.setAttribute('fill', '#aaa');
-    t.setAttribute('text-anchor', 'middle');
-    t.setAttribute('font-style', 'italic');
-    t.setAttribute('pointer-events', 'none');
-    t.textContent = str;
-    return t;
-  }
-  function makeBox(x, y, w, h, color, title, sub, id) {
-    const g = document.createElementNS(ns, 'g');
-    g.style.cursor = 'pointer';
-    const r = rect(x, y, w, h, color, 8);
-    r.setAttribute('opacity', '0.92');
-    g.appendChild(r);
-    g.appendChild(txt(x + w/2, y + (sub ? h/2 - 4 : h/2 + 4), title, 12, '700', '#fff'));
-    if (sub) {
-      g.appendChild(txt(x + w/2, y + h/2 + 10, sub, 9, '400', 'rgba(255,255,255,0.8)'));
-    }
-    g.addEventListener('mouseenter', () => { r.setAttribute('opacity','1'); r.setAttribute('stroke','#000'); r.setAttribute('stroke-width','2'); });
-    g.addEventListener('mouseleave', () => { r.setAttribute('opacity','0.92'); r.removeAttribute('stroke'); });
-    g.addEventListener('click', () => {
-      if (archDesc[id]) {
-        document.getElementById('arch-info').innerHTML =
-          '<div class="callout-label">Component Detail</div><p>' + archDesc[id] + '</p>';
-      }
-    });
-    return g;
-  }
-
-  // ── Descriptions ──
-  const archDesc = {
-    ep1: '<strong>Workstation (Windows)</strong>: Runs a lightweight agent that hooks into <strong>ETW</strong> (Event Tracing for Windows). Captures process creation (Event 4688), file I/O, registry access, and network connections. Streams raw events over TLS to the central server. CPU overhead: &lt; 2%.',
-    ep2: '<strong>Server (Linux)</strong>: Agent uses <strong>auditd + eBPF</strong> to intercept system calls at the kernel level. Captures: open, read, write, execve, fork, connect, sendmsg. Same streaming format as Windows agents.',
-    ep3: '<strong>Container / Cloud VM</strong>: Agents can also run inside Docker containers or cloud instances. Uses the host OS audit framework (eBPF on Linux). Adds container-ID and namespace metadata to each event for multi-tenant environments.',
-    server: '<strong>Central Server</strong>: The hub that receives all agent streams. Runs on a dedicated machine or cluster. Components: event ingestion (Kafka/Redis queue), graph builder, graph database, ML inference engine, and LLM orchestrator. All heavy computation happens here.',
-    ingest: '<strong>Event Ingestion</strong>: A message queue (Kafka or Redis Streams) buffers incoming events from all endpoints. Handles burst traffic and ensures no events are lost during processing spikes. Events are ordered by timestamp and grouped by host.',
-    gb: '<strong>Graph Builder</strong>: Consumes events from the queue and constructs the provenance graph. Steps: (1) parse raw event, (2) normalize to CDM schema, (3) resolve entity identity (PID → process node, path → file node), (4) create typed timestamped edge. Outputs a live streaming graph.',
-    gdb: '<strong>Graph Database</strong>: Persists the provenance graph. Options: Neo4j, DGraph, or a custom temporal graph store. Stores nodes with full metadata (process command lines, file hashes, IP geolocations) and edges with timestamps. Supports backward/forward traversal queries.',
-    ml: '<strong>Graph ML Model (GAT)</strong>: A Graph Attention Network trained on benign provenance data. During inference, it scores each new edge: "how expected is this event given the source and destination nodes?" Low probability → high anomaly score. Processes edges in time windows (e.g., 5-15 min). Runs on GPU for speed.',
-    threshold: '<strong>Anomaly Threshold &amp; Grouping</strong>: Edges with anomaly scores above a configurable threshold are flagged. Flagged edges within the same time window are grouped into connected subgraphs — each subgraph is one "alert." The alert severity is the max anomaly score in the subgraph.',
-    extract: '<strong>Subgraph Extraction</strong>: For each alert, extract the anomalous edges plus a 1-2 hop neighborhood of context (to include related benign events). This gives the LLM the full "attack story" rather than isolated edges.',
-    ti: '<strong>Threat Intelligence Enrichment</strong>: Before sending to the LLM, enrich the subgraph with external data: file hashes checked against VirusTotal, IPs checked against abuse.ch / AbuseIPDB, process names checked against known LOLBins (Living Off the Land Binaries). This context dramatically improves LLM output quality.',
-    llm: '<strong>LLM Forensics Engine</strong>: Receives the enriched subgraph serialized as structured text. A pre-trained LLM (e.g., Claude) analyzes it with a forensic prompt. Produces: (1) attack narrative in natural language, (2) MITRE ATT&CK technique mapping, (3) root cause identification via backward trace, (4) impact assessment via forward trace, (5) IOC extraction, (6) remediation steps.',
-    dash: '<strong>Analyst Dashboard</strong>: Web UI showing: ranked alerts by severity, interactive provenance graph visualization (click to trace), LLM-generated forensic report, one-click response (kill process, quarantine file, block IP, isolate host). The analyst sees the graph + narrative side by side.',
-    train: '<strong>Offline Training Pipeline</strong>: The GAT model is trained on provenance graphs collected during known-benign operation (days to weeks). Training runs on GPU. The model learns "what normal looks like" for this organization. Retrained periodically as the baseline evolves (new software deployed, user behavior changes).',
-    resp: '<strong>Response Actions</strong>: Automated or analyst-approved actions sent back to endpoint agents: kill process, quarantine file, delete registry key, block IP at firewall, isolate host from network. The feedback loop closes the pipeline.',
-  };
-
-  // ════════════════════════════════════════════════════════════
-  //  ROW 0: Column headers (zone labels)
-  // ════════════════════════════════════════════════════════════
-  svg.appendChild(txt(95, 18, '── ENDPOINTS ──', 10, '700', '#bbb'));
-  svg.appendChild(txt(310, 18, '── SERVER ──', 10, '700', '#bbb'));
-  svg.appendChild(txt(570, 18, '── ML / AI ──', 10, '700', '#bbb'));
-  svg.appendChild(txt(710, 18, '── OUTPUT ──', 10, '700', '#bbb'));
-
-  // Vertical lane separators
-  [200, 440, 650].forEach(x => {
-    const l = document.createElementNS(ns, 'line');
-    l.setAttribute('x1', x); l.setAttribute('y1', 26);
-    l.setAttribute('x2', x); l.setAttribute('y2', 690);
-    l.setAttribute('stroke', '#eee'); l.setAttribute('stroke-width', '1');
-    l.setAttribute('stroke-dasharray', '4,4');
-    svg.appendChild(l);
-  });
-
-  // ════════════════════════════════════════════════════════════
-  //  COLUMN 1: Endpoints (x: 20-185)
-  // ════════════════════════════════════════════════════════════
-  const epY = [40, 115, 190];
-  const epLabels = [
-    ['Workstation 1', 'Agent (ETW)', 'ep1'],
-    ['Workstation 2', 'Agent (ETW)', 'ep1'],
-    ['Workstation N', 'Agent (ETW)', 'ep1'],
-  ];
-  const epBoxes = epLabels.map((e, i) => {
-    const b = makeBox(20, epY[i], 155, 55, '#e07b39', e[0], e[1], e[2]);
-    svg.appendChild(b);
-    return { x: 175, y: epY[i] + 27.5 }; // right center
-  });
-
-  // Server endpoint
-  svg.appendChild(makeBox(20, 280, 155, 55, '#2e9e5b', 'Linux Server', 'Agent (auditd)', 'ep2'));
-  epBoxes.push({ x: 175, y: 280 + 27.5 });
-
-  // Container
-  svg.appendChild(makeBox(20, 355, 155, 55, '#3a7fc1', 'Container / VM', 'Agent (eBPF)', 'ep3'));
-  epBoxes.push({ x: 175, y: 355 + 27.5 });
-
-  // "dots" between workstation N and server
-  svg.appendChild(txt(97, 265, '· · ·', 14, '400', '#ccc'));
-
-  // ════════════════════════════════════════════════════════════
-  //  COLUMN 2: Server components (x: 215-430)
-  // ════════════════════════════════════════════════════════════
-
-  // Big server box (background)
-  const serverBg = rect(210, 35, 225, 400, '#f5f5f5', 10);
-  serverBg.setAttribute('stroke', '#ddd'); serverBg.setAttribute('stroke-width', '1');
-  svg.appendChild(serverBg);
-  svg.appendChild(txt(322, 55, 'CENTRAL SERVER', 11, '700', '#aaa'));
-
-  // Ingestion queue
-  svg.appendChild(makeBox(225, 70, 195, 45, '#555', 'Event Ingestion', 'Kafka / Redis queue', 'ingest'));
-
-  // Graph Builder
-  svg.appendChild(makeBox(225, 140, 195, 50, '#3a7fc1', 'Graph Builder', 'Parse → Normalize → Edges', 'gb'));
-
-  // Graph DB
-  svg.appendChild(makeBox(225, 215, 195, 50, '#3a7fc1', 'Graph Database', 'Provenance Store (Neo4j)', 'gdb'));
-
-  // Threat Intel
-  svg.appendChild(makeBox(225, 290, 195, 45, '#888', 'Threat Intelligence', 'VirusTotal, AbuseIPDB, IOC DB', 'ti'));
-
-  // Training data label
-  svg.appendChild(makeBox(225, 360, 195, 50, '#555', 'Training Data', 'Known-benign graphs', 'train'));
-
-  // ── Arrows: endpoints → ingestion ──
-  // Converge all endpoint arrows to a single point, then one arrow into server
-  const funnelX = 200, funnelY = 92;
-  epBoxes.forEach(ep => {
-    svg.appendChild(arrow(ep.x, ep.y, funnelX, funnelY, false, false));
-  });
-  // Funnel → ingestion
-  svg.appendChild(arrow(funnelX + 2, funnelY, 225, 92, false, true));
-  svg.appendChild(label(208, 60, 'logs'));
-
-  // Ingestion → Graph Builder
-  svg.appendChild(arrow(322, 115, 322, 140, false, true));
-  svg.appendChild(label(340, 132, 'events'));
-
-  // Graph Builder → Graph DB
-  svg.appendChild(arrow(322, 190, 322, 215, false, true));
-  svg.appendChild(label(348, 208, 'graph edges'));
-
-  // ════════════════════════════════════════════════════════════
-  //  COLUMN 3: ML / AI (x: 450-640)
-  // ════════════════════════════════════════════════════════════
-
-  // Graph ML
-  svg.appendChild(makeBox(455, 140, 175, 55, '#2e9e5b', 'Graph ML (GAT)', 'Per-edge anomaly score', 'ml'));
-
-  // Threshold / grouping
-  svg.appendChild(makeBox(455, 220, 175, 50, '#2e9e5b', 'Alert Grouping', 'Threshold → subgraph', 'threshold'));
-
-  // Subgraph extraction
-  svg.appendChild(makeBox(455, 300, 175, 50, '#2e9e5b', 'Subgraph Extract', '+ context neighborhood', 'extract'));
-
-  // LLM
-  svg.appendChild(makeBox(455, 390, 175, 70, '#7c4db8', 'LLM Forensics', 'Narrative + ATT&CK + IOCs', 'llm'));
-
-  // Graph DB → ML
-  svg.appendChild(arrow(420, 240, 455, 167, false, true));
-  svg.appendChild(label(438, 194, 'graph window'));
-
-  // ML → threshold
-  svg.appendChild(arrow(542, 195, 542, 220, false, true));
-  svg.appendChild(label(565, 213, 'scores'));
-
-  // Threshold → extract
-  svg.appendChild(arrow(542, 270, 542, 300, false, true));
-
-  // Extract → LLM
-  svg.appendChild(arrow(542, 350, 542, 390, false, true));
-  svg.appendChild(label(565, 376, 'subgraph'));
-
-  // Threat Intel → LLM (from server col to LLM)
-  svg.appendChild(arrow(420, 312, 455, 420, true, false));
-  svg.appendChild(label(425, 370, 'enrich'));
-
-  // Training → ML (dashed, from server col)
-  svg.appendChild(arrow(420, 385, 455, 170, true, false));
-  svg.appendChild(label(425, 310, 'weights'));
-
-  // ════════════════════════════════════════════════════════════
-  //  COLUMN 4: Output (x: 655-770)
-  // ════════════════════════════════════════════════════════════
-
-  // Dashboard
-  svg.appendChild(makeBox(660, 250, 110, 60, '#c4383a', 'Dashboard', 'Alerts + Graph', 'dash'));
-
-  // LLM report panel
-  svg.appendChild(makeBox(660, 335, 110, 55, '#7c4db8', 'LLM Report', 'Narrative', 'llm'));
-
-  // Response
-  svg.appendChild(makeBox(660, 415, 110, 55, '#e07b39', 'Response', 'Kill / Block / Isolate', 'resp'));
-
-  // Alert grouping → dashboard
-  svg.appendChild(arrow(630, 245, 660, 270, false, true));
-  svg.appendChild(label(655, 252, 'alert'));
-
-  // LLM → report
-  svg.appendChild(arrow(630, 430, 660, 365, false, true));
-  svg.appendChild(label(654, 402, 'report'));
-
-  // Response → back to endpoints (feedback loop)
-  svg.appendChild(arrow(715, 470, 715, 490, false, false));
-  const feedbackLine = document.createElementNS(ns, 'path');
-  feedbackLine.setAttribute('d', 'M 715 490 L 715 510 Q 715 520 705 520 L 15 520 Q 5 520 5 510 L 5 200');
-  feedbackLine.setAttribute('stroke', '#ccc');
-  feedbackLine.setAttribute('stroke-width', '1.5');
-  feedbackLine.setAttribute('stroke-dasharray', '6,4');
-  feedbackLine.setAttribute('fill', 'none');
-  feedbackLine.setAttribute('marker-end', 'url(#a-arr-0)');
-  svg.appendChild(feedbackLine);
-  svg.appendChild(label(360, 515, 'response actions → agents'));
-
-  // ════════════════════════════════════════════════════════════
-  //  DATA FORMAT LABELS (along the pipeline)
-  // ════════════════════════════════════════════════════════════
-  const formatLabels = [
-    { x: 95,  y: 440, text: 'Raw syscalls / ETW' },
-    { x: 322, y: 440, text: 'CDM triples → Graph' },
-    { x: 542, y: 480, text: 'Anomaly scores → Subgraph → Narrative' },
-    { x: 715, y: 500, text: 'Actions' },
-  ];
-  formatLabels.forEach(f => {
-    svg.appendChild(txt(f.x, f.y, f.text, 9, '600', '#ccc'));
-  });
-
-  // ════════════════════════════════════════════════════════════
-  //  BIG FLOW ARROW (conceptual)
-  // ════════════════════════════════════════════════════════════
-  // Horizontal background arrow showing general data flow direction
-  const bigArrow = document.createElementNS(ns, 'path');
-  bigArrow.setAttribute('d', 'M 30 670 L 750 670');
-  bigArrow.setAttribute('stroke', '#eee');
-  bigArrow.setAttribute('stroke-width', '3');
-  bigArrow.setAttribute('marker-end', 'url(#a-arr-0)');
-  svg.appendChild(bigArrow);
-  svg.appendChild(txt(390, 690, 'Data Flow: Collection → Construction → Detection → Analysis → Response', 10, '600', '#ccc'));
-}
+});
 
 
 // ── Init ────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   const firstBox = document.querySelector('.node-type-box');
   if (firstBox) selectNodeType(firstBox, 'process');
-  drawArchDiagram();
 });
 </script>
 
