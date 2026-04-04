@@ -1,9 +1,11 @@
-/* OPHANIM EDR - Industrial/Tactical Design System
-   Inspired by: Nu-brutalism, Swiss International Style, Industrial UI
-   Features: Topographic lines, bold typography, yellow/lime accent, no gradients
+/* OPHANIM EDR - Multi-Theme Design System
+   Themes:
+     - Classic: Professional, thesis-ready. Blue accent, rounded corners, clean typography.
+     - Modern (Light): Industrial/Tactical. Lime accent, topographic bg, monospace, brutalist.
+     - Modern (Dark): Same industrial aesthetic on dark background.
 */
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   /* Core Colors - Light Mode (default) */
@@ -56,7 +58,7 @@
   --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
 }
 
-/* Dark Mode */
+/* Dark Mode (Modern Dark) */
 [data-theme="dark"] {
   --bg-primary: #0a0a0a;
   --bg-secondary: #141414;
@@ -71,6 +73,49 @@
   --border-strong: #f0f0f0;
   --border-medium: #505050;
   --border-light: #303030;
+}
+
+/* Classic Theme - Professional, thesis-ready */
+[data-theme="classic"] {
+  --bg-primary: #f5f6f8;
+  --bg-secondary: #ebedf0;
+  --bg-card: #ffffff;
+  --bg-dark: #1b2a4a;
+
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a4a68;
+  --text-muted: #8b8ba0;
+  --text-inverse: #ffffff;
+
+  /* Accent - Professional blue */
+  --accent-primary: #0078d4;
+  --accent-secondary: #106ebe;
+  --accent-dark: #1b2a4a;
+
+  /* Borders - Softer */
+  --border-strong: #d1d5db;
+  --border-medium: #e5e7eb;
+  --border-light: #f0f0f5;
+
+  /* Status Colors - Slightly muted for professionalism */
+  --status-critical: #dc3545;
+  --status-warning: #f0a500;
+  --status-success: #198754;
+  --status-info: #0d6efd;
+
+  /* Severity */
+  --severity-critical-bg: #dc3545;
+  --severity-high-bg: #e8590c;
+  --severity-medium-bg: #f0a500;
+  --severity-low-bg: #198754;
+
+  /* Border radius - Rounded for professional feel */
+  --radius-none: 0;
+  --radius-sm: 6px;
+
+  /* Font - Professional sans-serif */
+  --font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+  --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
 }
 
 /* Reset */
@@ -99,7 +144,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Grid-aligned cross markers - nautical chart style */
+/* Grid-aligned cross markers - nautical chart style (Modern themes only) */
 body::before {
   content: '';
   position: fixed;
@@ -107,12 +152,12 @@ body::before {
   pointer-events: none;
   z-index: 0;
   opacity: 0.18;
-  /* Regular grid of cross markers - decreased density (200px) */
+  /* Regular grid of cross markers */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg stroke='%23666' stroke-width='2' fill='none'%3E%3Cpath d='M100 90 v20 M90 100 h20'/%3E%3C/g%3E%3C/svg%3E");
   background-size: 200px 200px;
 }
 
-/* Topographic contours - d3-contour generated background */
+/* Topographic contours - d3-contour generated background (Modern themes only) */
 body::after {
   content: '';
   position: fixed;
@@ -134,6 +179,121 @@ body::after {
   opacity: 0.15;
   background-image: url('./assets/contour-dark.svg');
   background-size: 2400px 1800px;
+}
+
+/* Classic theme - No background patterns */
+[data-theme="classic"] body::before,
+[data-theme="classic"] body::after {
+  display: none;
+}
+
+/* Classic theme overrides */
+[data-theme="classic"] .card {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="classic"] .card-header {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+[data-theme="classic"] .badge {
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  border-width: 1px;
+  text-transform: none;
+}
+
+[data-theme="classic"] .btn {
+  font-family: var(--font-sans);
+  border-radius: 6px;
+  border-width: 1px;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 13px;
+}
+
+[data-theme="classic"] .btn:hover {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+[data-theme="classic"] .btn-primary:hover {
+  background: var(--accent-secondary);
+  border-color: var(--accent-secondary);
+  color: #ffffff;
+}
+
+[data-theme="classic"] .table th {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: normal;
+  border-bottom-width: 1px;
+}
+
+[data-theme="classic"] .input {
+  font-family: var(--font-sans);
+  border-radius: 6px;
+  border-width: 1px;
+}
+
+[data-theme="classic"] .frame {
+  border-width: 1px;
+  border-radius: 8px;
+}
+
+[data-theme="classic"] .frame-header {
+  border-radius: 8px 8px 0 0;
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+[data-theme="classic"] .frame-header::before {
+  display: none;
+}
+
+[data-theme="classic"] .section-prefix::before {
+  display: none;
+}
+
+[data-theme="classic"] .fui-Button {
+  font-family: var(--font-sans) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="classic"] .fui-Input {
+  border-radius: 6px !important;
+}
+
+[data-theme="classic"] ::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+}
+
+[data-theme="classic"] ::selection {
+  background: var(--accent-primary);
+  color: #ffffff;
+}
+
+[data-theme="classic"] h1,
+[data-theme="classic"] h2,
+[data-theme="classic"] h3,
+[data-theme="classic"] h4,
+[data-theme="classic"] h5,
+[data-theme="classic"] h6 {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 /* Typography */
