@@ -12,6 +12,8 @@ import EndpointDetails from './pages/EndpointDetails'
 import Dashboard from './pages/Dashboard'
 import Problems from './pages/Problems'
 
+export type ThemeName = 'classic' | 'light' | 'dark'
+
 const appStyles = {
     root: {
         display: 'flex',
@@ -34,32 +36,35 @@ const appStyles = {
     },
 }
 
+const fluentThemeMap = {
+    classic: webLightTheme,
+    light: webLightTheme,
+    dark: webDarkTheme,
+}
+
 function App() {
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        // Check localStorage for saved preference
-        const saved = localStorage.getItem('ophanim-theme')
-        return saved === 'dark'
+    const [theme, setTheme] = useState<ThemeName>(() => {
+        const saved = localStorage.getItem('ophanim-theme') as ThemeName | null
+        if (saved && ['classic', 'light', 'dark'].includes(saved)) return saved
+        return 'classic'  // Default to professional theme
     })
 
-    const toggleTheme = () => {
-        setIsDarkMode(prev => {
-            const newValue = !prev
-            localStorage.setItem('ophanim-theme', newValue ? 'dark' : 'light')
-            return newValue
-        })
+    const handleSetTheme = (newTheme: ThemeName) => {
+        setTheme(newTheme)
+        localStorage.setItem('ophanim-theme', newTheme)
     }
 
     // Apply theme to document
     useEffect(() => {
-        document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light')
-    }, [isDarkMode])
+        document.documentElement.setAttribute('data-theme', theme)
+    }, [theme])
 
     return (
-        <FluentProvider theme={isDarkMode ? webDarkTheme : webLightTheme}>
+        <FluentProvider theme={fluentThemeMap[theme]}>
             <div style={appStyles.root}>
-                <Sidebar isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
+                <Sidebar theme={theme} onSetTheme={handleSetTheme} />
                 <div style={appStyles.main}>
-                    <Header onToggleTheme={toggleTheme} />
+                    <Header theme={theme} />
                     <main style={appStyles.content}>
                         <Routes>
                             <Route path="/" element={<Dashboard />} />
@@ -75,3 +80,4 @@ function App() {
 }
 
 export default App
+
