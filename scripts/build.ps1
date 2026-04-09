@@ -37,10 +37,10 @@ try {
 
     # Ensure PyInstaller is installed
     Write-Host "`nChecking PyInstaller..." -ForegroundColor Green
-    $pyinstaller = .\venv\Scripts\pip.exe show pyinstaller 2>$null
+    $pyinstaller = .\venv\Scripts\python.exe -m pip show pyinstaller 2>$null
     if (-not $pyinstaller) {
         Write-Host "Installing PyInstaller..." -ForegroundColor Yellow
-        .\venv\Scripts\pip.exe install pyinstaller --quiet
+        .\venv\Scripts\python.exe -m pip install pyinstaller --quiet
     }
 
     # Build the executable
@@ -51,6 +51,7 @@ try {
         --console `
         --clean `
         --noconfirm `
+        --paths "agent\src" `
         --add-data ".env;." `
         --hidden-import "win32evtlog" `
         --hidden-import "win32evtlogutil" `
