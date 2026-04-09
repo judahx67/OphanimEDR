@@ -7,8 +7,8 @@ import asyncio
 import logging
 import sys
 
-from .config import get_config
-from .core import run_agent
+from edr_agent.config import get_config
+from edr_agent.core import run_agent
 
 
 def setup_logging() -> None:

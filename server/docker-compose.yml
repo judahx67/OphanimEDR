@@ -1,56 +1,125 @@
-# Ophanim EDR Stack - Docker Compose Configuration
-# Run with: docker-compose up -d
+# Ophanim-EDR experiment stack
+#
+# Provenance pipeline:
+#   simulator ──► rabbitmq(raw_events) ──► ingest ──► rabbitmq(normalized_events)
+#                                                                │
+#                                                                ▼
+#                                                          graph-builder ──► neo4j
+#
+# Usage:
+#   # Start the persistent services (rabbitmq, neo4j, ingest, graph-builder)
+#   docker compose up -d
+#
+#   # Replay 5000 real DARPA THEIA E3 datums through the pipeline
+#   docker compose run --rm simulator --scenario theia --limit 5000 --rate 500
+#
+#   # Inspect the graph
+#   open http://localhost:7474   (neo4j/ophanim-edr)
 
 services:
-  # MongoDB Database
-  mongodb:
-    image: mongo:7
-    container_name: ophanim-mongodb
+  # ── Message bus ─────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ophanim-rabbitmq
     ports:
-      - "27017:27017"
-    volumes:
-      - mongodb-data:/data/db
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
     environment:
-      - MONGO_INITDB_DATABASE=ophanim_edr
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
-      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
     restart: unless-stopped
 
-  # FastAPI Backend Server
-  backend:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    container_name: ophanim-backend
+  # ── Provenance graph store ─────────────────────────────────
+  neo4j:
+    image: neo4j:5
+    container_name: ophanim-neo4j
     ports:
-      - "8000:8000"
-    env_file:
-      - ../.env
+      - "7474:7474"   # Browser
+      - "7687:7687"   # Bolt
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017
-      - DATABASE_NAME=ophanim_edr
+      NEO4J_AUTH: neo4j/ophanim-edr
+      NEO4J_PLUGINS: '[]'
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - neo4j-data:/data
+    restart: unless-stopped
+
+  # ── Event normalizer ───────────────────────────────────────
+  # Consumes raw CDM events, emits NormalizedEvent on `normalized_events`.
+  ingest:
+    build:
+      context: ./ingest
+    container_name: ophanim-ingest
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
     depends_on:
-      mongodb:
+      rabbitmq:
         condition: service_healthy
     restart: unless-stopped
 
-  # React Frontend Dashboard
-  frontend:
+  # ── Provenance graph writer ────────────────────────────────
+  # Consumes NormalizedEvent, merges nodes/edges into Neo4j.
+  graph-builder:
     build:
-      context: ./dashboard
-      dockerfile: Dockerfile
-    container_name: ophanim-dashboard
-    ports:
-      - "3000:80"
+      context: ./graph-builder
+    container_name: ophanim-graph-builder
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASS: ophanim-edr
+      BATCH_SIZE: 200
+      BATCH_TIMEOUT: 2.0
     depends_on:
-      - backend
+      rabbitmq:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
     restart: unless-stopped
 
+  # ── DARPA THEIA E3 replay / synthetic simulator ────────────
+  # Gated behind the `simulator` profile so `up` doesn't auto-start it.
+  # Run on demand via `docker compose run --rm simulator ...`.
+  simulator:
+    build:
+      context: ./simulator
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      # Real DARPA THEIA E3 dataset, read-only, for `--scenario theia`
+      - ../darpa_data/data/theia/ta1-theia-e3-official-1r.json.0:/data/theia.json:ro
+    profiles:
+      - simulator
+
 volumes:
-  mongodb-data:
+  rabbitmq-data:
+    driver: local
+  neo4j-data:
     driver: local
 
 networks:
