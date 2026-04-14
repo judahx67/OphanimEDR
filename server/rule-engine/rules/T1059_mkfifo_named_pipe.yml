@@ -1,0 +1,34 @@
+title: Named Pipe Creation in Temp Directory
+id: mkfifo_named_pipe_tmp
+status: stable
+description: >
+    A process forks mkfifo in /tmp — named pipes in temp directories
+    are commonly used for inter-process communication in attack tooling.
+    Maps Sigma rule 999c3b12.
+references:
+    - https://attack.mitre.org/techniques/T1059/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.execution
+    - attack.t1059
+severity: medium
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: FORK
+        object:
+            type: PROCESS
+            name|re: '(?i)(^|/)mkfifo'
+
+    condition: selection
+
+falsepositives:
+    - Shell scripts using named pipes for data processing
+level: medium

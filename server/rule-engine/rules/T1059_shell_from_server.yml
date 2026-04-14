@@ -1,0 +1,35 @@
+title: Shell Spawned from Server Process
+id: shell_from_server_process
+status: stable
+description: >
+    A typical server process (nginx, apache, httpd, java, python serving)
+    forks a shell — indicative of webshell or RCE exploitation.
+references:
+    - https://attack.mitre.org/techniques/T1059/
+author: EDR Thesis
+date: 2026-04-18
+tags:
+    - attack.execution
+    - attack.t1059
+severity: critical
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+            name|re: '(?i)(nginx|apache|httpd|tomcat|java|gunicorn|node)'
+        edge: FORK
+        object:
+            type: PROCESS
+            name|re: '(?i)(bash|sh|zsh|dash|cmd\.exe|powershell)'
+
+    condition: selection
+
+falsepositives:
+    - CGI scripts executed by web servers
+    - Application servers running legitimate shell commands
+level: critical

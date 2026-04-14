@@ -1,0 +1,47 @@
+title: Web Server Spawns Discovery Commands
+id: webshell_discovery_commands
+status: stable
+description: >
+    A web server process (nginx, apache, java) forks system discovery
+    tools (whoami, id, uname, hostname, ifconfig) — webshell post-exploitation.
+    Maps Sigma rule 818f7b24.
+references:
+    - https://attack.mitre.org/techniques/T1505/003/
+    - https://github.com/SigmaHQ/sigma/blob/master/rules/linux/process_creation/proc_creation_lnx_webshell_detection.yml
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.persistence
+    - attack.t1505.003
+severity: critical
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_server_forks:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)(nginx|apache|httpd|tomcat|java|gunicorn|node|caddy|lighttpd)'
+                edge: FORK
+                object:
+                    type: PROCESS
+
+            - step2_discovery:
+                subject:
+                    type: PROCESS
+                edge: FORK
+                object:
+                    type: PROCESS
+                    name|re: '(?i)(^|/)(whoami|id|uname|hostname|ifconfig|ip|cat|netstat|iptables|crontab|pwd|route)$'
+
+    condition: sequence
+
+falsepositives:
+    - CGI scripts performing legitimate system queries
+level: critical

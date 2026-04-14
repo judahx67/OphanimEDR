@@ -1,102 +1,190 @@
-# Ophanim-EDR Demo Runbook
+# EDR Demo Runbook
 
-A 5-minute script for showing the real DARPA THEIA E3 provenance pipeline.
+A step-by-step guide for bringing up the full stack and observing the rule-based
+detection pipeline process real DARPA THEIA E3 provenance data.
 
 ## Prerequisites
 
 - Docker Desktop running
-- The DARPA file at `j:/THESIS-EDR/darpa_data/data/theia/ta1-theia-e3-official-1r.json.0` (already bind-mounted)
-- Neo4j Browser open at http://localhost:7474 (login: `neo4j` / `ophanim-edr`)
+- DARPA dataset at `j:/THESIS-EDR/darpa_data/data/theia/ta1-theia-e3-official-1r.json.0`
+- Neo4j Browser at http://localhost:7474 (neo4j / edr-thesis) — opens after step 1
+- Dashboard at http://localhost:3000 — start with `npm run dev` inside `server/dashboard/`
 
-## 1 — Bring up the pipeline
+---
+
+## Quickstart (one command)
+
+```powershell
+# From the project root — starts all services + replays 30k events
+.\scripts\deploy.ps1 -Mode server -Replay 30000
+```
+
+To also open the dashboard dev server in a new window:
+```powershell
+.\scripts\deploy.ps1 -Mode full -Replay 30000
+```
+
+---
+
+## Manual step-by-step
+
+### 1 — Bring up the pipeline
+
+```powershell
+.\scripts\deploy.ps1 -Mode server
+# OR equivalently:
+docker compose -f server/docker-compose.yml up -d
+```
+
+Six services start:
+
+| Container         | Role                                               |
+|-------------------|----------------------------------------------------|
+| edr-rabbitmq      | Message bus                                        |
+| edr-neo4j         | Provenance graph store                             |
+| edr-ingest        | CDM normalizer → NormalizedEvent                   |
+| edr-graph-builder | NormalizedEvent → Neo4j MERGE                      |
+| edr-rule-engine   | NormalizedEvent → rule FSM → Incident nodes        |
+| edr-api           | FastAPI (Neo4j-backed) served at :8000             |
+
+The `simulator` container is **not** started by default — run it on demand.
+
+Verify all are up:
+```bash
+docker compose -f server/docker-compose.yml ps
+```
+
+Wait until rabbitmq and neo4j show `(healthy)`.
+
+---
+
+### 2 — Replay real DARPA data
 
 ```bash
-cd j:/THESIS-EDR/server
-docker compose up -d
+docker compose -f server/docker-compose.yml --profile simulator run --rm simulator \
+    --scenario theia --limit 30000 --rate 2000
 ```
 
-Four services start: `rabbitmq`, `neo4j`, `ingest`, `graph-builder`. The simulator is *not* started by default — it's gated behind the `simulator` profile so you can run it on demand.
+What happens:
+- Reads CDM18 JSON lines from the bind-mounted THEIA file
+- Unwraps `line["datum"]` and publishes to `raw_events`
+- `ingest` normalizes ~17k causal edges out of 30k raw datums (rest are entity defs + noise events)
+- `graph-builder` MERGE's nodes/edges into Neo4j
+- `rule-engine` runs the FSM simultaneously — fires `Incident` nodes when attack patterns match
 
-Wait ~10 seconds for rabbitmq and neo4j to become healthy, then verify:
+Expected output:
+```
+THEIA loader done: 32230 datums sent (events=30000) in ~52s
+```
 
+---
+
+### 3 — Watch the pipeline
+
+Tail any service:
 ```bash
-docker compose ps
+docker logs -f edr-ingest        # normalization progress
+docker logs -f edr-graph-builder # neo4j write batches
+docker logs -f edr-rule-engine   # INCIDENT [HIGH] PowerShell C2 Dropper ...
+docker logs -f edr-api           # HTTP request log
 ```
 
-All four should show `Up (healthy)` or `Up`.
+Expected after 30k events:
+- **ingest**: `normalized ~17k, skipped ~13k`
+- **graph-builder**: `~1800 nodes, ~17k edges`
+- **rule-engine**: incidents for rules that matched (depends on dataset window)
 
-## 2 — Replay real DARPA data
+---
 
-```bash
-docker compose run --rm simulator --scenario theia --limit 30000 --rate 5000
+### 4 — View incidents in the dashboard
+
+Open the dashboard at http://localhost:3000, then navigate to **Incidents**.
+
+Each incident row shows:
+- Severity badge (CRITICAL / HIGH / MEDIUM)
+- Rule name + ATT&CK technique ID
+- Status (NEW / INVESTIGATING / RESOLVED)
+- Click to expand: the full causal edge chain that triggered the rule
+
+The **Dashboard** home page shows:
+- Total nodes/edges in the graph
+- Incident count + new alerts counter
+- Node type breakdown bar chart
+- Incidents by severity bar chart
+
+---
+
+### 5 — Explore the graph (Neo4j Browser)
+
+Open http://localhost:7474 (neo4j / edr-thesis).
+
+Useful queries:
+
+```cypher
+// How many nodes/edges?
+MATCH (n) RETURN labels(n)[0] AS label, count(n) AS cnt ORDER BY cnt DESC
+
+// All incidents
+MATCH (i:Incident) RETURN i.rule_name, i.severity, i.title, i.created_at
+ORDER BY i.created_at DESC
+
+// Causal chain around an incident's root node
+MATCH path = ({uuid: '<root_node_id>'})-[*1..3]-()
+RETURN path LIMIT 100
+
+// Process fork tree
+MATCH p = (parent:Process)-[:FORK*1..3]->(child:Process)
+RETURN p LIMIT 50
+
+// Which processes connected to external sockets?
+MATCH (p:Process)-[:CONNECT]->(s:Socket)
+WHERE NOT s.name STARTS WITH 'LOCAL'
+  AND NOT s.name STARTS WITH 'NA'
+RETURN p.name, s.name ORDER BY p.name
 ```
 
-What this does:
-- Reads lines from the bind-mounted `/data/theia.json` (the THEIA file).
-- For each line it unwraps `line["datum"]` and publishes the inner CDM datum to RabbitMQ `raw_events`.
-- `--limit 30000` caps the run at **30k Event datums** (entity definitions don't count).
-- `--rate 5000` throttles the simulator to ~5000 datums/sec.
-- `--skip-events N` (optional) fast-forwards past the first N event datums while still publishing their entity definitions — useful if you want to jump to a richer window of activity.
+---
 
-Expected: ~45–60 seconds end-to-end. Final log line looks like:
-
-```
-THEIA loader done: 32230 datums sent (events=30000, events_skipped=0) in 52.1s
-Datum type breakdown: {'...Event': 30000, '...FileObject': 1248, '...Subject': 151, '...NetFlowObject': 227, ...}
-```
-
-## 3 — Watch it land in Neo4j
-
-Tail both workers in two terminals to show the pipeline is alive:
-
-```bash
-docker logs -f ophanim-ingest
-docker logs -f ophanim-graph-builder
-```
-
-Expected numbers after the replay finishes:
-- **ingest**: `received=~32k normalized=~17k skipped=~15k` (skipped = entity defs + non-causal events like OPEN/CLOSE/MPROTECT)
-- **graph-builder**: `consumed=~17k edges_created=~17k` and a final `Graph: {'nodes': ~1800, 'edges': ~17k}`
-
-## 4 — Tell the story with curated Cypher queries
-
-Open [neo4j-demo-queries.cypher](neo4j-demo-queries.cypher) and paste queries into the Neo4j Browser **one at a time**. Each query is designed to show one specific story:
-
-| # | Query | Story |
-|---|---|---|
-| 1 | Node/edge counts | "Here's what the dataset contains" |
-| 2 | Process tree (FORK) | "Who forked whom, with real command lines like `sudo ./theia_toggle recording on`" |
-| 3 | EXEC edges | "Which processes loaded which binaries" |
-| 4 | Network CONNECT | "Four distinct remote endpoints — 128.55.12.10:53 (DNS), internal LAN traffic" |
-| 5 | Sensitive file writes | "sshd writing utmp/wtmp, bash writing .bash_history — classic audit targets" |
-| 6 | Fork → connect | "Classic EDR pivot: find children that talked to the network" |
-| 7 | Causal ancestry | "Walk provenance backward from a target process" |
-| 8 | Blast radius | "Everything whoopsie (Ubuntu crash reporter) touched" |
-| 9 | Busiest processes | "Why a naive LIMIT 100 looks like one big hub" |
-| 10 | Clean subgraph | **The one to screenshot.** Causal skeleton only — no MMAP/READ noise. |
-
-**Why not just `MATCH ()-[]->() RETURN * LIMIT 100`?**
-
-Because LIMIT 100 grabs whatever the planner returns first, which is dominated by high-volume noise edges: one python process MMAP'ing dozens of shared libraries, or sshd READ'ing every line of `/etc/passwd`. A single hub with 100 rays is visually useless. Every query in the runbook constrains both the *edge types* and the *starting points* so the returned subgraph is small, causal, and tells a story.
-
-## 5 — Reset between runs
+### 6 — Reset between runs
 
 ```bash
 # Wipe the graph (keeps constraints/indexes)
-docker exec ophanim-neo4j cypher-shell -u neo4j -p ophanim-edr "MATCH (n) DETACH DELETE n"
+docker exec edr-neo4j cypher-shell -u neo4j -p edr-thesis \
+    "MATCH (n) DETACH DELETE n"
 
-# Purge any in-flight messages
-docker exec ophanim-rabbitmq rabbitmqctl purge_queue raw_events
-docker exec ophanim-rabbitmq rabbitmqctl purge_queue normalized_events
+# Purge in-flight messages
+docker exec edr-rabbitmq rabbitmqctl purge_queue raw_events
+docker exec edr-rabbitmq rabbitmqctl purge_queue normalized_events
 
-# Recreate workers so their in-memory caches are clean
-docker compose up -d --force-recreate ingest graph-builder
+# Restart stateful workers so in-memory caches are clean
+docker compose -f server/docker-compose.yml up -d --force-recreate \
+    ingest graph-builder rule-engine
 ```
+
+---
+
+### 7 — Build images after code changes
+
+```powershell
+# Rebuild all Docker images
+.\scripts\build.ps1 -Target docker
+
+# Or with no-cache (slower, use when dependencies change)
+.\scripts\build.ps1 -Target docker -Clean
+
+# Then restart affected service
+docker compose -f server/docker-compose.yml up -d --force-recreate rule-engine
+```
+
+---
 
 ## Troubleshooting
 
-- **Graph looks like "NA:0" mega-hub** → normalizer name-resolution regression. Check `normalizer.py:resolve_object` still handles `remoteAddress == "NA"` sentinel.
-- **FORK children all resolve to `swapper/0`** → normalizer is looking up the child UUID in the wrong field. THEIA's CLONE events put the child in `predicateObject`, not `predicateObject2`.
-- **Nodes have no label in the Browser sidebar** → graph-builder MERGE is missing the static label interpolation. Every MERGE must be `MERGE (n:{label} {uuid: ...})` with the label substituted at query-build time.
-- **Simulator hangs on startup** → rabbitmq isn't ready yet. Wait for `docker compose ps` to show rabbitmq as healthy before running the simulator.
-- **Graph shows fewer FORKs than expected** → you may be hitting the 30k event cap before the fork storm (around line 3M in the file). Use `--skip-events 20000 --limit 30000` to jump past the boot phase.
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| No incidents appearing | Rule engine not connected to queue yet when replay started | Restart rule-engine, purge queues, re-run simulator |
+| `"NA:0"` mega-hub in graph | Normalizer name-resolution regression | Check `normalizer.py` — `remoteAddress == "NA"` sentinel must produce a skip |
+| FORK children all resolve to `swapper/0` | Normalizer reading wrong CLONE field | THEIA CLONE puts child in `predicateObject`, not `predicateObject2` |
+| API returns 500 on `/api/incidents` | Neo4j Incident constraint missing | Restart `edr-api` — it creates the constraint on startup |
+| Simulator hangs on startup | RabbitMQ not ready | Wait for `rabbitmq` to show `(healthy)` in `docker compose ps` |
+| Graph shows fewer FORKs than expected | Replay capped before fork storm | Use `--skip-events 20000 --limit 30000` to jump past boot phase |

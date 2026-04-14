@@ -30,7 +30,7 @@ def main() -> None:
     
     logger = logging.getLogger(__name__)
     logger.info("=" * 60)
-    logger.info("Ophanim EDR Agent Starting")
+    logger.info("EDR Agent Starting")
     logger.info("=" * 60)
     
     try:

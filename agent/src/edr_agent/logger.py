@@ -1,7 +1,7 @@
 """Local JSON Logger with Rotation.
 
 Writes events to local JSON Lines (.jsonl) files with automatic rotation.
-Logs are stored in %APPDATA%/Ophanim/logs/ on Windows.
+Logs are stored in %APPDATA%/EDR/logs/ on Windows.
 """
 
 import json
@@ -21,16 +21,16 @@ logger = logging.getLogger(__name__)
 def get_log_directory() -> Path:
     """Get the log directory path.
     
-    On Windows: %APPDATA%/Ophanim/logs/
-    On Linux/Mac: ~/.ophanim/logs/
+    On Windows: %APPDATA%/EDR/logs/
+    On Linux/Mac: ~/.edr/logs/
     """
     if platform.system() == "Windows":
         appdata = os.environ.get("APPDATA", "")
         if appdata:
-            return Path(appdata) / "Ophanim" / "logs"
+            return Path(appdata) / "EDR" / "logs"
     
     # Fallback for non-Windows or missing APPDATA
-    return Path.home() / ".ophanim" / "logs"
+    return Path.home() / ".edr" / "logs"
 
 
 class JSONLogger:

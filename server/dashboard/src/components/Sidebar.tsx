@@ -3,8 +3,10 @@ import {
     Home24Regular,
     Desktop24Regular,
     Shield24Regular,
+    Warning24Regular,
     Settings24Regular,
     PaintBrush24Regular,
+    BrainCircuit24Regular,
 } from '@fluentui/react-icons'
 import type { ThemeName } from '../App'
 
@@ -53,7 +55,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
             borderRadius: '50%',
         },
         logoText: {
-            fontFamily: modern ? 'var(--font-mono)' : 'var(--font-sans)',
+            fontFamily: modern ? 'var(--font-ui)' : 'var(--font-sans)',
             fontSize: '14px',
             fontWeight: 700,
             textTransform: modern ? 'uppercase' as const : 'none' as const,
@@ -61,7 +63,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
             color: 'var(--text-primary)',
         },
         logoSubtext: {
-            fontFamily: modern ? 'var(--font-mono)' : 'var(--font-sans)',
+            fontFamily: modern ? 'var(--font-ui)' : 'var(--font-sans)',
             fontSize: '10px',
             fontWeight: 500,
             color: 'var(--text-muted)',
@@ -70,7 +72,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
         },
         sectionHeader: {
             padding: '16px 16px 8px',
-            fontFamily: modern ? 'var(--font-mono)' : 'var(--font-sans)',
+            fontFamily: modern ? 'var(--font-ui)' : 'var(--font-sans)',
             fontSize: '11px',
             fontWeight: 600,
             textTransform: 'uppercase' as const,
@@ -97,7 +99,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
             padding: '12px 12px',
             textDecoration: 'none',
             color: 'var(--text-secondary)',
-            fontFamily: modern ? 'var(--font-mono)' : 'var(--font-sans)',
+            fontFamily: modern ? 'var(--font-ui)' : 'var(--font-sans)',
             fontSize: '13px',
             fontWeight: 500,
             textTransform: modern ? 'uppercase' as const : 'none' as const,
@@ -114,7 +116,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
             padding: '12px 12px',
             textDecoration: 'none',
             color: modern ? '#0a0a0a' : '#ffffff',
-            fontFamily: modern ? 'var(--font-mono)' : 'var(--font-sans)',
+            fontFamily: modern ? 'var(--font-ui)' : 'var(--font-sans)',
             fontSize: '13px',
             fontWeight: 600,
             textTransform: modern ? 'uppercase' as const : 'none' as const,
@@ -138,7 +140,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
             marginBottom: '8px',
         },
         themeLabel: {
-            fontFamily: modern ? 'var(--font-mono)' : 'var(--font-sans)',
+            fontFamily: modern ? 'var(--font-ui)' : 'var(--font-sans)',
             fontSize: '10px',
             fontWeight: 600,
             color: 'var(--text-muted)',
@@ -165,7 +167,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
             color: isActive
                 ? (modern ? '#0a0a0a' : '#ffffff')
                 : 'var(--text-secondary)',
-            fontFamily: modern ? 'var(--font-mono)' : 'var(--font-sans)',
+            fontFamily: modern ? 'var(--font-ui)' : 'var(--font-sans)',
             fontSize: '10px',
             fontWeight: isActive ? 700 : 500,
             textTransform: modern ? 'uppercase' as const : 'none' as const,
@@ -183,7 +185,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
             borderRadius: modern ? '0' : '6px',
             cursor: 'pointer',
             color: 'var(--text-secondary)',
-            fontFamily: modern ? 'var(--font-mono)' : 'var(--font-sans)',
+            fontFamily: modern ? 'var(--font-ui)' : 'var(--font-sans)',
             fontSize: '11px',
             fontWeight: 500,
             textTransform: modern ? 'uppercase' as const : 'none' as const,
@@ -206,7 +208,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
             background: 'var(--status-success)',
         },
         statusText: {
-            fontFamily: modern ? 'var(--font-mono)' : 'var(--font-sans)',
+            fontFamily: modern ? 'var(--font-ui)' : 'var(--font-sans)',
             fontSize: '10px',
             fontWeight: 500,
             color: 'var(--text-muted)',
@@ -261,11 +263,27 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
                 </NavLink>
 
                 <NavLink
+                    to="/incidents"
+                    style={({ isActive }) => isActive ? styles.linkActive : styles.link}
+                >
+                    <Warning24Regular style={styles.linkIcon} />
+                    <span>Incidents</span>
+                </NavLink>
+
+                <NavLink
                     to="/problems"
                     style={({ isActive }) => isActive ? styles.linkActive : styles.link}
                 >
                     <Shield24Regular style={styles.linkIcon} />
                     <span>Detections</span>
+                </NavLink>
+
+                <NavLink
+                    to="/ml-scores"
+                    style={({ isActive }) => isActive ? styles.linkActive : styles.link}
+                >
+                    <BrainCircuit24Regular style={styles.linkIcon} />
+                    <span>ML Scores</span>
                 </NavLink>
             </nav>
 

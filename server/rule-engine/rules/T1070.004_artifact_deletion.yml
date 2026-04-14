@@ -1,0 +1,33 @@
+title: Suspicious File Deletion in Temp Directories
+id: temp_artifact_deletion
+status: stable
+description: >
+    A process deletes files in /tmp or /dev/shm — common cleanup
+    after payload execution or data staging.
+references:
+    - https://attack.mitre.org/techniques/T1070/004/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.defense_evasion
+    - attack.t1070.004
+severity: medium
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: DELETE
+        object:
+            type: FILE
+            name|re: '(?i)(/tmp/|/dev/shm/)'
+
+    condition: selection
+
+falsepositives:
+    - Legitimate cleanup scripts
+level: medium

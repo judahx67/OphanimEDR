@@ -1,0 +1,36 @@
+title: Ngrok Tunnel Connection
+id: ngrok_tunnel_connection
+status: stable
+description: >
+    A process connects to ngrok tunneling endpoints — used to expose
+    internal services or establish reverse tunnels for C2.
+    Maps Sigma rule 19bf6fdb.
+references:
+    - https://attack.mitre.org/techniques/T1572/
+    - https://attack.mitre.org/techniques/T1090/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.command_and_control
+    - attack.t1572
+    - attack.t1090
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: CONNECT
+        object:
+            type: SOCKET
+            name|re: '(?i)(ngrok|localto\.net|localtonet\.com)'
+
+    condition: selection
+
+falsepositives:
+    - Legitimate use of tunneling services for development
+level: high

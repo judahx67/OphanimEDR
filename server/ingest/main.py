@@ -34,7 +34,7 @@ RABBITMQ_PASS = os.environ.get("RABBITMQ_PASS", "guest")
 
 RAW_QUEUE = "raw_events"
 NORMALIZED_QUEUE = "normalized_events"
-EXCHANGE = "ophanim"
+EXCHANGE = "edr"
 
 # ── Globals ───────────────────────────────────────────────────────────────
 
@@ -82,7 +82,7 @@ def setup_queues(channel: pika.channel.Channel) -> None:
 
 
 def main():
-    logger.info("=== Ophanim Event Ingest Service ===")
+    logger.info("=== EDR Event Ingest Service ===")
 
     conn = connect_rabbitmq()
     channel = conn.channel()

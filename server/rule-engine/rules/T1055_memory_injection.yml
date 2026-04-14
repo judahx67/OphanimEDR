@@ -1,0 +1,46 @@
+title: Process Memory Injection
+id: memory_injection
+status: stable
+description: >
+    A process mmaps or writes to a memory region associated with
+    another process, then that second process forks — classic
+    process hollowing / injection pattern.
+references:
+    - https://attack.mitre.org/techniques/T1055/
+author: EDR Thesis
+date: 2026-04-18
+tags:
+    - attack.defense_evasion
+    - attack.privilege_escalation
+    - attack.t1055
+severity: critical
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_mmap:
+                subject:
+                    type: PROCESS
+                edge: MMAP
+                object:
+                    type: MEMORY
+
+            - step2_fork:
+                subject:
+                    type: PROCESS
+                edge: FORK
+                object:
+                    type: PROCESS
+
+    condition: sequence
+
+falsepositives:
+    - Dynamic linkers loading shared libraries
+    - JIT compilers (Java, .NET) mapping executable memory
+level: critical

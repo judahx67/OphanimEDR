@@ -1,0 +1,34 @@
+title: File System Discovery Tools
+id: filesystem_discovery
+status: stable
+description: >
+    A process forks common discovery tools (find, tree, locate) —
+    file and directory enumeration for reconnaissance.
+    Maps Sigma rule d3feb4ee.
+references:
+    - https://attack.mitre.org/techniques/T1083/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.discovery
+    - attack.t1083
+severity: low
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: FORK
+        object:
+            type: PROCESS
+            name|re: '(?i)(^|/)(find|tree|locate|mlocate|findmnt)$'
+
+    condition: selection
+
+falsepositives:
+    - Legitimate administration and scripting
+level: low
