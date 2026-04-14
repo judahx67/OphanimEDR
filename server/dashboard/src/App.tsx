@@ -11,6 +11,8 @@ import EndpointsList from './pages/EndpointsList'
 import EndpointDetails from './pages/EndpointDetails'
 import Dashboard from './pages/Dashboard'
 import Problems from './pages/Problems'
+import Incidents from './pages/Incidents'
+import MLScores from './pages/MLScores'
 
 export type ThemeName = 'classic' | 'light' | 'dark'
 
@@ -36,8 +38,13 @@ const appStyles = {
     },
 }
 
+const classicLightTheme = {
+    ...webLightTheme,
+    fontFamilyBase: "'Inter', -apple-system, system-ui, sans-serif",
+}
+
 const fluentThemeMap = {
-    classic: webLightTheme,
+    classic: classicLightTheme,
     light: webLightTheme,
     dark: webDarkTheme,
 }
@@ -71,6 +78,8 @@ function App() {
                             <Route path="/endpoints" element={<EndpointsList />} />
                             <Route path="/endpoints/:id" element={<EndpointDetails />} />
                             <Route path="/problems" element={<Problems />} />
+                            <Route path="/incidents" element={<Incidents />} />
+                            <Route path="/ml-scores" element={<MLScores />} />
                         </Routes>
                     </main>
                 </div>

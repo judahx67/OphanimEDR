@@ -1,0 +1,58 @@
+title: Download and Execute Pattern
+id: download_and_execute
+status: stable
+description: >
+    A download tool (curl/wget) connects to a remote host and writes
+    a file, then a shell executes from the same process lineage —
+    classic staged payload delivery.
+references:
+    - https://attack.mitre.org/techniques/T1059/004/
+    - https://attack.mitre.org/techniques/T1105/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.execution
+    - attack.t1059.004
+    - attack.command_and_control
+    - attack.t1105
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_fork_downloader:
+                subject:
+                    type: PROCESS
+                edge: FORK
+                object:
+                    type: PROCESS
+                    name|re: '(?i)(curl|wget)'
+
+            - step2_connect:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)(curl|wget)'
+                edge: CONNECT
+                object:
+                    type: SOCKET
+
+            - step3_write_payload:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)(curl|wget)'
+                edge: WRITE
+                object:
+                    type: FILE
+
+    condition: sequence
+
+falsepositives:
+    - Package managers downloading updates
+    - Installer scripts
+level: high

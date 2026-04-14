@@ -1,0 +1,45 @@
+title: Lateral Movement via SSH
+id: lateral_movement_ssh
+status: stable
+description: >
+    A process forks ssh/scp, which then connects to an internal host.
+references:
+    - https://attack.mitre.org/techniques/T1021/004/
+author: EDR Thesis
+date: 2026-04-18
+tags:
+    - attack.lateral_movement
+    - attack.t1021.004
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_fork_ssh:
+                subject:
+                    type: PROCESS
+                edge: FORK
+                object:
+                    type: PROCESS
+                    name|re: '(?i)(ssh|scp|sftp)'
+
+            - step2_connect:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)(ssh|scp|sftp)'
+                edge: CONNECT
+                object:
+                    type: SOCKET
+
+    condition: sequence
+
+falsepositives:
+    - Legitimate remote administration
+    - Automated deployment scripts using SSH
+level: high

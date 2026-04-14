@@ -1,0 +1,36 @@
+title: Cron Directory File Write
+id: cron_directory_write
+status: stable
+description: >
+    A process writes to cron directories (/etc/cron.d, cron.daily,
+    /var/spool/cron). More specific than the generic persistence rule.
+    Maps Sigma rule 6c4e2f43.
+references:
+    - https://attack.mitre.org/techniques/T1053/003/
+    - https://github.com/SigmaHQ/sigma/blob/master/rules/linux/file_event/file_event_lnx_persistence_cron_files.yml
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.persistence
+    - attack.privilege_escalation
+    - attack.t1053.003
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: WRITE
+        object:
+            type: FILE
+            name|re: '(?i)(/etc/cron\.(d|daily|hourly|monthly|weekly)/|/var/spool/cron/crontabs/|/etc/crontab)'
+
+    condition: selection
+
+falsepositives:
+    - Package managers updating cron jobs
+level: high

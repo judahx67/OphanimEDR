@@ -156,6 +156,8 @@ class TheiaNodeCache:
 
         # Prefer the executable path; fall back to cmdline; then placeholder
         name = exe_path or cmdline or f"process:{uuid_str[:12]}"
+        # Strip both whitespace and surrounding quotes, preserving internal quotes
+        name = str(name).strip(' \t\n\r"\'')
 
         return ProvenanceNode(
             node_type=NodeType.PROCESS,
@@ -203,6 +205,7 @@ class TheiaNodeCache:
                             or map_field.get("name")
                             or name
                         )
+                        name = str(name).strip(' \t\n\r"\'')
         elif node_type == NodeType.REGISTRY:
             name = obj.get("key", f"reg:{uuid_str[:12]}")
         elif node_type == NodeType.PIPE:
@@ -302,6 +305,7 @@ def normalize_event(datum: dict, cache: TheiaNodeCache) -> Optional[NormalizedEv
             if isinstance(pmap, dict):
                 real_cmd = pmap.get("cmdLine") or ""
                 if real_cmd and real_cmd != "N/A":
+                    real_cmd = real_cmd.strip('"')
                     subject.properties["cmdline"] = real_cmd
                     # Show the cmdline as the display name if the cached
                     # name is just an executable path.

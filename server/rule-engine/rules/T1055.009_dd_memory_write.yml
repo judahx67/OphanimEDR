@@ -1,0 +1,47 @@
+title: Process Memory Write via DD
+id: dd_proc_memory_write
+status: stable
+description: >
+    A process forks dd to write to another process's memory
+    (/proc/PID/mem) — inter-process code injection without ptrace.
+    Maps Sigma rule 4cad6c64.
+references:
+    - https://attack.mitre.org/techniques/T1055/009/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.privilege_escalation
+    - attack.defense_evasion
+    - attack.t1055.009
+severity: critical
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 60
+        ordered: true
+        steps:
+            - step1_dd:
+                subject:
+                    type: PROCESS
+                edge: FORK
+                object:
+                    type: PROCESS
+                    name|re: '(?i)(^|/)dd$'
+
+            - step2_mem_write:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)dd'
+                edge: WRITE
+                object:
+                    type: MEMORY
+
+    condition: sequence
+
+falsepositives:
+    - Debugging tools
+level: critical

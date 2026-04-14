@@ -1,0 +1,51 @@
+title: PowerShell C2 Dropper
+id: powershell_c2_dropper
+status: stable
+description: >
+    PowerShell (or cmd) spawns a child process that connects to an
+    external socket AND writes a file — classic staged dropper pattern.
+references:
+    - https://attack.mitre.org/techniques/T1059/001/
+author: EDR Thesis
+date: 2026-04-18
+tags:
+    - attack.execution
+    - attack.t1059.001
+severity: critical
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_fork:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)(powershell|cmd\.exe|wscript|cscript)'
+                edge: FORK
+                object:
+                    type: PROCESS
+
+            - step2_connect:
+                subject:
+                    type: PROCESS
+                edge: CONNECT
+                object:
+                    type: SOCKET
+
+            - step3_write:
+                subject:
+                    type: PROCESS
+                edge: WRITE
+                object:
+                    type: FILE
+
+    condition: sequence
+
+falsepositives:
+    - Legitimate software installers using PowerShell to download components
+level: critical

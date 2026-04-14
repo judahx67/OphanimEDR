@@ -56,6 +56,7 @@
   /* Font */
   --font-mono: 'IBM Plex Mono', 'Consolas', monospace;
   --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
+  --font-ui: var(--font-mono);
 }
 
 /* Dark Mode (Modern Dark) */
@@ -116,6 +117,7 @@
   /* Font - Professional sans-serif */
   --font-mono: 'IBM Plex Mono', 'Consolas', monospace;
   --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+  --font-ui: var(--font-sans);
 }
 
 /* Reset */

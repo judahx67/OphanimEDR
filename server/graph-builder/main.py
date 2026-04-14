@@ -41,10 +41,10 @@ RABBITMQ_PASS = os.environ.get("RABBITMQ_PASS", "guest")
 
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASS = os.environ.get("NEO4J_PASS", "ophanim-edr")
+NEO4J_PASS = os.environ.get("NEO4J_PASS", "edr-thesis")
 
 NORMALIZED_QUEUE = "normalized_events"
-EXCHANGE = "ophanim"
+EXCHANGE = "edr"
 
 BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "200"))
 BATCH_TIMEOUT = float(os.environ.get("BATCH_TIMEOUT", "2.0"))
@@ -275,7 +275,7 @@ def connect_rabbitmq() -> pika.BlockingConnection:
 
 
 def main():
-    logger.info("=== Ophanim Graph Builder Service ===")
+    logger.info("=== EDR Graph Builder Service ===")
 
     # Connect to both services
     graph = GraphWriter(NEO4J_URI, NEO4J_USER, NEO4J_PASS)

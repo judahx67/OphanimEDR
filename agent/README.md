@@ -1,4 +1,4 @@
-# Ophanim EDR Agent
+# EDR Agent
 
 Windows endpoint monitoring agent for behavioral threat detection.
 
@@ -9,7 +9,7 @@ Windows endpoint monitoring agent for behavioral threat detection.
 - **Filesystem Monitoring**: watchdog-based file activity tracking
 - **Network Monitoring**: Connection tracking via psutil
 - **Event Filtering**: Reduces noise with configurable rules
-- **Local Logging**: Rotating JSON Lines logs to `%APPDATA%\Ophanim\logs`
+- **Local Logging**: Rotating JSON Lines logs to `%APPDATA%\EDR\logs`
 
 ## Quick Start
 

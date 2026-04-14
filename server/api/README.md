@@ -1,4 +1,4 @@
-# Ophanim EDR - Server API
+# EDR - Server API
 
 FastAPI backend for event ingestion, detection processing, and security analytics.
 

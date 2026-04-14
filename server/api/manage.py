@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ophanim EDR Database Management CLI
+EDR Database Management CLI
 
 Usage:
     uv run manage.py seed     # Seed with diverse demo data
@@ -21,7 +21,7 @@ import os
 def get_db():
     """Get MongoDB connection."""
     mongo_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-    db_name = os.getenv("DATABASE_NAME", "ophanim_edr")
+    db_name = os.getenv("DATABASE_NAME", "edr_thesis")
     client = MongoClient(mongo_url)
     return client[db_name]
 
@@ -332,7 +332,7 @@ def show_status():
     ]):
         os_counts[doc["_id"]] = doc["count"]
     
-    print("📊 Ophanim EDR Database Status")
+    print("📊 EDR Database Status")
     print("=" * 40)
     print(f"   Endpoints: {endpoints}")
     print(f"   Events: {events}")

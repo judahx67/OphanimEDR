@@ -1,0 +1,34 @@
+title: Crypto Mining Process Network Connection
+id: crypto_mining_connection
+status: stable
+description: >
+    A known mining binary (xmrig, minerd, etc.) or a process connecting
+    to known mining pool ports — resource hijacking for cryptocurrency.
+    Maps Sigma rules 9069ea3c and a46c93b7.
+references:
+    - https://attack.mitre.org/techniques/T1496/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.impact
+    - attack.t1496
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+            name|re: '(?i)(xmrig|minerd|minergate|cpuminer|cgminer|bfgminer|ethminer|nbminer|t-rex|gminer|lolminer|phoenixminer)'
+        edge: CONNECT
+        object:
+            type: SOCKET
+
+    condition: selection
+
+falsepositives:
+    - Legitimate cryptocurrency mining operations
+level: high

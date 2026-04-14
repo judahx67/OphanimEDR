@@ -38,7 +38,7 @@ RABBITMQ_PORT = int(os.environ.get("RABBITMQ_PORT", "5672"))
 RABBITMQ_USER = os.environ.get("RABBITMQ_USER", "guest")
 RABBITMQ_PASS = os.environ.get("RABBITMQ_PASS", "guest")
 
-EXCHANGE = "ophanim"
+EXCHANGE = "edr"
 RAW_QUEUE = "raw_events"
 
 running = True
@@ -398,8 +398,11 @@ EVENT_KEY = "com.bbn.tc.schema.avro.cdm18.Event"
 
 
 def iter_theia_file(data_file: str):
-    """Yield (line_no, datum) pairs from a THEIA E3 JSON log file."""
-    with open(data_file, "r", encoding="utf-8", errors="replace") as f:
+    """Yield (line_no, datum) pairs from a THEIA E3 JSON log file (.json or .json.gz)."""
+    import gzip as _gzip
+    opener = _gzip.open if data_file.endswith(".gz") else open
+    mode = "rt" if data_file.endswith(".gz") else "r"
+    with opener(data_file, mode, encoding="utf-8", errors="replace") as f:
         for line_no, raw in enumerate(f):
             raw = raw.strip()
             if not raw:

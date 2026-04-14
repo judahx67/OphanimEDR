@@ -1,0 +1,34 @@
+title: Nohup Execution from Temp Directory
+id: nohup_tmp_execution
+status: stable
+description: >
+    A process forks nohup — running a background process detached
+    from terminal, commonly used to persist malware after shell exit.
+    Maps Sigma rule 457df417.
+references:
+    - https://attack.mitre.org/techniques/T1059/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.execution
+    - attack.t1059
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: FORK
+        object:
+            type: PROCESS
+            name|re: '(?i)(^|/)nohup'
+
+    condition: selection
+
+falsepositives:
+    - Legitimate background tasks
+level: high

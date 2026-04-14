@@ -1,0 +1,38 @@
+title: Credential File Direct Read
+id: credential_file_direct_read
+status: stable
+description: >
+    A process reads /etc/shadow, /etc/passwd, or other sensitive credential
+    files. Detection of local account enumeration or credential harvesting.
+    Maps Sigma rule b45e3d6f.
+references:
+    - https://attack.mitre.org/techniques/T1552/001/
+    - https://attack.mitre.org/techniques/T1087/001/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.credential_access
+    - attack.t1552.001
+    - attack.discovery
+    - attack.t1087.001
+severity: medium
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: READ
+        object:
+            type: FILE
+            name|re: '(?i)(/etc/shadow|/etc/passwd|/etc/sudoers|/etc/master\.passwd|/etc/spwd\.db|/etc/pwd\.db)'
+
+    condition: selection
+
+falsepositives:
+    - Authentication services (PAM, sshd, login)
+    - System administration tools
+level: medium

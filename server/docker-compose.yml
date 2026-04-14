@@ -1,29 +1,36 @@
-# Ophanim-EDR experiment stack
+# EDR experiment stack
 #
 # Provenance pipeline:
 #   simulator ──► rabbitmq(raw_events) ──► ingest ──► rabbitmq(normalized_events)
 #                                                                │
-#                                                                ▼
-#                                                          graph-builder ──► neo4j
+#                                                      ┌─────────┴──────────┐
+#                                                      ▼                    ▼
+#                                              graph-builder            rule-engine
+#                                                      │                    │
+#                                                      ▼                    ▼
+#                                                   neo4j ◄─── api ──► incidents
 #
 # Usage:
-#   # Start the persistent services (rabbitmq, neo4j, ingest, graph-builder)
+#   # Start all persistent services
 #   docker compose up -d
 #
 #   # Replay 5000 real DARPA THEIA E3 datums through the pipeline
-#   docker compose run --rm simulator --scenario theia --limit 5000 --rate 500
+#   docker compose --profile simulator run --rm simulator \
+#       --scenario theia --limit 5000 --rate 500
 #
-#   # Inspect the graph
-#   open http://localhost:7474   (neo4j/ophanim-edr)
+#   # Inspect
+#   open http://localhost:7474   (neo4j browser:  neo4j / edr-thesis)
+#   open http://localhost:15672  (rabbitmq admin: guest / guest)
+#   open http://localhost:8000/docs  (api swagger)
 
 services:
   # ── Message bus ─────────────────────────────────────────────
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: ophanim-rabbitmq
+    container_name: edr-rabbitmq
     ports:
-      - "5672:5672"    # AMQP
-      - "15672:15672"  # Management UI
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -39,12 +46,12 @@ services:
   # ── Provenance graph store ─────────────────────────────────
   neo4j:
     image: neo4j:5
-    container_name: ophanim-neo4j
+    container_name: edr-neo4j
     ports:
-      - "7474:7474"   # Browser
-      - "7687:7687"   # Bolt
+      - "7474:7474"
+      - "7687:7687"
     environment:
-      NEO4J_AUTH: neo4j/ophanim-edr
+      NEO4J_AUTH: neo4j/edr-thesis
       NEO4J_PLUGINS: '[]'
       NEO4J_server_memory_heap_initial__size: 512m
       NEO4J_server_memory_heap_max__size: 1g
@@ -58,11 +65,10 @@ services:
     restart: unless-stopped
 
   # ── Event normalizer ───────────────────────────────────────
-  # Consumes raw CDM events, emits NormalizedEvent on `normalized_events`.
   ingest:
     build:
       context: ./ingest
-    container_name: ophanim-ingest
+    container_name: edr-ingest
     environment:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
@@ -74,11 +80,10 @@ services:
     restart: unless-stopped
 
   # ── Provenance graph writer ────────────────────────────────
-  # Consumes NormalizedEvent, merges nodes/edges into Neo4j.
   graph-builder:
     build:
       context: ./graph-builder
-    container_name: ophanim-graph-builder
+    container_name: edr-graph-builder
     environment:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
@@ -86,7 +91,7 @@ services:
       RABBITMQ_PASS: guest
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USER: neo4j
-      NEO4J_PASS: ophanim-edr
+      NEO4J_PASS: edr-thesis
       BATCH_SIZE: 200
       BATCH_TIMEOUT: 2.0
     depends_on:
@@ -96,9 +101,86 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ── DARPA THEIA E3 replay / synthetic simulator ────────────
-  # Gated behind the `simulator` profile so `up` doesn't auto-start it.
-  # Run on demand via `docker compose run --rm simulator ...`.
+  # ── Rule-based threat detection ────────────────────────────
+  # Consumes normalized_events, matches attack patterns,
+  # writes Incident nodes to Neo4j and publishes to incidents queue.
+  rule-engine:
+    build:
+      context: ./rule-engine
+    container_name: edr-rule-engine
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASS: edr-thesis
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── REST API (Neo4j backend) ───────────────────────────────
+  # Serves dashboard with graph stats, incidents, and subgraph queries.
+  api:
+    build:
+      context: ./api
+    container_name: edr-api
+    ports:
+      - "8000:8000"
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASS: edr-thesis
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Dashboard (nginx + React build) ──────────────────────────
+  # Builds the React app and serves it via nginx on port 3000.
+  # nginx proxies /api/* to the api service internally.
+  dashboard:
+    build:
+      context: ./dashboard
+    container_name: edr-dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # ── ML Engine (batch, on-demand) ────────────────────────────
+  # Extracts per-process graph features from Neo4j, trains XGBoost
+  # using Incident matched_nodes as positive labels, writes ml_score
+  # back to Process nodes. Run AFTER a replay + rule-engine has
+  # had time to fire incidents.
+  #
+  # Usage: docker compose --profile ml run --rm ml-engine
+  ml-engine:
+    build:
+      context: ./ml-engine
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASS: edr-thesis
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    profiles:
+      - ml
+
+  # ── DARPA THEIA E3 replay ──────────────────────────────────
+  # Full dataset (home machine):
+  #   ../darpa_data/data/theia/ta1-theia-e3-official-1r.json.0  →  /data/theia.json
+  # Sample dataset (work / CI):
+  #   ../darpa_data/theia-sample-150k.json.gz                   →  /data/theia.json.gz
+  #
+  # The simulator auto-detects .gz extension and decompresses on the fly.
+  # Mount whichever file exists; comment out the other.
   simulator:
     build:
       context: ./simulator
@@ -111,8 +193,10 @@ services:
       rabbitmq:
         condition: service_healthy
     volumes:
-      # Real DARPA THEIA E3 dataset, read-only, for `--scenario theia`
+      # Full 3.6 GB shard (home machine) — comment out if not available
       - ../darpa_data/data/theia/ta1-theia-e3-official-1r.json.0:/data/theia.json:ro
+      # Compressed 150k-line sample (work / CI) — uncomment when full shard absent
+      # - ../darpa_data/theia-sample-150k.json.gz:/data/theia.json.gz:ro
     profiles:
       - simulator
 
@@ -124,4 +208,4 @@ volumes:
 
 networks:
   default:
-    name: ophanim-network
+    name: edr-network
