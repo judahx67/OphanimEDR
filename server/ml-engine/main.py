@@ -1,11 +1,15 @@
 """
-ML Engine — batch job.
+ML Engine — batch job (Route 1: features → AutoGluon).
 
-Runs once: connects to Neo4j, extracts per-process graph features,
-trains an XGBoost classifier using rule-engine Incident matched_nodes
-as positive labels, writes ml_score back onto Process nodes, then exits.
+Pipeline:
+    1. Connect to Neo4j
+    2. Extract per-Process graph features + multi-label MITRE tactic labels
+       (labels derived from rule-engine Incidents + rule YAML tags)
+    3. Train one AutoGluon binary predictor per tactic
+    4. Write per-tactic probabilities back onto Process nodes
 
-Invoke via: docker compose --profile ml run --rm ml-engine
+Invoke:
+    docker compose --profile ml run --rm ml-engine
 """
 
 import logging
@@ -28,6 +32,7 @@ log = logging.getLogger("ml-engine")
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
 NEO4J_PASS = os.environ.get("NEO4J_PASS", "edr-thesis")
+RULES_DIR = os.environ.get("RULES_DIR", "/app/rules")
 
 
 def _connect_neo4j():
@@ -47,16 +52,16 @@ def _connect_neo4j():
 def main():
     driver = _connect_neo4j()
     try:
-        log.info("Extracting features from Neo4j")
-        rows = extract(driver)
+        log.info("Extracting features (rules dir: %s)", RULES_DIR)
+        rows = extract(driver, rules_dir=RULES_DIR)
         if not rows:
             log.warning("No Process nodes found — nothing to do")
             return
 
-        log.info("Training and scoring")
+        log.info("Training AutoGluon multi-label predictors")
         scored = train_and_score(rows)
 
-        log.info("Writing scores back to Neo4j")
+        log.info("Writing per-tactic scores back to Neo4j")
         writeback(driver, scored)
 
         log.info("Done. %d processes scored.", len(scored))

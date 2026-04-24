@@ -6,6 +6,8 @@ interface MLScore {
     uuid: string
     name: string
     score: number
+    top_tactic: string | null
+    tactic_scores: Record<string, number>
     incident_count: number
 }
 
@@ -16,11 +18,76 @@ interface MLSummary {
     high: number
 }
 
+const TACTICS = [
+    'execution',
+    'persistence',
+    'privilege_escalation',
+    'defense_evasion',
+    'credential_access',
+    'discovery',
+    'lateral_movement',
+    'collection',
+    'command_and_control',
+    'exfiltration',
+    'impact',
+]
+
+const TACTIC_SHORT: Record<string, string> = {
+    execution: 'EXEC',
+    persistence: 'PERS',
+    privilege_escalation: 'PRIV',
+    defense_evasion: 'EVAD',
+    credential_access: 'CRED',
+    discovery: 'DISC',
+    lateral_movement: 'LAT',
+    collection: 'COLL',
+    command_and_control: 'C2',
+    exfiltration: 'EXFIL',
+    impact: 'IMP',
+}
+
+const TACTIC_COLOR: Record<string, string> = {
+    execution: '#dc2626',
+    persistence: '#7c3aed',
+    privilege_escalation: '#db2777',
+    defense_evasion: '#0891b2',
+    credential_access: '#ea580c',
+    discovery: '#65a30d',
+    lateral_movement: '#0284c7',
+    collection: '#ca8a04',
+    command_and_control: '#9333ea',
+    exfiltration: '#e11d48',
+    impact: '#525252',
+}
+
 function scoreColor(s: number): string {
     if (s >= 0.8) return '#dc2626'
     if (s >= 0.5) return '#ea580c'
     if (s >= 0.2) return '#ca8a04'
     return '#16a34a'
+}
+
+function TacticBars({ scores }: { scores: Record<string, number> }) {
+    return (
+        <div style={{ display: 'flex', gap: '2px', height: '22px', alignItems: 'flex-end' }}>
+            {TACTICS.map(t => {
+                const s = scores[t] ?? 0
+                const h = Math.max(2, Math.round(s * 22))
+                return (
+                    <div
+                        key={t}
+                        title={`${t}: ${s.toFixed(3)}`}
+                        style={{
+                            width: '14px',
+                            height: `${h}px`,
+                            background: TACTIC_COLOR[t] || '#888',
+                            opacity: 0.3 + 0.7 * s,
+                        }}
+                    />
+                )
+            })}
+        </div>
+    )
 }
 
 function MLScores() {
@@ -71,6 +138,21 @@ function MLScores() {
             fontFamily: 'var(--font-ui)', fontSize: '22px', fontWeight: 700,
             color: 'var(--text-primary)',
         },
+        legend: {
+            display: 'flex', flexWrap: 'wrap' as const, gap: '8px',
+            marginBottom: '16px', fontSize: '11px',
+            fontFamily: 'var(--font-ui)',
+        },
+        legendItem: (color: string): React.CSSProperties => ({
+            display: 'flex', alignItems: 'center', gap: '4px',
+            padding: '2px 6px',
+            background: 'var(--bg-card)',
+            border: `1px solid ${color}`,
+            color: 'var(--text-secondary)',
+        }),
+        legendSwatch: (color: string): React.CSSProperties => ({
+            width: '10px', height: '10px', background: color,
+        }),
         table: {
             width: '100%', borderCollapse: 'collapse' as const,
             background: 'var(--bg-card)',
@@ -87,6 +169,7 @@ function MLScores() {
             padding: '10px 12px', fontFamily: 'var(--font-sans)', fontSize: '13px',
             borderBottom: '1px solid var(--border-light)',
             color: 'var(--text-primary)',
+            verticalAlign: 'middle' as const,
         },
         scorePill: (s: number) => ({
             display: 'inline-block', padding: '3px 10px',
@@ -94,14 +177,22 @@ function MLScores() {
             background: scoreColor(s), color: '#fff',
             minWidth: '48px', textAlign: 'center' as const,
         }),
+        tacticPill: (tactic: string | null) => ({
+            display: 'inline-block', padding: '3px 8px',
+            fontFamily: 'var(--font-ui)', fontSize: '10px', fontWeight: 700,
+            background: tactic ? TACTIC_COLOR[tactic] || '#888' : '#888',
+            color: '#fff',
+            textTransform: 'uppercase' as const, letterSpacing: '0.05em',
+        }),
     }
 
     return (
         <div>
-            <div style={pageStyles.title}>ML Scores</div>
+            <div style={pageStyles.title}>ML Scores — MITRE Tactic Intent</div>
             <div style={pageStyles.subtitle}>
-                Per-process XGBoost probability of being malicious. Trained on graph features
-                using rule-engine incidents as positive labels.
+                Per-process AutoGluon multi-label classification. Each row shows the predicted
+                probability of activity in each of 11 MITRE ATT&amp;CK tactics. Trained on graph
+                features with rule-engine incidents as weak labels.
             </div>
 
             {summary && (
@@ -111,11 +202,11 @@ function MLScores() {
                         <div style={pageStyles.statValue}>{summary.scored}</div>
                     </div>
                     <div style={pageStyles.statCard}>
-                        <div style={pageStyles.statLabel}>Mean Score</div>
+                        <div style={pageStyles.statLabel}>Mean Top-Score</div>
                         <div style={pageStyles.statValue}>{summary.mean.toFixed(3)}</div>
                     </div>
                     <div style={pageStyles.statCard}>
-                        <div style={pageStyles.statLabel}>Max Score</div>
+                        <div style={pageStyles.statLabel}>Max Top-Score</div>
                         <div style={pageStyles.statValue}>{summary.max.toFixed(3)}</div>
                     </div>
                     <div style={pageStyles.statCard}>
@@ -124,6 +215,15 @@ function MLScores() {
                     </div>
                 </div>
             )}
+
+            <div style={pageStyles.legend}>
+                {TACTICS.map(t => (
+                    <div key={t} style={pageStyles.legendItem(TACTIC_COLOR[t])}>
+                        <div style={pageStyles.legendSwatch(TACTIC_COLOR[t])} />
+                        <span>{TACTIC_SHORT[t]} — {t}</span>
+                    </div>
+                ))}
+            </div>
 
             {scores.length === 0 ? (
                 <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -136,10 +236,12 @@ function MLScores() {
                 <table style={pageStyles.table}>
                     <thead>
                         <tr>
-                            <th style={pageStyles.th}>Score</th>
-                            <th style={pageStyles.th}>Process Name</th>
+                            <th style={pageStyles.th}>Top Score</th>
+                            <th style={pageStyles.th}>Top Tactic</th>
+                            <th style={pageStyles.th}>Tactic Profile</th>
+                            <th style={pageStyles.th}>Process</th>
                             <th style={pageStyles.th}>UUID</th>
-                            <th style={pageStyles.th}>Rule Incidents</th>
+                            <th style={pageStyles.th}>Incidents</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -149,6 +251,14 @@ function MLScores() {
                                     <span style={pageStyles.scorePill(s.score)}>
                                         {s.score.toFixed(3)}
                                     </span>
+                                </td>
+                                <td style={pageStyles.td}>
+                                    <span style={pageStyles.tacticPill(s.top_tactic)}>
+                                        {s.top_tactic ? TACTIC_SHORT[s.top_tactic] || s.top_tactic : '—'}
+                                    </span>
+                                </td>
+                                <td style={pageStyles.td}>
+                                    <TacticBars scores={s.tactic_scores} />
                                 </td>
                                 <td style={pageStyles.td}>{s.name || '(unnamed)'}</td>
                                 <td style={{ ...pageStyles.td, fontFamily: 'var(--font-ui)', fontSize: '11px', color: 'var(--text-muted)' }}>
