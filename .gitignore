@@ -118,3 +118,12 @@ RESEARCH/
 # Provenance website (separate project)
 provenance-website/
 provenance-website-2/
+
+CLAUDE.md
+archive/
+darpa_data
+datasets/
+splunk-botsv2_data/
+.claude/
+.github/
+server/ml-engine/experiments

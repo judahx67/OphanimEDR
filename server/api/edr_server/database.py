@@ -387,7 +387,10 @@ async def get_recent_edges(limit: int = 100) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 async def get_ml_scores(limit: int = 100) -> list[dict]:
-    """Top-N Processes by ml_score (set by the ml-engine service)."""
+    """
+    Top-N Processes by ml_max_score (set by the ml-engine service).
+    Each row carries the full per-tactic probability vector.
+    """
     driver = get_driver()
     async with driver.session() as session:
         result = await session.run(
@@ -400,6 +403,8 @@ async def get_ml_scores(limit: int = 100) -> list[dict]:
                 p.uuid AS uuid,
                 coalesce(p.name, '') AS name,
                 p.ml_score AS score,
+                p.ml_top_tactic AS top_tactic,
+                p.ml_tactic_scores AS tactic_scores,
                 incident_count
             ORDER BY p.ml_score DESC
             LIMIT $limit
@@ -408,10 +413,21 @@ async def get_ml_scores(limit: int = 100) -> list[dict]:
         )
         rows = []
         async for record in result:
+            raw_scores = record["tactic_scores"]
+            if isinstance(raw_scores, str):
+                try:
+                    import json
+                    parsed_scores = json.loads(raw_scores)
+                except Exception:
+                    parsed_scores = {}
+            else:
+                parsed_scores = dict(raw_scores or {})
             rows.append({
                 "uuid": record["uuid"],
                 "name": record["name"],
                 "score": float(record["score"]),
+                "top_tactic": record["top_tactic"],
+                "tactic_scores": parsed_scores,
                 "incident_count": record["incident_count"],
             })
     return rows
