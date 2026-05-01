@@ -1,0 +1,50 @@
+title: Curl File Upload to External Host
+id: curl_file_upload
+status: stable
+description: >
+    Curl reads a local file then sends data to a remote socket —
+    data exfiltration via HTTP upload.
+    Maps Sigma rule 00b90cc1.
+references:
+    - https://attack.mitre.org/techniques/T1567/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.exfiltration
+    - attack.t1567
+    - attack.command_and_control
+    - attack.t1105
+severity: medium
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 120
+        ordered: true
+        steps:
+            - step1_read:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)curl'
+                edge: READ
+                object:
+                    type: FILE
+
+            - step2_send:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)curl'
+                edge:
+                    - SEND
+                    - CONNECT
+                object:
+                    type: SOCKET
+
+    condition: sequence
+
+falsepositives:
+    - Legitimate API clients uploading files
+level: medium

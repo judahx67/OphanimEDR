@@ -1,0 +1,46 @@
+title: Base64 Decode to Shell Execution
+id: base64_decode_exec
+status: stable
+description: >
+    A process forks base64 (decode), then a shell executes —
+    obfuscated payload delivery via base64 piped to shell.
+    Maps Sigma rule ba592c6d.
+references:
+    - https://attack.mitre.org/techniques/T1140/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.defense_evasion
+    - attack.t1140
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 60
+        ordered: true
+        steps:
+            - step1_base64:
+                subject:
+                    type: PROCESS
+                edge: FORK
+                object:
+                    type: PROCESS
+                    name|re: '(?i)(^|/)base64'
+
+            - step2_shell:
+                subject:
+                    type: PROCESS
+                edge: FORK
+                object:
+                    type: PROCESS
+                    name|re: '(?i)(^|/)(bash|sh|zsh|dash)$'
+
+    condition: sequence
+
+falsepositives:
+    - Build scripts decoding encoded config files
+level: high

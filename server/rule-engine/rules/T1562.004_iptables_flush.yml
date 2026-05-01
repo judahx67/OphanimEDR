@@ -1,0 +1,34 @@
+title: Iptables Firewall Rules Flushed
+id: iptables_flush
+status: stable
+description: >
+    A process forks iptables/ip6tables — firewall rule manipulation,
+    potentially disabling network filtering.
+    Maps Sigma rule 3be619f4.
+references:
+    - https://attack.mitre.org/techniques/T1562/004/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.defense_evasion
+    - attack.t1562.004
+severity: medium
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: FORK
+        object:
+            type: PROCESS
+            name|re: '(?i)(^|/)(iptables|ip6tables|xtables)'
+
+    condition: selection
+
+falsepositives:
+    - Network administrators managing firewall rules
+level: medium

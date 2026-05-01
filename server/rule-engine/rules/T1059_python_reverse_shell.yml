@@ -1,0 +1,47 @@
+title: Python Reverse Shell
+id: python_reverse_shell
+status: stable
+description: >
+    Python process opens a network connection and forks a shell —
+    common reverse shell via pty.spawn or socket module.
+references:
+    - https://attack.mitre.org/techniques/T1059/
+    - https://github.com/SigmaHQ/sigma/blob/master/rules/linux/process_creation/proc_creation_lnx_python_reverse_shell.yml
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.execution
+    - attack.t1059
+severity: critical
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_python_connect:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)python'
+                edge: CONNECT
+                object:
+                    type: SOCKET
+
+            - step2_spawn_shell:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)python'
+                edge: FORK
+                object:
+                    type: PROCESS
+                    name|re: '(?i)(bash|sh|zsh|dash)'
+
+    condition: sequence
+
+falsepositives:
+    - Python development tools using subprocess
+level: critical

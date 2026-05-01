@@ -1,0 +1,35 @@
+title: Security Tool Service Disabled
+id: disable_security_tools
+status: stable
+description: >
+    A process forks systemctl/service to stop or disable security
+    services (firewalld, iptables, SELinux, EDR agents).
+    Maps Sigma rule e3a8a052.
+references:
+    - https://attack.mitre.org/techniques/T1562/004/
+    - https://github.com/SigmaHQ/sigma/blob/master/rules/linux/process_creation/proc_creation_lnx_disable_security_tools.yml
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.defense_evasion
+    - attack.t1562.004
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: FORK
+        object:
+            type: PROCESS
+            name|re: '(?i)(^|/)(systemctl|service|chkconfig|setenforce)'
+
+    condition: selection
+
+falsepositives:
+    - Legitimate administration
+level: high

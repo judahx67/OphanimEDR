@@ -1,0 +1,45 @@
+title: Perl Reverse Shell
+id: perl_reverse_shell
+status: stable
+description: >
+    Perl process opens a socket connection and spawns a shell.
+references:
+    - https://attack.mitre.org/techniques/T1059/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.execution
+    - attack.t1059
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_perl_connect:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)perl'
+                edge: CONNECT
+                object:
+                    type: SOCKET
+
+            - step2_spawn_shell:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)perl'
+                edge: FORK
+                object:
+                    type: PROCESS
+                    name|re: '(?i)(bash|sh|zsh|dash)'
+
+    condition: sequence
+
+falsepositives:
+    - Perl web applications
+level: high

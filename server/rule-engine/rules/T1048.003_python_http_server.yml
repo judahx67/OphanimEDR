@@ -1,0 +1,46 @@
+title: Python HTTP Server for Exfiltration
+id: python_http_server
+status: stable
+description: >
+    Python process binds a socket and reads local files — hosting
+    a SimpleHTTPServer/http.server for file exfiltration.
+    Maps Sigma rule 3f0f5957.
+references:
+    - https://attack.mitre.org/techniques/T1048/003/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.exfiltration
+    - attack.t1048.003
+severity: medium
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_bind:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)python'
+                edge: CONNECT
+                object:
+                    type: SOCKET
+
+            - step2_serve_files:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)python'
+                edge: READ
+                object:
+                    type: FILE
+
+    condition: sequence
+
+falsepositives:
+    - Development and testing servers
+level: medium

@@ -1,0 +1,35 @@
+title: Root Certificate Installation
+id: install_root_certificate
+status: stable
+description: >
+    A process executes update-ca-certificates or update-ca-trust —
+    installing rogue root certificates to enable MitM or avoid
+    TLS warnings on C2 connections.
+    Maps Sigma rule 78a80655.
+references:
+    - https://attack.mitre.org/techniques/T1553/004/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.defense_evasion
+    - attack.t1553.004
+severity: medium
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: FORK
+        object:
+            type: PROCESS
+            name|re: '(?i)(update-ca-certificates|update-ca-trust)'
+
+    condition: selection
+
+falsepositives:
+    - System package updates installing new certificates
+level: medium

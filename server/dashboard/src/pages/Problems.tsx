@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Spinner, Input, Button } from '@fluentui/react-components'
+import { Spinner } from '@fluentui/react-components'
 import {
     Search24Regular,
-    Filter24Regular,
     Warning24Regular,
     Checkmark24Regular,
+    Eye24Regular,
 } from '@fluentui/react-icons'
 import axios from 'axios'
 
@@ -34,59 +34,152 @@ const styles = {
         flexDirection: 'column' as const,
         gap: '24px',
     },
-    header: {
+    pageHeader: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         flexWrap: 'wrap' as const,
         gap: '16px',
     },
-    title: {
-        fontFamily: "'Crimson Pro', Georgia, serif",
-        fontSize: '32px',
+    titleSection: {},
+    sectionPrefix: {
+        fontFamily: 'var(--font-ui)',
+        fontSize: '11px',
         fontWeight: 600,
-        color: '#2d2d5a',
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.1em',
         marginBottom: '4px',
-    },
-    subtitle: {
-        fontSize: '14px',
-        color: '#8a8a9a',
-    },
-    filters: {
         display: 'flex',
-        gap: '12px',
         alignItems: 'center',
+        gap: '6px',
+    },
+    prefixSlash: {
+        color: 'var(--accent-primary)',
+        fontWeight: 700,
+    },
+    title: {
+        fontFamily: 'var(--font-sans)',
+        fontSize: '28px',
+        fontWeight: 700,
+        color: 'var(--text-primary)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.02em',
+    },
+    searchBox: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '10px 16px',
+        background: 'var(--bg-card)',
+        border: '2px solid var(--border-strong)',
+        minWidth: '280px',
+    },
+    searchIcon: {
+        color: 'var(--text-muted)',
+        fontSize: '18px',
+    },
+    searchInput: {
+        background: 'transparent',
+        border: 'none',
+        outline: 'none',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '12px',
+        color: 'var(--text-primary)',
+        flex: 1,
+    },
+    searchBtn: {
+        padding: '10px 20px',
+        background: 'var(--accent-primary)',
+        border: '2px solid var(--accent-primary)',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '11px',
+        fontWeight: 700,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
+        color: '#0a0a0a',
+        cursor: 'pointer',
     },
     statsRow: {
-        display: 'flex',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
         gap: '16px',
-        flexWrap: 'wrap' as const,
     },
     statCard: {
-        background: '#ffffff',
-        border: '1px solid #e8e4de',
-        padding: '16px 24px',
+        background: 'var(--bg-card)',
+        border: '2px solid var(--border-strong)',
+        padding: '20px',
         display: 'flex',
         alignItems: 'center',
-        gap: '12px',
-        minWidth: '120px',
+        gap: '16px',
+    },
+    statCardAlert: {
+        background: 'var(--status-critical)',
+        border: '2px solid var(--status-critical)',
+        color: '#ffffff',
+        padding: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px',
+    },
+    statIcon: {
+        fontSize: '24px',
+        color: 'var(--text-muted)',
+    },
+    statIconWhite: {
+        fontSize: '24px',
+        color: '#ffffff',
     },
     statValue: {
-        fontFamily: "'Crimson Pro', Georgia, serif",
-        fontSize: '24px',
-        fontWeight: 600,
-        color: '#1a1a2e',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '32px',
+        fontWeight: 700,
+        lineHeight: 1,
+    },
+    statValueWhite: {
+        fontFamily: 'var(--font-ui)',
+        fontSize: '32px',
+        fontWeight: 700,
+        lineHeight: 1,
+        color: '#ffffff',
     },
     statLabel: {
+        fontFamily: 'var(--font-ui)',
         fontSize: '11px',
-        color: '#8a8a9a',
+        fontWeight: 600,
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.08em',
+    },
+    statLabelWhite: {
+        fontFamily: 'var(--font-ui)',
+        fontSize: '11px',
+        fontWeight: 600,
+        color: 'rgba(255,255,255,0.7)',
         textTransform: 'uppercase' as const,
         letterSpacing: '0.08em',
     },
     tableCard: {
-        background: '#ffffff',
-        border: '1px solid #e8e4de',
+        background: 'var(--bg-card)',
+        border: '2px solid var(--border-strong)',
         overflow: 'hidden',
+    },
+    tableHeader: {
+        padding: '16px 20px',
+        background: 'var(--bg-dark)',
+        color: 'var(--text-inverse)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '12px',
+        fontWeight: 600,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.08em',
+    },
+    headerPrefix: {
+        color: 'var(--accent-primary)',
+        fontWeight: 700,
     },
     table: {
         width: '100%',
@@ -95,106 +188,163 @@ const styles = {
     th: {
         padding: '12px 20px',
         textAlign: 'left' as const,
-        fontSize: '10px',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '11px',
         fontWeight: 600,
-        color: '#8a8a9a',
+        color: 'var(--text-muted)',
         textTransform: 'uppercase' as const,
-        letterSpacing: '0.1em',
-        borderBottom: '1px solid #e8e4de',
-        background: '#faf8f5',
+        letterSpacing: '0.08em',
+        borderBottom: '2px solid var(--border-strong)',
+        background: 'var(--bg-secondary)',
     },
     tr: {
-        transition: 'background 0.15s ease',
-    },
-    trHover: {
-        background: '#faf8f5',
+        transition: 'background 0.1s ease',
     },
     td: {
         padding: '14px 20px',
-        borderBottom: '1px solid #f0ece6',
-        fontSize: '14px',
-        color: '#1a1a2e',
+        borderBottom: '1px solid var(--border-light)',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '12px',
+        color: 'var(--text-primary)',
     },
-    severityBadge: {
+    severityCritical: {
+        display: 'inline-block',
+        padding: '4px 10px',
+        background: 'var(--severity-critical-bg)',
+        color: '#ffffff',
+        fontFamily: 'var(--font-ui)',
         fontSize: '10px',
-        fontWeight: 600,
+        fontWeight: 700,
         textTransform: 'uppercase' as const,
-        letterSpacing: '0.06em',
-        padding: '3px 8px',
-        border: '1px solid',
+        letterSpacing: '0.05em',
     },
-    critical: {
-        color: '#8b0000',
-        borderColor: '#8b0000',
-        background: 'rgba(139, 0, 0, 0.05)',
+    severityHigh: {
+        display: 'inline-block',
+        padding: '4px 10px',
+        background: 'var(--severity-high-bg)',
+        color: '#ffffff',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '10px',
+        fontWeight: 700,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
     },
-    high: {
-        color: '#c44d00',
-        borderColor: '#c44d00',
-        background: 'rgba(196, 77, 0, 0.05)',
+    severityMedium: {
+        display: 'inline-block',
+        padding: '4px 10px',
+        background: 'var(--severity-medium-bg)',
+        color: '#0a0a0a',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '10px',
+        fontWeight: 700,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
     },
-    medium: {
-        color: '#946b00',
-        borderColor: '#946b00',
-        background: 'rgba(148, 107, 0, 0.05)',
-    },
-    low: {
-        color: '#2d5a2d',
-        borderColor: '#2d5a2d',
-        background: 'rgba(45, 90, 45, 0.05)',
+    severityLow: {
+        display: 'inline-block',
+        padding: '4px 10px',
+        background: 'var(--severity-low-bg)',
+        color: '#ffffff',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '10px',
+        fontWeight: 700,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
     },
     titleCell: {
-        fontWeight: 600,
+        fontWeight: 700,
+        color: 'var(--text-primary)',
     },
     mitre: {
-        fontSize: '11px',
-        color: '#2d2d5a',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '10px',
+        color: 'var(--text-muted)',
         marginTop: '4px',
     },
     typeBadge: {
+        display: 'inline-block',
+        padding: '3px 8px',
+        border: '2px solid var(--border-medium)',
+        fontFamily: 'var(--font-ui)',
         fontSize: '10px',
-        padding: '2px 6px',
-        border: '1px solid #e8e4de',
-        color: '#4a4a5a',
+        fontWeight: 600,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
     },
     confidenceBar: {
-        width: '50px',
-        height: '4px',
-        background: '#e8e4de',
+        width: '60px',
+        height: '6px',
+        background: 'var(--border-light)',
         marginBottom: '4px',
     },
     confidenceFill: {
         height: '100%',
-        background: '#b8960c',
-    },
-    statusBadge: {
-        fontSize: '10px',
-        fontWeight: 500,
-        padding: '3px 8px',
-        textTransform: 'capitalize' as const,
+        background: 'var(--accent-primary)',
     },
     statusNew: {
-        background: 'rgba(139, 0, 0, 0.08)',
-        color: '#8b3a3a',
+        display: 'inline-block',
+        padding: '4px 10px',
+        background: 'var(--status-critical)',
+        color: '#ffffff',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '10px',
+        fontWeight: 700,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
     },
     statusInvestigating: {
-        background: 'rgba(148, 107, 0, 0.08)',
-        color: '#946b00',
+        display: 'inline-block',
+        padding: '4px 10px',
+        background: 'var(--status-warning)',
+        color: '#0a0a0a',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '10px',
+        fontWeight: 700,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
     },
     statusResolved: {
-        background: 'rgba(45, 90, 45, 0.08)',
-        color: '#2d5a2d',
+        display: 'inline-block',
+        padding: '4px 10px',
+        background: 'var(--status-success)',
+        color: '#ffffff',
+        fontFamily: 'var(--font-ui)',
+        fontSize: '10px',
+        fontWeight: 700,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
     },
     loading: {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        height: '300px',
+        height: '400px',
+        flexDirection: 'column' as const,
+        gap: '16px',
+    },
+    loadingText: {
+        fontFamily: 'var(--font-ui)',
+        fontSize: '12px',
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.1em',
     },
     emptyState: {
         textAlign: 'center' as const,
-        padding: '64px',
-        color: '#8a8a9a',
+        padding: '80px 40px',
+    },
+    emptyTitle: {
+        fontFamily: 'var(--font-ui)',
+        fontSize: '14px',
+        fontWeight: 600,
+        color: 'var(--text-primary)',
+        textTransform: 'uppercase' as const,
+        marginBottom: '8px',
+    },
+    emptyText: {
+        fontFamily: 'var(--font-ui)',
+        fontSize: '12px',
+        color: 'var(--text-muted)',
     },
 }
 
@@ -233,14 +383,17 @@ function Problems() {
         fetchData()
     }
 
-    const formatDate = (dateStr: string) => new Date(dateStr).toLocaleString()
+    const formatDate = (dateStr: string) => {
+        const date = new Date(dateStr)
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
 
     const getSeverityStyle = (severity: string) => {
         switch (severity) {
-            case 'critical': return styles.critical
-            case 'high': return styles.high
-            case 'medium': return styles.medium
-            default: return styles.low
+            case 'critical': return styles.severityCritical
+            case 'high': return styles.severityHigh
+            case 'medium': return styles.severityMedium
+            default: return styles.severityLow
         }
     }
 
@@ -255,54 +408,61 @@ function Problems() {
     if (loading && detections.length === 0) {
         return (
             <div style={styles.loading}>
-                <Spinner size="large" label="Loading..." />
+                <Spinner size="large" />
+                <span style={styles.loadingText}>Loading Detections...</span>
             </div>
         )
     }
 
     return (
         <div style={styles.container}>
-            <div style={styles.header}>
-                <div>
+            {/* Page Header */}
+            <div style={styles.pageHeader}>
+                <div style={styles.titleSection}>
+                    <div style={styles.sectionPrefix}>
+                        <span style={styles.prefixSlash}>//</span>
+                        <span>Threat Intelligence</span>
+                    </div>
                     <h1 style={styles.title}>Detections</h1>
-                    <p style={styles.subtitle}>Security alerts and threat analysis</p>
                 </div>
 
-                <div style={styles.filters}>
-                    <Input
-                        placeholder="Search..."
-                        contentBefore={<Search24Regular />}
-                        value={search}
-                        onChange={(_e, data) => setSearch(data.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    />
-                    <Button
-                        icon={<Filter24Regular />}
-                        onClick={handleSearch}
-                    >
-                        Filter
-                    </Button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={styles.searchBox}>
+                        <Search24Regular style={styles.searchIcon} />
+                        <input
+                            type="text"
+                            placeholder="Search detections..."
+                            style={styles.searchInput}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                        />
+                    </div>
+                    <button style={styles.searchBtn} onClick={handleSearch}>
+                        Search
+                    </button>
                 </div>
             </div>
 
+            {/* Stats Row */}
             {stats && (
                 <div style={styles.statsRow}>
-                    <div style={styles.statCard}>
-                        <Warning24Regular style={{ color: '#8b3a3a' }} />
+                    <div style={stats.new > 0 ? styles.statCardAlert : styles.statCard}>
+                        <Warning24Regular style={stats.new > 0 ? styles.statIconWhite : styles.statIcon} />
                         <div>
-                            <div style={styles.statValue}>{stats.new}</div>
-                            <div style={styles.statLabel}>New</div>
+                            <div style={stats.new > 0 ? styles.statValueWhite : styles.statValue}>{stats.new}</div>
+                            <div style={stats.new > 0 ? styles.statLabelWhite : styles.statLabel}>New Alerts</div>
                         </div>
                     </div>
                     <div style={styles.statCard}>
-                        <Warning24Regular style={{ color: '#946b00' }} />
+                        <Eye24Regular style={styles.statIcon} />
                         <div>
                             <div style={styles.statValue}>{stats.investigating}</div>
                             <div style={styles.statLabel}>Investigating</div>
                         </div>
                     </div>
                     <div style={styles.statCard}>
-                        <Checkmark24Regular style={{ color: '#2d5a2d' }} />
+                        <Checkmark24Regular style={styles.statIcon} />
                         <div>
                             <div style={styles.statValue}>{stats.resolved}</div>
                             <div style={styles.statLabel}>Resolved</div>
@@ -311,11 +471,17 @@ function Problems() {
                 </div>
             )}
 
+            {/* Table */}
             <div style={styles.tableCard}>
+                <div style={styles.tableHeader}>
+                    <span style={styles.headerPrefix}>//</span>
+                    <span>Detection Log</span>
+                </div>
+
                 {detections.length === 0 ? (
                     <div style={styles.emptyState}>
-                        <p style={{ fontSize: '14px', marginBottom: '8px' }}>No detections found</p>
-                        <p style={{ fontSize: '12px' }}>ML engine alerts will appear here.</p>
+                        <div style={styles.emptyTitle}>No Detections Found</div>
+                        <div style={styles.emptyText}>ML engine alerts will appear here.</div>
                     </div>
                 ) : (
                     <table style={styles.table}>
@@ -336,13 +502,15 @@ function Problems() {
                                     key={detection.id}
                                     style={{
                                         ...styles.tr,
-                                        ...(hoveredRow === detection.id ? styles.trHover : {}),
+                                        background: hoveredRow === detection.id
+                                            ? 'var(--bg-secondary)'
+                                            : 'transparent',
                                     }}
                                     onMouseEnter={() => setHoveredRow(detection.id)}
                                     onMouseLeave={() => setHoveredRow(null)}
                                 >
                                     <td style={styles.td}>
-                                        <span style={{ ...styles.severityBadge, ...getSeverityStyle(detection.severity) }}>
+                                        <span style={getSeverityStyle(detection.severity)}>
                                             {detection.severity}
                                         </span>
                                     </td>
@@ -367,12 +535,12 @@ function Problems() {
                                                 }}
                                             />
                                         </div>
-                                        <span style={{ fontSize: '11px', color: '#8a8a9a' }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                             {Math.round(detection.ml_confidence * 100)}%
                                         </span>
                                     </td>
                                     <td style={styles.td}>
-                                        <span style={{ ...styles.statusBadge, ...getStatusStyle(detection.status) }}>
+                                        <span style={getStatusStyle(detection.status)}>
                                             {detection.status.replace('_', ' ')}
                                         </span>
                                     </td>

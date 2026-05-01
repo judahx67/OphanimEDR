@@ -1,0 +1,21 @@
+name: botsv2
+
+services:
+  splunk:
+    image: splunk/splunk:latest
+    container_name: botsv2-splunk
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com
+      - SPLUNK_PASSWORD=admin123!
+    ports:
+      - "8001:8000"
+      - "8089:8089"
+    volumes:
+      - botsv2_app:/opt/splunk/etc/apps/botsv2_data_set
+      - "J:/THESIS-EDR/datasets/botsv2:/export"
+    mem_limit: 8g
+    restart: unless-stopped
+
+volumes:
+  botsv2_app:

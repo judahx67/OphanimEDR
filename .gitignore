@@ -65,6 +65,24 @@ data/raw/
 data/processed/
 !data/.gitkeep
 
+# DARPA THEIA dataset — full shards are 3-4 GB each, not tracked
+# Ignore the raw full shards and archives but NOT the committed sample
+darpa_data/data/
+darpa_data/*.tar.gz
+darpa_data/*.bin
+darpa_data/*.json.0
+darpa_data/*.json.1
+darpa_data/*.json.2
+darpa_data/*.json.3
+darpa_data/*.json.4
+darpa_data/*.json.5
+darpa_data/*.json.6
+darpa_data/*.json.7
+darpa_data/*.json.8
+darpa_data/*.json.9
+# Compressed 150k-line sample (~4 MB) — committed for remote dev
+# darpa_data/theia-sample-150k.json.gz  ← tracked (no ignore rule)
+
 # Test artifacts
 .pytest_cache/
 .coverage
@@ -95,3 +113,17 @@ docker-compose.override.yml
 PROGRESS.md
 
 docs/
+RESEARCH/
+
+# Provenance website (separate project)
+provenance-website/
+provenance-website-2/
+
+CLAUDE.md
+archive/
+darpa_data
+datasets/
+splunk-botsv2_data/
+.claude/
+.github/
+server/ml-engine/experiments

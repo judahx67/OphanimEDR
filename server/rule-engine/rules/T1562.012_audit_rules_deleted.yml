@@ -1,0 +1,34 @@
+title: Audit Rules Deleted via Auditctl
+id: audit_rules_deleted
+status: stable
+description: >
+    A process forks auditctl — potentially deleting all audit rules
+    to blind the monitoring system.
+    Maps Sigma rule bed26dea.
+references:
+    - https://attack.mitre.org/techniques/T1562/012/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.defense_evasion
+    - attack.t1562.012
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: FORK
+        object:
+            type: PROCESS
+            name|re: '(?i)(^|/)auditctl'
+
+    condition: selection
+
+falsepositives:
+    - Administrators troubleshooting audit configuration
+level: high
