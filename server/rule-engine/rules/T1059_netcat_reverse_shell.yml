@@ -1,0 +1,46 @@
+title: Netcat Reverse Shell Execution
+id: netcat_reverse_shell
+status: stable
+description: >
+    Netcat (nc/ncat) spawns a shell — classic reverse shell pattern.
+    Maps Sigma rule 7f734ed0.
+references:
+    - https://attack.mitre.org/techniques/T1059/
+    - https://github.com/SigmaHQ/sigma/blob/master/rules/linux/process_creation/proc_creation_lnx_netcat_reverse_shell.yml
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.execution
+    - attack.t1059
+severity: critical
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_nc_exec:
+                subject:
+                    type: PROCESS
+                edge: FORK
+                object:
+                    type: PROCESS
+                    name|re: '(?i)(^|/)(nc|ncat)$'
+
+            - step2_connect:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)(nc|ncat)'
+                edge: CONNECT
+                object:
+                    type: SOCKET
+
+    condition: sequence
+
+falsepositives:
+    - Legitimate use of netcat for debugging
+level: critical

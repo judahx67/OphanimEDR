@@ -1,0 +1,34 @@
+title: Remote System Discovery
+id: remote_system_discovery
+status: stable
+description: >
+    A process forks network enumeration tools (arp, ping, nmap, traceroute)
+    — internal network reconnaissance.
+    Maps Sigma rule 11063ec2.
+references:
+    - https://attack.mitre.org/techniques/T1018/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.discovery
+    - attack.t1018
+severity: low
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: FORK
+        object:
+            type: PROCESS
+            name|re: '(?i)(^|/)(arp|ping|nmap|traceroute|tracepath)$'
+
+    condition: selection
+
+falsepositives:
+    - Network administrators and monitoring scripts
+level: low

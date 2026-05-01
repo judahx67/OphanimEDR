@@ -1,0 +1,47 @@
+title: Wget Download to Temp Directory
+id: wget_download_tmp
+status: stable
+description: >
+    Wget connects to a remote host and writes to /tmp or /var/tmp —
+    ingress tool transfer to staging area.
+    Maps Sigma rule 35a05c60.
+references:
+    - https://attack.mitre.org/techniques/T1105/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.command_and_control
+    - attack.t1105
+severity: medium
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 120
+        ordered: true
+        steps:
+            - step1_connect:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)wget'
+                edge: CONNECT
+                object:
+                    type: SOCKET
+
+            - step2_write_tmp:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)wget'
+                edge: WRITE
+                object:
+                    type: FILE
+                    name|re: '(?i)(/tmp/|/var/tmp/)'
+
+    condition: sequence
+
+falsepositives:
+    - Legitimate downloads to temp directories
+level: medium

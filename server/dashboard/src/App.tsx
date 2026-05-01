@@ -11,6 +11,10 @@ import EndpointsList from './pages/EndpointsList'
 import EndpointDetails from './pages/EndpointDetails'
 import Dashboard from './pages/Dashboard'
 import Problems from './pages/Problems'
+import Incidents from './pages/Incidents'
+import MLScores from './pages/MLScores'
+
+export type ThemeName = 'classic' | 'light' | 'dark'
 
 const appStyles = {
     root: {
@@ -34,38 +38,48 @@ const appStyles = {
     },
 }
 
+const classicLightTheme = {
+    ...webLightTheme,
+    fontFamilyBase: "'Inter', -apple-system, system-ui, sans-serif",
+}
+
+const fluentThemeMap = {
+    classic: classicLightTheme,
+    light: webLightTheme,
+    dark: webDarkTheme,
+}
+
 function App() {
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        // Check localStorage for saved preference
-        const saved = localStorage.getItem('ophanim-theme')
-        return saved === 'dark'
+    const [theme, setTheme] = useState<ThemeName>(() => {
+        const saved = localStorage.getItem('ophanim-theme') as ThemeName | null
+        if (saved && ['classic', 'light', 'dark'].includes(saved)) return saved
+        return 'classic'  // Default to professional theme
     })
 
-    const toggleTheme = () => {
-        setIsDarkMode(prev => {
-            const newValue = !prev
-            localStorage.setItem('ophanim-theme', newValue ? 'dark' : 'light')
-            return newValue
-        })
+    const handleSetTheme = (newTheme: ThemeName) => {
+        setTheme(newTheme)
+        localStorage.setItem('ophanim-theme', newTheme)
     }
 
     // Apply theme to document
     useEffect(() => {
-        document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light')
-    }, [isDarkMode])
+        document.documentElement.setAttribute('data-theme', theme)
+    }, [theme])
 
     return (
-        <FluentProvider theme={isDarkMode ? webDarkTheme : webLightTheme}>
+        <FluentProvider theme={fluentThemeMap[theme]}>
             <div style={appStyles.root}>
-                <Sidebar isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
+                <Sidebar theme={theme} onSetTheme={handleSetTheme} />
                 <div style={appStyles.main}>
-                    <Header onToggleTheme={toggleTheme} />
+                    <Header theme={theme} />
                     <main style={appStyles.content}>
                         <Routes>
                             <Route path="/" element={<Dashboard />} />
                             <Route path="/endpoints" element={<EndpointsList />} />
                             <Route path="/endpoints/:id" element={<EndpointDetails />} />
                             <Route path="/problems" element={<Problems />} />
+                            <Route path="/incidents" element={<Incidents />} />
+                            <Route path="/ml-scores" element={<MLScores />} />
                         </Routes>
                     </main>
                 </div>
@@ -75,3 +89,4 @@ function App() {
 }
 
 export default App
+

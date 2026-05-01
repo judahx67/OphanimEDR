@@ -1,0 +1,47 @@
+title: Data Staged via Archive Tool
+id: data_staging_archive
+status: stable
+description: >
+    Archive tools (tar, zip, 7z, rar) read files then write an archive —
+    data collection and staging for exfiltration.
+references:
+    - https://attack.mitre.org/techniques/T1074/001/
+    - https://attack.mitre.org/techniques/T1560/001/
+author: EDR Thesis
+date: 2026-04-18
+tags:
+    - attack.collection
+    - attack.t1074.001
+    - attack.t1560.001
+severity: medium
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_read:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)(tar|zip|7z|rar|gzip|bzip2|xz)'
+                edge: READ
+                object:
+                    type: FILE
+
+            - step2_write_archive:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)(tar|zip|7z|rar|gzip|bzip2|xz)'
+                edge: WRITE
+                object:
+                    type: FILE
+
+    condition: sequence
+
+falsepositives:
+    - Legitimate backup operations
+level: medium

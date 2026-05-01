@@ -1,0 +1,35 @@
+title: Sudoers File Modification
+id: sudoers_file_write
+status: stable
+description: >
+    A process writes to /etc/sudoers or /etc/sudoers.d/ — privilege
+    escalation by granting passwordless sudo.
+    Maps Sigma rule ddb26b76.
+references:
+    - https://attack.mitre.org/techniques/T1548/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.privilege_escalation
+    - attack.persistence
+    - attack.t1548
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: WRITE
+        object:
+            type: FILE
+            name|re: '(?i)(/etc/sudoers|/etc/sudoers\.d/)'
+
+    condition: selection
+
+falsepositives:
+    - System administrators managing sudo policies
+level: high

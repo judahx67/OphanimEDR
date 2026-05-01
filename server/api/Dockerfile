@@ -1,20 +1,15 @@
-# EDR Server Dockerfile
 FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install dependencies
-COPY server/pyproject.toml ./
-RUN pip install --no-cache-dir fastapi uvicorn motor pydantic python-dotenv
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir \
+    "fastapi>=0.109.0" \
+    "uvicorn[standard]>=0.27.0" \
+    "neo4j>=5.18.0" \
+    "pydantic>=2.5.0"
 
-# Copy source code
-COPY server/src ./src
+COPY edr_server ./edr_server
 
-# Expose port
 EXPOSE 8000
-
-# Set Python path
-ENV PYTHONPATH=/app/src
-
-# Run server
 CMD ["uvicorn", "edr_server.main:app", "--host", "0.0.0.0", "--port", "8000"]

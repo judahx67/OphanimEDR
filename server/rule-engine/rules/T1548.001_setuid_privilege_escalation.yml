@@ -1,0 +1,36 @@
+title: Setuid/Setgid Bit Manipulation
+id: setuid_privilege_escalation
+status: stable
+description: >
+    A process forks chmod to set SUID/SGID bits on a file —
+    privilege escalation via abused file permissions.
+    Maps Sigma rule c21c4eaa.
+references:
+    - https://attack.mitre.org/techniques/T1548/001/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.privilege_escalation
+    - attack.defense_evasion
+    - attack.t1548.001
+severity: medium
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: FORK
+        object:
+            type: PROCESS
+            name|re: '(?i)(^|/)chmod'
+
+    condition: selection
+
+falsepositives:
+    - Package installation scripts
+    - Legitimate administration
+level: medium

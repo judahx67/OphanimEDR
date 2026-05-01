@@ -1,0 +1,80 @@
+{
+  "test_n": 12500,
+  "test_positive_rate": 0.5348,
+  "roc_auc": 0.9182324360373547,
+  "precision": 0.7180558872701218,
+  "recall": 0.8994764397905759,
+  "f1": 0.7985922039976094,
+  "mcc": 0.523412692426066,
+  "confusion_matrix": [
+    [
+      3454,
+      2361
+    ],
+    [
+      672,
+      6013
+    ]
+  ],
+  "threshold": 0.24999999999999994,
+  "per_scenario_recall": {
+    "s200_webapp_attack": {
+      "n": 4631,
+      "recall": 0.9969768948391277
+    },
+    "s400_taedonggang_apt": {
+      "n": 2054,
+      "recall": 0.6796494644595911
+    }
+  },
+  "per_sourcetype_recall": {
+    "stream_mysql": {
+      "n_malicious": 1438,
+      "recall": 1.0
+    },
+    "stream_http": {
+      "n_malicious": 1305,
+      "recall": 1.0
+    },
+    "stream_tcp": {
+      "n_malicious": 1080,
+      "recall": 0.9675925925925926
+    },
+    "stream_ip": {
+      "n_malicious": 1048,
+      "recall": 1.0
+    },
+    "access_combined": {
+      "n_malicious": 689,
+      "recall": 1.0
+    },
+    "pan_traffic": {
+      "n_malicious": 352,
+      "recall": 0.017045454545454544
+    },
+    "suricata": {
+      "n_malicious": 242,
+      "recall": 0.049586776859504134
+    },
+    "mysql_server_stats": {
+      "n_malicious": 95,
+      "recall": 1.0
+    },
+    "mysql_transaction_details": {
+      "n_malicious": 82,
+      "recall": 1.0
+    },
+    "linux_audit": {
+      "n_malicious": 73,
+      "recall": 0.8904109589041096
+    },
+    "auditd": {
+      "n_malicious": 68,
+      "recall": 0.9411764705882353
+    },
+    "stream_arp": {
+      "n_malicious": 63,
+      "recall": 1.0
+    }
+  }
+}

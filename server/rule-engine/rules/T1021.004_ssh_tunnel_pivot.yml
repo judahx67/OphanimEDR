@@ -1,0 +1,47 @@
+title: SSH Tunnel or Port Forwarding
+id: ssh_tunnel_pivot
+status: stable
+description: >
+    SSH process connects to a socket then forks a child — SSH tunneling
+    or port forwarding for lateral movement and pivoting.
+references:
+    - https://attack.mitre.org/techniques/T1021/004/
+    - https://attack.mitre.org/techniques/T1572/
+author: EDR Thesis
+date: 2026-04-18
+tags:
+    - attack.lateral_movement
+    - attack.t1021.004
+    - attack.t1572
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    sequence:
+        window: 300
+        ordered: true
+        steps:
+            - step1_ssh_connect:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)(ssh|scp|sftp)'
+                edge: CONNECT
+                object:
+                    type: SOCKET
+
+            - step2_ssh_forks:
+                subject:
+                    type: PROCESS
+                    name|re: '(?i)(ssh|scp|sftp)'
+                edge: FORK
+                object:
+                    type: PROCESS
+
+    condition: sequence
+
+falsepositives:
+    - Legitimate SSH usage with tunneling
+level: high

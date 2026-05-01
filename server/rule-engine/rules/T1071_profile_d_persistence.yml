@@ -1,0 +1,34 @@
+title: Shell Script Written to Profile Directory
+id: profile_d_persistence
+status: stable
+description: >
+    A process writes a shell script to /etc/profile.d/ — persistence
+    via login shell initialization. Executes on every user login.
+    Maps Sigma rule 13f08f54.
+references:
+    - https://attack.mitre.org/techniques/T1546/004/
+author: EDR Thesis (adapted from SigmaHQ)
+date: 2026-04-18
+tags:
+    - attack.persistence
+    - attack.t1546.004
+severity: high
+
+logsource:
+    category: provenance
+    product: edr
+
+detection:
+    selection:
+        subject:
+            type: PROCESS
+        edge: WRITE
+        object:
+            type: FILE
+            name|re: '(?i)/etc/profile\.d/'
+
+    condition: selection
+
+falsepositives:
+    - Package managers setting up environment scripts
+level: high

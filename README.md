@@ -11,6 +11,12 @@ THESIS-EDR/
 ├── agent/               # EDR Agent (Windows endpoint monitoring)
 │   └── src/edr_agent/   # Process, network, file collectors
 │
+├── causality-engine/    # ML Model (GNN-based threat detection)
+│   ├── graph/           # Provenance graph schema & builders
+│   ├── models/          # GAT+GRU encoder-decoder architecture
+│   ├── training/        # Training pipelines & hyperparameters
+│   └── data/            # Dataset loaders (StreamSpot, DARPA TC)
+│
 ├── server/              # Server & Dashboard
 │   ├── api/             # FastAPI backend
 │   ├── dashboard/       # React frontend
@@ -68,6 +74,7 @@ See `.env.example` for all options.
 | Component | Purpose | Tech Stack |
 |-----------|---------|------------|
 | **Agent** | Endpoint telemetry collection | Python, psutil, watchdog, Sysmon |
+| **Causality Engine** | GNN-based threat detection | PyTorch, PyG, GAT+GRU encoder-decoder |
 | **API** | Event ingestion & detection engine | FastAPI, MongoDB, Motor |
 | **Dashboard** | Security operations interface | React, TypeScript, Recharts |
 
