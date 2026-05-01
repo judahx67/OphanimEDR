@@ -1,0 +1,168 @@
+{
+  "parquet_rows": 188538919,
+  "labeled_rows": 188538919,
+  "malicious_total": 2150080,
+  "per_scenario": {
+    "s400_taedonggang_apt": 438539,
+    "s200_webapp_attack": 1706832,
+    "s300_ransomware": 4709
+  },
+  "anchors": {
+    "total_malicious": 2150080,
+    "s200_webapp_attack": 1706832,
+    "s300_ransomware": 4709,
+    "s400_taedonggang_apt": 438539
+  },
+  "per_sourcetype_top": [
+    {
+      "sourcetype": "stream_http",
+      "rows": 1405133,
+      "malicious": 494719
+    },
+    {
+      "sourcetype": "stream_mysql",
+      "rows": 636101,
+      "malicious": 486774
+    },
+    {
+      "sourcetype": "stream_tcp",
+      "rows": 1905469,
+      "malicious": 336725
+    },
+    {
+      "sourcetype": "stream_ip",
+      "rows": 2272785,
+      "malicious": 326482
+    },
+    {
+      "sourcetype": "access_combined",
+      "rows": 1703308,
+      "malicious": 251594
+    },
+    {
+      "sourcetype": "mysql_server_stats",
+      "rows": 19729247,
+      "malicious": 57454
+    },
+    {
+      "sourcetype": "mysql_transaction_details",
+      "rows": 19562312,
+      "malicious": 56731
+    },
+    {
+      "sourcetype": "stream_arp",
+      "rows": 407804,
+      "malicious": 25226
+    },
+    {
+      "sourcetype": "suricata",
+      "rows": 2033651,
+      "malicious": 20608
+    },
+    {
+      "sourcetype": "pan_traffic",
+      "rows": 1722912,
+      "malicious": 18982
+    },
+    {
+      "sourcetype": "linux_audit",
+      "rows": 263707,
+      "malicious": 16722
+    },
+    {
+      "sourcetype": "auditd",
+      "rows": 260674,
+      "malicious": 16287
+    },
+    {
+      "sourcetype": "stream_dns",
+      "rows": 1129285,
+      "malicious": 8060
+    },
+    {
+      "sourcetype": "stream_udp",
+      "rows": 437491,
+      "malicious": 7477
+    },
+    {
+      "sourcetype": "netstat",
+      "rows": 20329,
+      "malicious": 6761
+    },
+    {
+      "sourcetype": "apache_error",
+      "rows": 15513,
+      "malicious": 5587
+    },
+    {
+      "sourcetype": "XmlWinEventLog_Microsoft-Windows-Sysmon_Operational",
+      "rows": 1003045,
+      "malicious": 3719
+    },
+    {
+      "sourcetype": "interfaces",
+      "rows": 20330,
+      "malicious": 3449
+    },
+    {
+      "sourcetype": "stream_smb",
+      "rows": 193924,
+      "malicious": 2206
+    },
+    {
+      "sourcetype": "csp-violation",
+      "rows": 2288,
+      "malicious": 1793
+    },
+    {
+      "sourcetype": "web_ping",
+      "rows": 9397,
+      "malicious": 1545
+    },
+    {
+      "sourcetype": "ps",
+      "rows": 42283,
+      "malicious": 370
+    },
+    {
+      "sourcetype": "stream_dhcp",
+      "rows": 75734,
+      "malicious": 348
+    },
+    {
+      "sourcetype": "syslog",
+      "rows": 1814,
+      "malicious": 282
+    },
+    {
+      "sourcetype": "osquery_results",
+      "rows": 41204,
+      "malicious": 78
+    },
+    {
+      "sourcetype": "stream_icmp",
+      "rows": 119893,
+      "malicious": 61
+    },
+    {
+      "sourcetype": "mysql_user",
+      "rows": 144,
+      "malicious": 13
+    },
+    {
+      "sourcetype": "stream_smtp",
+      "rows": 95478,
+      "malicious": 10
+    },
+    {
+      "sourcetype": "WinEventLog_Security",
+      "rows": 1958083,
+      "malicious": 8
+    },
+    {
+      "sourcetype": "WinRegistry",
+      "rows": 50265362,
+      "malicious": 3
+    }
+  ]
+}
