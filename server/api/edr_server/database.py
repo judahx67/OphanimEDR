@@ -309,9 +309,13 @@ async def get_node_subgraph(node_id: str, hops: int = 2) -> dict:
     """Return the k-hop neighbourhood of a node as nodes + edges."""
     driver = get_driver()
     async with driver.session() as session:
+        # Neo4j 5 doesn't allow parameters as variable-length range bounds.
+        # Cap at 2 hops max (1-hop is sufficient for edge neighbourhood).
+        hops_clamped = min(int(hops), 2)
+        hop_pattern = "-[*1..1]-" if hops_clamped == 1 else "-[*1..2]-"
         result = await session.run(
-            """
-            MATCH path = (root {uuid: $uuid})-[*1..$hops]-(neighbour)
+            f"""
+            MATCH path = (root {{uuid: $uuid}}){hop_pattern}(neighbour)
             UNWIND relationships(path) AS rel
             WITH
               startNode(rel) AS src,
@@ -322,10 +326,13 @@ async def get_node_subgraph(node_id: str, hops: int = 2) -> dict:
               dst.uuid AS dst_id, labels(dst)[0] AS dst_label, dst.name AS dst_name,
               type(rel) AS edge_type,
               rel.event_id AS event_id,
-              rel.timestamp AS timestamp
+              rel.timestamp AS timestamp,
+              rel.botsv2_ml_score AS ml_score,
+              rel.botsv2_ml_score_honest AS ml_score_honest,
+              rel.botsv2_ml_alert AS ml_alert
             LIMIT 500
             """,
-            {"uuid": node_id, "hops": hops},
+            {"uuid": node_id},
         )
         nodes: dict[str, dict] = {}
         edges: list[dict] = []
@@ -343,6 +350,9 @@ async def get_node_subgraph(node_id: str, hops: int = 2) -> dict:
                     "type": record["edge_type"],
                     "event_id": record["event_id"],
                     "timestamp": record["timestamp"],
+                    "ml_score": float(record["ml_score"]) if record["ml_score"] is not None else None,
+                    "ml_score_honest": float(record["ml_score_honest"]) if record["ml_score_honest"] is not None else None,
+                    "ml_alert": record["ml_alert"],
                 })
     return {"nodes": list(nodes.values()), "edges": edges}
 
@@ -431,6 +441,153 @@ async def get_ml_scores(limit: int = 100) -> list[dict]:
                 "incident_count": record["incident_count"],
             })
     return rows
+
+
+async def get_ml_edge_findings(
+    rule_clear: bool = True,
+    limit: int = 50,
+    min_score: float = 0.0,
+) -> list[dict]:
+    """
+    Top-scoring BOTSv2 edges from the ml-edge-scorer.
+
+    rule_clear=True filters to edges with no linked rule-engine Incident
+    — these are the "ML found what rules missed" headline thesis query.
+    """
+    driver = get_driver()
+
+    # Two variants: rule-clear (no incident on subject/object nodes) vs all scored.
+    # BOTSv2 incidents are tracked by matched_nodes UUIDs; all current incidents
+    # are THEIA-era so BOTSv2 edges are effectively always rule-clear.
+    # The min_score parameter provides the meaningful filter for thesis use.
+    rule_filter = """
+          AND NOT exists {
+            MATCH (i:Incident)
+            WHERE s.uuid IN i.matched_nodes OR o.uuid IN i.matched_nodes
+          }
+    """ if rule_clear else ""
+
+    # Deduplicate by (subject, object, edge_type) — keep the highest honest-scoring
+    # representative edge. Without this the table fills with hundreds of identical
+    # gacrux→brewertalk rows that differ only by event_id.
+    cypher = f"""
+    MATCH (s)-[r]->(o)
+    WHERE r.botsv2_ml_score IS NOT NULL
+      AND r.botsv2_ml_score_honest >= $min_score
+      AND r.botsv2_ml_score_quality = 'full'
+    {rule_filter}
+    WITH s, o, type(r) AS edge_type,
+         max(r.botsv2_ml_score_honest) AS best_honest
+    MATCH (s)-[r2]->(o)
+    WHERE type(r2) = edge_type
+      AND r2.botsv2_ml_score_honest = best_honest
+    RETURN
+        r2.event_id        AS event_id,
+        edge_type          AS edge_type,
+        r2.botsv2_ml_score         AS score_headline,
+        r2.botsv2_ml_score_honest  AS score_honest,
+        r2.botsv2_ml_score_quality AS quality,
+        r2.botsv2_ml_alert         AS is_alert,
+        r2.timestamp               AS timestamp,
+        s.uuid AS subj_id, s.name AS subj_name, labels(s)[0] AS subj_label,
+        o.uuid AS obj_id,  o.name AS obj_name,  labels(o)[0] AS obj_label,
+        r2.endpoint_id AS endpoint_id
+    ORDER BY best_honest DESC
+    LIMIT $limit
+    """
+
+    async with driver.session() as session:
+        result = await session.run(cypher, limit=limit, min_score=min_score)
+        rows = []
+        async for rec in result:
+            score_h = rec["score_headline"]
+            score_o = rec["score_honest"]
+            rows.append({
+                "event_id": rec["event_id"],
+                "edge_type": rec["edge_type"],
+                "score_headline": float(score_h) if score_h is not None else None,
+                "score_honest": float(score_o) if score_o is not None else None,
+                "quality": rec["quality"],
+                "is_alert": rec["is_alert"],
+                "timestamp": rec["timestamp"],
+                "subject": {
+                    "id": rec["subj_id"], "name": rec["subj_name"], "label": rec["subj_label"],
+                },
+                "object": {
+                    "id": rec["obj_id"], "name": rec["obj_name"], "label": rec["obj_label"],
+                },
+                "endpoint_id": rec["endpoint_id"],
+            })
+    return rows
+
+
+async def get_ml_edge_summary() -> dict:
+    """Stats on botsv2_ml_score distribution across all scored edges."""
+    driver = get_driver()
+    async with driver.session() as session:
+        result = await session.run(
+            """
+            MATCH ()-[r]->()
+            WHERE r.botsv2_ml_score IS NOT NULL
+            WITH
+                count(r) AS total,
+                avg(r.botsv2_ml_score) AS mean_headline,
+                avg(r.botsv2_ml_score_honest) AS mean_honest,
+                size([x IN collect(r.botsv2_ml_score) WHERE x >= 0.9]) AS alerts_headline,
+                size([x IN collect(r.botsv2_ml_score_honest) WHERE x >= 0.7]) AS alerts_honest,
+                size([x IN collect(r.botsv2_ml_score_quality) WHERE x = 'degraded']) AS degraded
+            RETURN total, mean_headline, mean_honest,
+                   alerts_headline, alerts_honest, degraded
+            """
+        )
+        rec = await result.single()
+        if not rec or rec["total"] == 0:
+            return {
+                "total_scored": 0,
+                "mean_headline": 0.0,
+                "mean_honest": 0.0,
+                "alerts_headline": 0,
+                "alerts_honest": 0,
+                "degraded": 0,
+            }
+        return {
+            "total_scored": rec["total"],
+            "mean_headline": float(rec["mean_headline"] or 0),
+            "mean_honest": float(rec["mean_honest"] or 0),
+            "alerts_headline": rec["alerts_headline"],
+            "alerts_honest": rec["alerts_honest"],
+            "degraded": rec["degraded"],
+        }
+
+
+async def get_llm_incident(event_id: str) -> dict | None:
+    """Fetch the LLM-generated narrative for a given edge event_id."""
+    driver = get_driver()
+    async with driver.session() as session:
+        result = await session.run(
+            """
+            MATCH (i:Incident {event_id: $event_id, source: 'ml-llm'})
+            RETURN
+                i.title AS title,
+                i.attack_hypothesis AS attack_hypothesis,
+                i.mitre_technique AS mitre_technique,
+                i.mitre_tactic AS mitre_tactic,
+                i.evidence_summary AS evidence_summary,
+                i.confidence AS confidence,
+                i.analyst_action AS analyst_action,
+                i.false_positive_risk AS false_positive_risk,
+                i.score_headline AS score_headline,
+                i.score_honest AS score_honest,
+                i.severity AS severity,
+                i.created_at AS created_at,
+                i.endpoint_id AS endpoint_id
+            """,
+            event_id=event_id,
+        )
+        rec = await result.single()
+        if not rec:
+            return None
+        return dict(rec)
 
 
 async def get_ml_summary() -> dict:

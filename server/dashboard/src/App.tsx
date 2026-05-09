@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard'
 import Problems from './pages/Problems'
 import Incidents from './pages/Incidents'
 import MLScores from './pages/MLScores'
+import MLFindings from './pages/MLFindings'
 
 export type ThemeName = 'classic' | 'light' | 'dark'
 
@@ -80,6 +81,7 @@ function App() {
                             <Route path="/problems" element={<Problems />} />
                             <Route path="/incidents" element={<Incidents />} />
                             <Route path="/ml-scores" element={<MLScores />} />
+                            <Route path="/ml-findings" element={<MLFindings />} />
                         </Routes>
                     </main>
                 </div>
