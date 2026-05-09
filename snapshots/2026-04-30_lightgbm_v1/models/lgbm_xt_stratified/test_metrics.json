@@ -1,0 +1,84 @@
+{
+  "test_n": 600045,
+  "test_positive_rate": 0.7160046329858594,
+  "roc_auc": 0.9980581395001735,
+  "precision": 0.9946040373570209,
+  "recall": 0.9991969927962108,
+  "f1": 0.9968952248697829,
+  "mcc": 0.9890365688098954,
+  "confusion_matrix": [
+    [
+      168081,
+      2329
+    ],
+    [
+      345,
+      429290
+    ]
+  ],
+  "threshold": 0.4599999999999999,
+  "per_scenario_recall": {
+    "s200_webapp_attack": {
+      "n": 341118,
+      "recall": 0.9990970866386412
+    },
+    "s400_taedonggang_apt": {
+      "n": 87549,
+      "recall": 0.9997829786747993
+    },
+    "s300_ransomware": {
+      "n": 968,
+      "recall": 0.981404958677686
+    }
+  },
+  "per_sourcetype_recall": {
+    "stream_http": {
+      "n_malicious": 99321,
+      "recall": 1.0
+    },
+    "stream_mysql": {
+      "n_malicious": 97104,
+      "recall": 0.9999897017630581
+    },
+    "stream_tcp": {
+      "n_malicious": 67791,
+      "recall": 0.9998672390140284
+    },
+    "stream_ip": {
+      "n_malicious": 64673,
+      "recall": 0.9998917631778331
+    },
+    "access_combined": {
+      "n_malicious": 49974,
+      "recall": 1.0
+    },
+    "mysql_server_stats": {
+      "n_malicious": 11512,
+      "recall": 0.9883599722029187
+    },
+    "mysql_transaction_details": {
+      "n_malicious": 11317,
+      "recall": 0.9878943182822303
+    },
+    "stream_arp": {
+      "n_malicious": 5028,
+      "recall": 1.0
+    },
+    "suricata": {
+      "n_malicious": 4110,
+      "recall": 0.9978102189781022
+    },
+    "pan_traffic": {
+      "n_malicious": 3779,
+      "recall": 1.0
+    },
+    "linux_audit": {
+      "n_malicious": 3359,
+      "recall": 0.9982137540934802
+    },
+    "auditd": {
+      "n_malicious": 3288,
+      "recall": 1.0
+    }
+  }
+}

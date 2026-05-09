@@ -1,16 +1,18 @@
 """
-DARPA THEIA E3 Dataset Simulator.
+EDR Event Simulator.
 
-Generates synthetic CDM-format events that mimic the THEIA E3 dataset
-and publishes them to RabbitMQ 'raw_events' queue.
+Publishes raw events to RabbitMQ 'raw_events' queue.
 
-Supports multiple attack scenarios:
-  --scenario apt     : APT-style multi-stage attack (recon → exploit → exfil)
-  --scenario benign  : Normal workstation activity
-  --scenario mixed   : Benign background + injected attack
+Scenarios:
+  --scenario apt     : Synthetic APT-style multi-stage attack (THEIA CDM format)
+  --scenario benign  : Synthetic normal workstation activity (THEIA CDM format)
+  --scenario mixed   : Benign background + injected attack (THEIA CDM format)
+  --scenario theia   : Real DARPA THEIA E3 CDM18 JSON replay
+  --scenario botsv2  : Real Splunk BOTSv2 Parquet replay (Splunk JSON format)
 
 Usage:
-  python main.py --scenario apt --rate 100 --duration 60
+  python main.py --scenario theia --limit 5000 --rate 500
+  python main.py --scenario botsv2 --botsv2-dir /data/botsv2 --limit 10000 --rate 200
 """
 
 import argparse
@@ -490,6 +492,130 @@ def run_theia_loader(channel, data_file: str, limit: int, rate: int, skip_events
     logger.info("Datum type breakdown: %s", type_counts)
 
 
+# ── BOTSv2 Parquet replay ─────────────────────────────────────────────────
+
+def run_botsv2_loader(
+    channel,
+    botsv2_dir: str,
+    limit: int,
+    rate: int,
+) -> None:
+    """
+    Stream BOTSv2 labeled Parquet events directly to RabbitMQ without buffering.
+
+    Reads <botsv2_dir>/sourcetype=<name>/labeled.parquet row-group by row-group,
+    publishes each row immediately. Skips stub sourcetypes that produce no graph
+    triples. Pulls up to per_partition rows from each parseable sourcetype so the
+    replay is balanced across sourcetypes.
+
+    The ingest service must be running with SOURCE_FORMAT=botsv2.
+    """
+    import pathlib
+    try:
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+    except ImportError:
+        logger.error("pyarrow not installed — cannot replay BOTSv2 Parquet files")
+        return
+
+    botsv2_path = pathlib.Path(botsv2_dir)
+    parquet_files = sorted(botsv2_path.glob("sourcetype=*/labeled.parquet"))
+    if not parquet_files:
+        logger.error("No labeled.parquet files found under %s", botsv2_dir)
+        return
+
+    # Only sourcetypes whose parsers produce real graph triples
+    PARSEABLE = {
+        "stream_http", "stream_tcp", "stream_ip", "stream_dns", "stream_arp",
+        "stream_dhcp", "stream_ftp", "stream_icmp", "stream_irc", "stream_ldap",
+        "stream_mysql", "stream_smb", "stream_smtp", "stream_udp",
+        "suricata", "access_combined", "WebLogic_Access_Combined",
+        "XmlWinEventLog_Microsoft-Windows-Sysmon_Operational",
+        "pan_traffic", "pan_threat",
+        "mysql_server_stats", "mysql_transaction_details",
+        "WinHostMon", "WinRegistry",
+        "linux_audit", "auditd",
+    }
+
+    parseable_files = [p for p in parquet_files
+                       if p.parent.name.replace("sourcetype=", "") in PARSEABLE]
+    logger.info("Found %d parseable partitions (out of %d total) under %s",
+                len(parseable_files), len(parquet_files), botsv2_dir)
+
+    per_partition = max(200, limit // max(len(parseable_files), 1)) if limit > 0 else 2000
+
+    def _publish(row: dict) -> None:
+        channel.basic_publish(
+            exchange=EXCHANGE,
+            routing_key="raw",
+            body=json.dumps(row),
+            properties=pika.BasicProperties(
+                delivery_mode=2,
+                content_type="application/json",
+            ),
+        )
+
+    start_time = time.time()
+    total_sent = 0
+
+    for pfile in parseable_files:
+        if not running or (limit > 0 and total_sent >= limit):
+            break
+        sourcetype = pfile.parent.name.replace("sourcetype=", "")
+        try:
+            pf = pq.ParquetFile(pfile)
+        except Exception as e:
+            logger.warning("Cannot open %s: %s", pfile, e)
+            continue
+
+        partition_sent = 0
+        for rg_idx in range(pf.metadata.num_row_groups):
+            if not running or partition_sent >= per_partition:
+                break
+            if limit > 0 and total_sent >= limit:
+                break
+            try:
+                batch = pf.read_row_group(rg_idx, columns=["_raw", "host", "_time", "label", "scenario"])
+                # Cast dict-encoded columns to plain string
+                for col_name in ("_raw", "host", "scenario"):
+                    idx = batch.schema.get_field_index(col_name)
+                    if idx >= 0:
+                        col = batch.column(col_name)
+                        if pa.types.is_dictionary(col.type):
+                            batch = batch.set_column(idx, col_name, col.cast(pa.string()))
+            except Exception as e:
+                logger.warning("Error reading row group %d of %s: %s", rg_idx, pfile, e)
+                continue
+
+            for i in range(batch.num_rows):
+                if not running or partition_sent >= per_partition:
+                    break
+                if limit > 0 and total_sent >= limit:
+                    break
+                raw_val = batch.column("_raw")[i].as_py()
+                if not raw_val:
+                    continue
+                _publish({
+                    "_raw": raw_val,
+                    "sourcetype": sourcetype,
+                    "host": batch.column("host")[i].as_py(),
+                    "_time": batch.column("_time")[i].as_py(),
+                    "label": batch.column("label")[i].as_py(),
+                    "scenario": batch.column("scenario")[i].as_py(),
+                })
+                total_sent += 1
+                partition_sent += 1
+                if rate > 0 and total_sent % rate == 0:
+                    time.sleep(1.0)
+
+        if partition_sent:
+            logger.info("BOTSv2: %s  +%d rows  total=%d  (%.1fs)",
+                        sourcetype, partition_sent, total_sent, time.time() - start_time)
+
+    logger.info("BOTSv2 loader done: %d events sent in %.1fs",
+                total_sent, time.time() - start_time)
+
+
 # ── Publisher ─────────────────────────────────────────────────────────────
 
 def connect_rabbitmq() -> pika.BlockingConnection:
@@ -512,9 +638,9 @@ def connect_rabbitmq() -> pika.BlockingConnection:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="THEIA E3 Event Simulator")
-    parser.add_argument("--scenario", choices=["apt", "benign", "mixed", "theia"], default="mixed",
-                        help="Attack scenario to simulate")
+    parser = argparse.ArgumentParser(description="EDR Event Simulator")
+    parser.add_argument("--scenario", choices=["apt", "benign", "mixed", "theia", "botsv2"],
+                        default="mixed", help="Scenario to replay")
     parser.add_argument("--rate", type=int, default=50,
                         help="Events per second (approximate)")
     parser.add_argument("--duration", type=int, default=60,
@@ -523,6 +649,8 @@ def main():
                         help="For mixed: benign bursts per attack cycle")
     parser.add_argument("--data-file", type=str, default="/data/theia.json",
                         help="Path to THEIA E3 JSON file (for --scenario theia)")
+    parser.add_argument("--botsv2-dir", type=str, default="/data/botsv2_labeled",
+                        help="Path to BOTSv2 labeled Parquet dir (sourcetype=*/labeled.parquet)")
     parser.add_argument("--limit", type=int, default=5000,
                         help="Max Event datums to send from the THEIA file "
                              "(entity definitions don't count toward this)")
@@ -533,20 +661,27 @@ def main():
                              "published so later events can resolve their UUIDs.")
     args = parser.parse_args()
 
-    logger.info("=== THEIA E3 Simulator: scenario=%s rate=%d/s duration=%ds ===",
-                args.scenario, args.rate, args.duration)
+    logger.info("=== EDR Simulator: scenario=%s rate=%d/s ===",
+                args.scenario, args.rate)
 
     conn = connect_rabbitmq()
     channel = conn.channel()
     channel.exchange_declare(exchange=EXCHANGE, exchange_type="direct", durable=True)
     channel.queue_declare(queue=RAW_QUEUE, durable=True)
 
-    # Real DARPA THEIA E3 data replay short-circuits the synthetic loop
+    # Real dataset replays short-circuit the synthetic loop
     if args.scenario == "theia":
         try:
             run_theia_loader(
                 channel, args.data_file, args.limit, args.rate, args.skip_events
             )
+        finally:
+            conn.close()
+        return
+
+    if args.scenario == "botsv2":
+        try:
+            run_botsv2_loader(channel, args.botsv2_dir, args.limit, args.rate)
         finally:
             conn.close()
         return

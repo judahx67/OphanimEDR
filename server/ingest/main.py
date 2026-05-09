@@ -1,9 +1,13 @@
 """
 Event Ingest Service.
 
-Consumes raw THEIA CDM events from RabbitMQ 'raw_events' queue,
-normalizes them into provenance graph edges, and publishes
-NormalizedEvent JSON to the 'normalized_events' queue.
+Consumes raw events from RabbitMQ 'raw_events' queue, normalizes them into
+provenance graph edges, and publishes NormalizedEvent JSON to the
+'normalized_events' queue.
+
+Supports two source formats controlled by SOURCE_FORMAT env var:
+  theia   (default) — DARPA THEIA E3 CDM18 JSON
+  botsv2            — Splunk BOTSv2 JSON ({"_raw":..., "sourcetype":..., ...})
 
 Flow: raw_events (RabbitMQ) -> normalize -> normalized_events (RabbitMQ)
 """
@@ -18,6 +22,7 @@ import time
 import pika
 
 from normalizer import TheiaNodeCache, normalize_event
+from botsv2_normalizer import normalize_splunk_event
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,6 +40,9 @@ RABBITMQ_PASS = os.environ.get("RABBITMQ_PASS", "guest")
 RAW_QUEUE = "raw_events"
 NORMALIZED_QUEUE = "normalized_events"
 EXCHANGE = "edr"
+
+# "theia" (default) or "botsv2"
+SOURCE_FORMAT = os.environ.get("SOURCE_FORMAT", "theia").lower()
 
 # ── Globals ───────────────────────────────────────────────────────────────
 
@@ -73,16 +81,25 @@ def connect_rabbitmq() -> pika.BlockingConnection:
 
 
 def setup_queues(channel: pika.channel.Channel) -> None:
-    """Declare exchange and queues."""
+    """Declare exchange and queues.
+
+    Uses a fanout exchange (edr_fanout) for normalized_events so both
+    graph-builder and ml-edge-scorer each get a full copy of every message
+    without competing. Raw events use a simple direct queue.
+    """
     channel.exchange_declare(exchange=EXCHANGE, exchange_type="direct", durable=True)
+    channel.exchange_declare(exchange="edr_fanout", exchange_type="fanout", durable=True)
     channel.queue_declare(queue=RAW_QUEUE, durable=True)
     channel.queue_declare(queue=NORMALIZED_QUEUE, durable=True)
     channel.queue_bind(exchange=EXCHANGE, queue=RAW_QUEUE, routing_key="raw")
+    # graph-builder subscribes to normalized_events (direct)
     channel.queue_bind(exchange=EXCHANGE, queue=NORMALIZED_QUEUE, routing_key="normalized")
+    # fanout so scorer also gets every normalized event
+    channel.queue_bind(exchange="edr_fanout", queue=NORMALIZED_QUEUE)
 
 
 def main():
-    logger.info("=== EDR Event Ingest Service ===")
+    logger.info("=== EDR Event Ingest Service (SOURCE_FORMAT=%s) ===", SOURCE_FORMAT)
 
     conn = connect_rabbitmq()
     channel = conn.channel()
@@ -91,7 +108,7 @@ def main():
     # Prefetch: process one message at a time for backpressure
     channel.basic_qos(prefetch_count=100)
 
-    cache = TheiaNodeCache()
+    cache = TheiaNodeCache()  # only used in theia mode
     stats = {"received": 0, "normalized": 0, "skipped": 0, "errors": 0}
     last_log = time.time()
 
@@ -101,18 +118,30 @@ def main():
             datum = json.loads(body)
             stats["received"] += 1
 
-            normalized = normalize_event(datum, cache)
+            if SOURCE_FORMAT == "botsv2":
+                normalized = normalize_splunk_event(datum)
+            else:
+                normalized = normalize_event(datum, cache)
 
             if normalized:
-                # Publish normalized event to the next queue
+                msg_body = normalized.model_dump_json()
+                msg_props = pika.BasicProperties(
+                    delivery_mode=2,
+                    content_type="application/json",
+                )
+                # Direct queue for graph-builder
                 ch.basic_publish(
                     exchange=EXCHANGE,
                     routing_key="normalized",
-                    body=normalized.model_dump_json(),
-                    properties=pika.BasicProperties(
-                        delivery_mode=2,  # persistent
-                        content_type="application/json",
-                    ),
+                    body=msg_body,
+                    properties=msg_props,
+                )
+                # Fanout so ml-edge-scorer gets its own copy
+                ch.basic_publish(
+                    exchange="edr_fanout",
+                    routing_key="",
+                    body=msg_body,
+                    properties=msg_props,
                 )
                 stats["normalized"] += 1
             else:
@@ -128,11 +157,17 @@ def main():
         # Log stats every 10 seconds
         now = time.time()
         if now - last_log > 10:
-            logger.info(
-                "Stats: received=%d normalized=%d skipped=%d errors=%d | Cache: %s",
-                stats["received"], stats["normalized"], stats["skipped"], stats["errors"],
-                cache.stats,
-            )
+            if SOURCE_FORMAT == "botsv2":
+                logger.info(
+                    "Stats: received=%d normalized=%d skipped=%d errors=%d",
+                    stats["received"], stats["normalized"], stats["skipped"], stats["errors"],
+                )
+            else:
+                logger.info(
+                    "Stats: received=%d normalized=%d skipped=%d errors=%d | Cache: %s",
+                    stats["received"], stats["normalized"], stats["skipped"], stats["errors"],
+                    cache.stats,
+                )
             last_log = now
 
     channel.basic_consume(queue=RAW_QUEUE, on_message_callback=on_message)

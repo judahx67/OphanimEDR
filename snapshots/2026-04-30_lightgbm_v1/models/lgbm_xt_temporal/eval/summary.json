@@ -1,0 +1,252 @@
+{
+  "roc_auc": 0.9876552201343096,
+  "pr_auc": 0.9849334560650871,
+  "confusion_matrix": [
+    [
+      272992,
+      5726
+    ],
+    [
+      36525,
+      284756
+    ]
+  ],
+  "per_scenario": {
+    "s200_webapp_attack": {
+      "n_malicious": 219316,
+      "recall": 0.9998267340276131
+    },
+    "s400_taedonggang_apt": {
+      "n_malicious": 101965,
+      "recall": 0.6421615260138283
+    }
+  },
+  "per_sourcetype": {
+    "stream_mysql": {
+      "n_malicious": 69290,
+      "recall": 1.0
+    },
+    "stream_http": {
+      "n_malicious": 62513,
+      "recall": 1.0
+    },
+    "stream_tcp": {
+      "n_malicious": 51365,
+      "recall": 0.9034945974885622
+    },
+    "stream_ip": {
+      "n_malicious": 50109,
+      "recall": 0.9993414356702389
+    },
+    "access_combined": {
+      "n_malicious": 31798,
+      "recall": 1.0
+    },
+    "pan_traffic": {
+      "n_malicious": 16834,
+      "recall": 0.017345847689200427
+    },
+    "suricata": {
+      "n_malicious": 14222,
+      "recall": 0.06391506117283083
+    },
+    "mysql_server_stats": {
+      "n_malicious": 4076,
+      "recall": 1.0
+    },
+    "mysql_transaction_details": {
+      "n_malicious": 3958,
+      "recall": 1.0
+    },
+    "linux_audit": {
+      "n_malicious": 3780,
+      "recall": 1.0
+    },
+    "auditd": {
+      "n_malicious": 3719,
+      "recall": 1.0
+    },
+    "stream_arp": {
+      "n_malicious": 3547,
+      "recall": 1.0
+    },
+    "XmlWinEventLog_Microsoft-Windows-Sysmon_Operational": {
+      "n_malicious": 1648,
+      "recall": 0.0
+    },
+    "stream_dns": {
+      "n_malicious": 1128,
+      "recall": 0.9973404255319149
+    },
+    "stream_udp": {
+      "n_malicious": 1033,
+      "recall": 1.0
+    }
+  },
+  "aggregate": {
+    "test_n": 599999,
+    "positive_rate": 0.5354692257820429,
+    "threshold": 0.30999999999999994,
+    "precision": 0.9802879352249021,
+    "recall": 0.8863144723777627,
+    "f1": 0.9309356728013953
+  },
+  "permutation_importance": {
+    "sourcetype": {
+      "mean": 0.3326674454036215,
+      "std": 0.0012902745294311898
+    },
+    "event_id": {
+      "mean": 0.011411245042496168,
+      "std": 0.00013982424479974014
+    },
+    "protocol": {
+      "mean": 0.008914671268991073,
+      "std": 8.787061473080253e-05
+    },
+    "command_line": {
+      "mean": 0.0058983966695565675,
+      "std": 0.00014569531015012644
+    },
+    "bytes_in": {
+      "mean": 0.004284439825774792,
+      "std": 0.00017866574041902326
+    },
+    "subject_type": {
+      "mean": 0.0018197663708524232,
+      "std": 8.708971380230952e-05
+    },
+    "bytes": {
+      "mean": 0.001312937316503208,
+      "std": 0.00010325942415072494
+    },
+    "transport": {
+      "mean": 0.0009155125588270844,
+      "std": 1.5029871231361038e-05
+    },
+    "packets_out": {
+      "mean": 0.0005870710743342741,
+      "std": 0.00014495151226483238
+    },
+    "http_status": {
+      "mean": 0.0005753484388646793,
+      "std": 3.307345602732628e-05
+    },
+    "site": {
+      "mean": 0.0005663413342278378,
+      "std": 0.00010593018138761318
+    },
+    "bytes_out": {
+      "mean": 0.0005197946220206751,
+      "std": 7.924424848792354e-05
+    },
+    "process_id": {
+      "mean": 0.00026512081532555537,
+      "std": 2.5911959864577686e-05
+    },
+    "http_referrer": {
+      "mean": 0.00026037098127051905,
+      "std": 3.061170608772906e-05
+    },
+    "http_method": {
+      "mean": 0.00021979693615784926,
+      "std": 3.636105476147641e-05
+    },
+    "object_type": {
+      "mean": 0.00017761013425539782,
+      "std": 3.5744758553156596e-05
+    },
+    "user": {
+      "mean": 0.00015014905067171438,
+      "std": 3.798336642161579e-06
+    },
+    "dns_qtype": {
+      "mean": 9.55272989846175e-05,
+      "std": 4.541513061280138e-06
+    },
+    "dns_query": {
+      "mean": 8.549031326710033e-05,
+      "std": 7.254467408560813e-06
+    },
+    "http_uri": {
+      "mean": 5.329922680215778e-05,
+      "std": 1.3017653255052409e-05
+    },
+    "http_user_agent": {
+      "mean": 4.329252382255048e-05,
+      "std": 3.643222546900975e-06
+    },
+    "process_name": {
+      "mean": 4.316308521675379e-05,
+      "std": 3.0012771272223527e-05
+    },
+    "suricata_event_type": {
+      "mean": 4.2218156595811664e-05,
+      "std": 2.755109648716874e-06
+    },
+    "dns_rcode": {
+      "mean": 3.845988121860729e-05,
+      "std": 5.751238121837134e-06
+    },
+    "integrity_level": {
+      "mean": 6.8388069988471285e-06,
+      "std": 2.2077563415899614e-07
+    },
+    "parent_command_line": {
+      "mean": 7.750237015121305e-07,
+      "std": 1.0746318723014825e-08
+    },
+    "suricata_alert_category": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "registry_key": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "registry_value": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "suricata_alert_severity": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "image": {
+      "mean": -2.5686461539553562e-05,
+      "std": 7.0797271428268945e-06
+    },
+    "http_content_length": {
+      "mean": -3.864104166891499e-05,
+      "std": 1.4222035975141911e-05
+    },
+    "http_content_type": {
+      "mean": -5.05496613877332e-05,
+      "std": 6.798045064862313e-06
+    },
+    "edge_type": {
+      "mean": -0.00014849931142298564,
+      "std": 8.455123062192552e-06
+    },
+    "src_port": {
+      "mean": -0.0004299862047067264,
+      "std": 1.246097678054921e-05
+    },
+    "dest_port": {
+      "mean": -0.0005529606518558013,
+      "std": 1.924765714725823e-05
+    },
+    "duration": {
+      "mean": -0.0006507235136754552,
+      "std": 5.184012633830556e-05
+    },
+    "packets_in": {
+      "mean": -0.0007547991204168714,
+      "std": 0.00012601865452806213
+    },
+    "app_proto": {
+      "mean": -0.002039004818284821,
+      "std": 1.9711076208599552e-05
+    }
+  }
+}

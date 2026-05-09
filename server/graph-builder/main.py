@@ -9,9 +9,9 @@ Each NormalizedEvent becomes:
   - 1 edge (causal relationship), CREATE'd with timestamp
 
 Neo4j schema:
-  Nodes: (:Process), (:File), (:Socket), (:Registry), (:Memory), (:Pipe)
+  Nodes: (:Process), (:File), (:Socket), (:Registry), (:Memory), (:Pipe), (:Host), (:User), (:Url)
     - uuid (unique), name, endpoint_id, properties (JSON string), first_seen, last_seen
-  Edges: -[:FORK|EXEC|READ|WRITE|CONNECT|SEND|RECEIVE|MMAP|RENAME|DELETE|LOAD|MODIFY_REG]->
+  Edges: -[:FORK|EXEC|READ|WRITE|CONNECT|SEND|RECEIVE|MMAP|RENAME|DELETE|LOAD|MODIFY_REG|ACCESS|AUTH]->
     - event_id, timestamp, size, properties (JSON string)
 """
 
@@ -63,6 +63,10 @@ class GraphWriter:
         NodeType.REGISTRY: "Registry",
         NodeType.MEMORY: "Memory",
         NodeType.PIPE: "Pipe",
+        # BOTSv2 / Splunk superset
+        NodeType.HOST: "Host",
+        NodeType.USER: "User",
+        NodeType.URL: "Url",
     }
 
     def __init__(self, uri: str, user: str, password: str):
