@@ -1,0 +1,113 @@
+================================================================
+  EDR Thesis - Quick Start Cheat Sheet
+================================================================
+
+WHAT THIS IS
+  Graph-based EDR pipeline replaying Splunk BOTSv2 telemetry.
+  Stack: RabbitMQ + Neo4j + 7 Python services + React dashboard.
+  Flow: simulator -> ingest -> graph-builder + rule-engine
+                                       |
+                                       v
+                                ml-edge-scorer -> llm-analyzer
+                                       |
+                                       v
+                              api  ->  dashboard
+
+----------------------------------------------------------------
+  START / STOP  (from repo root, PowerShell)
+----------------------------------------------------------------
+
+  .\deploy\deploy.ps1                       start full stack + tail logs
+  .\deploy\deploy.ps1 -NoLogs               start without log tail
+  .\deploy\deploy.ps1 -RebuildImages        rebuild images first
+  .\deploy\deploy.ps1 -Mode down            stop and remove all
+
+  docker compose -f server\docker-compose.yml ps     check status
+
+  Replay BOTSv2 data (run AFTER stack is up):
+  docker compose -f server\docker-compose.yml `
+    --profile simulator run --rm simulator `
+    --scenario botsv2 --limit 5000 --rate 500
+
+  NOTE: deploy.ps1 -Replay flag is THEIA-era and will not work
+        for BOTSv2 - use the docker compose run command above.
+
+----------------------------------------------------------------
+  ENDPOINTS
+----------------------------------------------------------------
+
+  Dashboard         http://localhost:3000
+  API / Swagger     http://localhost:8000/docs
+  Neo4j Browser     http://localhost:7474     neo4j / edr-thesis
+  RabbitMQ Admin    http://localhost:15672    guest / guest
+
+----------------------------------------------------------------
+  KEY FILES (what to touch and why)
+----------------------------------------------------------------
+
+  STACK DEFINITION
+    server\docker-compose.yml         all services + volumes
+    deploy\deploy.ps1                 wrapper: build, up, health, tail
+    deploy\build.ps1                  build images only (Target=docker)
+    deploy\.env.example               env var template
+
+  SOURCE OF TRUTH
+    CLAUDE.md                         architecture, services, ML facts
+    README.md                         human intro
+    docs\ARCHITECTURE.md              detailed architecture notes
+    docs\CONTEXT.md                   thesis context
+
+  SERVICES (server\<name>\)
+    simulator         replays BOTSv2 events into RabbitMQ
+    ingest            11 sourcetype parsers, emits NormalizedEvent
+    graph-builder     batched Neo4j writes (9 node labels, 14 edges)
+    rule-engine       36 Sigma-inspired YAML rules in rules\
+    ml-edge-scorer    live LightGBMXT scoring, writes scores to Neo4j
+    llm-analyzer      Claude Sonnet narratives for ML alerts
+    api               FastAPI - graph queries, incidents, subgraphs
+    dashboard         React + TS + Fluent UI, nginx proxies /api/*
+    botsv2_parsers    shared parser library
+
+  ML PIPELINE (offline, not a service)
+    server\ml-engine\botsv2\schema.py       39-feature schema
+    server\ml-engine\botsv2\train.py        LightGBMXT trainer
+    server\ml-engine\botsv2\evaluate.py     ROC/PR + per-scenario recall
+    server\ml-engine\botsv2\models\         frozen production models
+      lgbm_xt_temporal         headline   0.9877 AUC   threshold 0.310
+      lgbm_xt_temporal_no_st   honest     0.9135 AUC   threshold 0.430
+
+  DATA
+    datasets\botsv2_labeled\          active labeled parquet
+    datasets\botsv2_parquet\          raw extracted parquet
+    archive\                          cold storage (DARPA, snapshots,
+                                      pre-pivot experiments)
+
+----------------------------------------------------------------
+  PREREQUISITES
+----------------------------------------------------------------
+
+  Docker Desktop running
+  Neo4j heap: 512m initial / 1g max (set in compose)
+  GEMINI_API_KEY or Anthropic key required only for llm-analyzer
+  Python 3.13+ only needed for offline ML training, not the stack
+
+----------------------------------------------------------------
+  COMMON TASKS
+----------------------------------------------------------------
+
+  Add a detection rule
+    drop YAML into server\rule-engine\rules\
+    docker compose -f server\docker-compose.yml restart rule-engine
+
+  Tail one service
+    docker compose -f server\docker-compose.yml logs -f <service>
+
+  Reset Neo4j state
+    docker compose -f server\docker-compose.yml down -v
+    .\deploy\deploy.ps1
+
+  Inspect graph
+    open http://localhost:7474, run e.g.:
+      MATCH (n) RETURN labels(n)[0] AS label, count(*) ORDER BY count(*) DESC
+
+================================================================
