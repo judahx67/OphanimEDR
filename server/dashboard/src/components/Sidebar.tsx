@@ -7,7 +7,6 @@ import {
     Settings24Regular,
     PaintBrush24Regular,
     BrainCircuit24Regular,
-    Search24Regular,
 } from '@fluentui/react-icons'
 import type { ThemeName } from '../App'
 
@@ -287,13 +286,6 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
                     <span>ML Scores</span>
                 </NavLink>
 
-                <NavLink
-                    to="/ml-findings"
-                    style={({ isActive }) => isActive ? styles.linkActive : styles.link}
-                >
-                    <Search24Regular style={styles.linkIcon} />
-                    <span>ML Findings</span>
-                </NavLink>
             </nav>
 
             {/* Footer Actions */}

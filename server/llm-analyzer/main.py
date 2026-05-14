@@ -18,7 +18,8 @@ import time
 
 import pika
 from neo4j import GraphDatabase
-import anthropic
+from google import genai
+from google.genai import types as genai_types
 
 from subgraph import pull_subgraph, subgraph_to_text
 
@@ -42,9 +43,13 @@ NEO4J_PASS = os.environ.get("NEO4J_PASS", "edr-thesis")
 ML_ALERTS_QUEUE = "ml_alerts"
 EXCHANGE = "edr"
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-# claude-sonnet-4-6 is fast + cost-effective for short structured analysis
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+# gemini-2.0-flash has the most generous free-tier quota (≈1500 req/day),
+# enough for sustained narrative generation during the demo. Override via
+# env if a paid key is wired up later.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+# Sleep between Gemini calls to stay under per-minute rate limits.
+GEMINI_PACING_SECONDS = float(os.environ.get("GEMINI_PACING_SECONDS", "2.0"))
 
 # Cap narratives per run to control API spend during thesis demo
 MAX_NARRATIVES = int(os.environ.get("MAX_NARRATIVES_PER_RUN", "50"))
@@ -120,8 +125,9 @@ SET
   i.created_at      = $created_at,
   i.endpoint_id     = $endpoint_id
 WITH i
-MATCH ()-[r {event_id: $event_id}]->()
-MERGE (i)-[:TRIGGERED_BY]->(r)
+MATCH (s)-[r {event_id: $event_id}]->(o)
+MERGE (i)-[:TRIGGERED_BY {edge_event_id: $event_id}]->(s)
+MERGE (i)-[:TRIGGERED_BY {edge_event_id: $event_id}]->(o)
 """
 
 
@@ -152,27 +158,47 @@ def write_incident(driver, alert: dict, analysis: dict, narrative_raw: str) -> N
 
 # ── LLM call ─────────────────────────────────────────────────────────────
 
-def analyze_with_llm(client: anthropic.Anthropic, subgraph_text: str) -> tuple[dict, str]:
-    """Call Claude with prompt caching on the system prompt. Returns (parsed_json, raw_text)."""
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=1024,
-        system=[
-            {
-                "type": "text",
-                "text": SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[
-            {
-                "role": "user",
-                "content": f"Analyse this provenance subgraph alert:\n\n{subgraph_text}",
-            }
-        ],
-    )
+def analyze_with_llm(client: genai.Client, subgraph_text: str) -> tuple[dict, str]:
+    """Call Gemini and request JSON output. Returns (parsed_json, raw_text).
 
-    raw = response.content[0].text.strip()
+    Retries on transient 429 RESOURCE_EXHAUSTED using the server-suggested
+    delay; gives up after 3 attempts and propagates the error.
+    """
+    cfg = genai_types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT,
+        response_mime_type="application/json",
+        max_output_tokens=2048,
+    )
+    # gemini-2.5-* models add a "thinking" budget that eats output tokens
+    # before any visible text. Disable it when present.
+    if "2.5" in GEMINI_MODEL:
+        cfg.thinking_config = genai_types.ThinkingConfig(thinking_budget=0)
+
+    last_err: Exception | None = None
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=f"Analyse this provenance subgraph alert:\n\n{subgraph_text}",
+                config=cfg,
+            )
+            break
+        except Exception as e:
+            last_err = e
+            msg = str(e)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                # Parse retryDelay if present, fallback to exponential backoff.
+                import re
+                m = re.search(r"retry in ([0-9.]+)s", msg)
+                wait = float(m.group(1)) + 1.0 if m else (2 ** attempt) * 5.0
+                logger.warning("Gemini 429, retrying in %.1fs (attempt %d/3)", wait, attempt + 1)
+                time.sleep(wait)
+                continue
+            raise
+    else:
+        raise last_err  # type: ignore[misc]
+
+    raw = (response.text or "").strip()
 
     # Extract JSON from the response (may have markdown fences)
     json_str = raw
@@ -225,11 +251,11 @@ def connect_rabbitmq() -> pika.BlockingConnection:
 def main():
     logger.info("=== LLM Analyzer Service ===")
 
-    if not ANTHROPIC_API_KEY:
-        logger.error("ANTHROPIC_API_KEY not set — exiting")
+    if not GEMINI_API_KEY:
+        logger.error("GEMINI_API_KEY not set — exiting")
         return
 
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    client = genai.Client(api_key=GEMINI_API_KEY)
     neo4j_driver = connect_neo4j()
     conn = connect_rabbitmq()
     channel = conn.channel()
@@ -270,6 +296,10 @@ def main():
 
             narratives_written += 1
             stats["analyzed"] += 1
+
+            # Pace requests to stay under the per-minute free-tier rate limit.
+            if GEMINI_PACING_SECONDS > 0:
+                time.sleep(GEMINI_PACING_SECONDS)
             logger.info(
                 "Incident written for event_id=%s confidence=%s mitre=%s",
                 alert.get("event_id", "?"),

@@ -21,6 +21,7 @@ from .database import (
     get_ml_scores,
     get_ml_summary,
     get_ml_edge_findings,
+    get_ml_edge_by_event_id,
     get_ml_edge_summary,
     get_llm_incident,
 )
@@ -181,6 +182,20 @@ async def ml_edge_findings(
     This is the headline thesis query — 'what did ML find that rules missed?'
     """
     return await get_ml_edge_findings(rule_clear=rule_clear, limit=limit, min_score=min_score)
+
+
+@app.get("/api/ml/edges/by-id/{event_id}", tags=["ML"])
+async def ml_edge_by_id(event_id: str):
+    """
+    Fetch a single ML-scored edge by exact event_id, bypassing the
+    top-N dedup applied by `/api/ml/edges/top`. Useful for UI lookup
+    of a specific event_id (e.g. one referenced in an LLM narrative)
+    that may have been collapsed under a sibling representative.
+    """
+    result = await get_ml_edge_by_event_id(event_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="No scored edge with this event_id")
+    return result
 
 
 @app.get("/api/ml/edges/summary", tags=["ML"])
