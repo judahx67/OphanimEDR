@@ -467,9 +467,11 @@ async def get_ml_edge_findings(
           }
     """ if rule_clear else ""
 
-    # Deduplicate by (subject, object, edge_type) — keep the highest honest-scoring
-    # representative edge. Without this the table fills with hundreds of identical
-    # gacrux→brewertalk rows that differ only by event_id.
+    # Deduplicate by (subject, object, edge_type) and stratify by edge_type so
+    # one high-volume sourcetype (e.g. stream:http gacrux→brewertalk) cannot
+    # crowd out lower-volume but still interesting types (CONNECT/FORK/etc.).
+    # Per-type cap = ceil(limit / 4) ensures at least 4 edge types get airtime
+    # when present; remaining slots backfill by global score.
     cypher = f"""
     MATCH (s)-[r]->(o)
     WHERE r.botsv2_ml_score IS NOT NULL
@@ -481,18 +483,38 @@ async def get_ml_edge_findings(
     MATCH (s)-[r2]->(o)
     WHERE type(r2) = edge_type
       AND r2.botsv2_ml_score_honest = best_honest
-    RETURN
-        r2.event_id        AS event_id,
-        edge_type          AS edge_type,
-        r2.botsv2_ml_score         AS score_headline,
-        r2.botsv2_ml_score_honest  AS score_honest,
-        r2.botsv2_ml_score_quality AS quality,
-        r2.botsv2_ml_alert         AS is_alert,
-        r2.timestamp               AS timestamp,
-        s.uuid AS subj_id, s.name AS subj_name, labels(s)[0] AS subj_label,
-        o.uuid AS obj_id,  o.name AS obj_name,  labels(o)[0] AS obj_label,
-        r2.endpoint_id AS endpoint_id
+    WITH r2, s, o, edge_type, best_honest
     ORDER BY best_honest DESC
+    WITH edge_type, collect({{
+        event_id: r2.event_id,
+        score_headline: r2.botsv2_ml_score,
+        score_honest: r2.botsv2_ml_score_honest,
+        quality: r2.botsv2_ml_score_quality,
+        is_alert: r2.botsv2_ml_alert,
+        timestamp: r2.timestamp,
+        subj_id: s.uuid, subj_name: s.name, subj_label: labels(s)[0],
+        obj_id: o.uuid,  obj_name: o.name,  obj_label: labels(o)[0],
+        endpoint_id: r2.endpoint_id,
+        best_honest: best_honest
+    }}) AS rows_for_type
+    // Cap each edge type at half the global limit. Prevents one high-volume
+    // type from monopolising the page while still permitting bursts when
+    // only one type is active.
+    WITH edge_type, rows_for_type[0..toInteger(($limit + 1) / 2)] AS top_per_type
+    UNWIND top_per_type AS row
+    WITH row, edge_type, row.best_honest AS h
+    ORDER BY h DESC
+    RETURN
+        row.event_id        AS event_id,
+        edge_type           AS edge_type,
+        row.score_headline  AS score_headline,
+        row.score_honest    AS score_honest,
+        row.quality         AS quality,
+        row.is_alert        AS is_alert,
+        row.timestamp       AS timestamp,
+        row.subj_id AS subj_id, row.subj_name AS subj_name, row.subj_label AS subj_label,
+        row.obj_id  AS obj_id,  row.obj_name  AS obj_name,  row.obj_label  AS obj_label,
+        row.endpoint_id     AS endpoint_id
     LIMIT $limit
     """
 
@@ -519,6 +541,57 @@ async def get_ml_edge_findings(
                 "endpoint_id": rec["endpoint_id"],
             })
     return rows
+
+
+async def get_ml_edge_by_event_id(event_id: str) -> dict | None:
+    """
+    Fetch a single ML-scored edge by its exact event_id, bypassing the
+    (subject, object, edge_type) dedup applied by `get_ml_edge_findings`.
+    Used by the UI when filtering by a specific event_id that may have
+    been collapsed under a sibling representative in the top-N query.
+    """
+    driver = get_driver()
+    async with driver.session() as session:
+        result = await session.run(
+            """
+            MATCH (s)-[r {event_id: $event_id}]->(o)
+            WHERE r.botsv2_ml_score IS NOT NULL
+            RETURN
+                r.event_id        AS event_id,
+                type(r)           AS edge_type,
+                r.botsv2_ml_score         AS score_headline,
+                r.botsv2_ml_score_honest  AS score_honest,
+                r.botsv2_ml_score_quality AS quality,
+                r.botsv2_ml_alert         AS is_alert,
+                r.timestamp               AS timestamp,
+                s.uuid AS subj_id, s.name AS subj_name, labels(s)[0] AS subj_label,
+                o.uuid AS obj_id,  o.name AS obj_name,  labels(o)[0] AS obj_label,
+                r.endpoint_id AS endpoint_id
+            LIMIT 1
+            """,
+            event_id=event_id,
+        )
+        rec = await result.single()
+        if not rec:
+            return None
+        score_h = rec["score_headline"]
+        score_o = rec["score_honest"]
+        return {
+            "event_id": rec["event_id"],
+            "edge_type": rec["edge_type"],
+            "score_headline": float(score_h) if score_h is not None else None,
+            "score_honest": float(score_o) if score_o is not None else None,
+            "quality": rec["quality"],
+            "is_alert": rec["is_alert"],
+            "timestamp": rec["timestamp"],
+            "subject": {
+                "id": rec["subj_id"], "name": rec["subj_name"], "label": rec["subj_label"],
+            },
+            "object": {
+                "id": rec["obj_id"], "name": rec["obj_name"], "label": rec["obj_label"],
+            },
+            "endpoint_id": rec["endpoint_id"],
+        }
 
 
 async def get_ml_edge_summary() -> dict:

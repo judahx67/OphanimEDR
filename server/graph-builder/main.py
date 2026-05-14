@@ -122,9 +122,21 @@ class GraphWriter:
         if not events:
             return 0
 
+        # Edge types where a self-loop (subj == obj) carries no causal signal.
+        # Any such row is a parser/normalizer bug — drop defensively.
+        NON_REFLEXIVE = {"ACCESS", "CONNECT", "SEND", "RECEIVE", "READ", "WRITE"}
+
         # Build batch params
         rows = []
+        skipped_self_loops = 0
         for ev in events:
+            if (
+                ev.edge_type.value in NON_REFLEXIVE
+                and ev.subject.id is not None
+                and ev.subject.id == ev.object.id
+            ):
+                skipped_self_loops += 1
+                continue
             rows.append({
                 "event_id": ev.event_id,
                 "timestamp": ev.timestamp,
@@ -141,6 +153,9 @@ class GraphWriter:
                 "size": ev.size,
                 "props": json.dumps(ev.properties),
             })
+
+        if skipped_self_loops:
+            logger.info("Dropped %d self-loop edges", skipped_self_loops)
 
         # Cypher can't dynamically set labels or relationship types, so we
         # group rows by the (subj_label, obj_label, edge_type) triple and

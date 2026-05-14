@@ -23,16 +23,26 @@ WITH
 RETURN raw_nodes, raw_rels
 """
 
-# APOC-free version using simpler expansion
+# APOC-free version. Neo4j 5 rejects expressions like `[s, o] + collect(...)`
+# in the RETURN because `s` and `o` become implicit grouping keys alongside
+# the aggregations. Use a variable-length path match and let the cardinality
+# explode into rows the driver dedupes via element_id (see pull_subgraph).
 _KHOP_CYPHER_NO_APOC = """
-MATCH (s) WHERE s.uuid = $subj_id
-MATCH (o) WHERE o.uuid = $obj_id
-OPTIONAL MATCH (s)-[r1]-(n1)
-OPTIONAL MATCH (o)-[r2]-(n2)
-OPTIONAL MATCH (n1)-[r3]-(n3)
+MATCH (root)
+WHERE root.uuid IN [$subj_id, $obj_id]
+OPTIONAL MATCH path = (root)-[*1..1]-(neighbour)
+WITH root, path
+LIMIT 200
+WITH
+  collect(DISTINCT root) AS roots,
+  collect(path)          AS paths
+WITH
+  roots,
+  [p IN paths WHERE p IS NOT NULL | nodes(p)]         AS node_lists,
+  [p IN paths WHERE p IS NOT NULL | relationships(p)] AS rel_lists
 RETURN
-  [s, o] + collect(DISTINCT n1) + collect(DISTINCT n2) + collect(DISTINCT n3) AS nodes,
-  collect(DISTINCT r1) + collect(DISTINCT r2) + collect(DISTINCT r3) AS rels
+  roots + reduce(acc=[], xs IN node_lists | acc + xs) AS nodes,
+  reduce(acc=[], xs IN rel_lists  | acc + xs)         AS rels
 LIMIT 1
 """
 

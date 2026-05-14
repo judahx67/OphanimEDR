@@ -664,13 +664,16 @@ def parse_mysql_kv(raw: str, host: str | None) -> ParsedRow:
 
     db_host = kv.get("hostname") or host
 
-    if not db_user and not db_host:
+    # Need both a user and a host to form a meaningful USER -ACCESS-> HOST edge.
+    # Without a user, the edge would collapse into a HOST -> HOST self-loop
+    # carrying no causal signal — drop it instead of inflating the graph.
+    if not db_user or not db_host:
         return EMPTY
 
     return ParsedRow(
-        subject_type=NodeType.USER if db_user else NodeType.HOST,
-        subject_id=user_id(db_host, db_user) if db_user else host_id(db_host),
-        subject_name=db_user or db_host,
+        subject_type=NodeType.USER,
+        subject_id=user_id(db_host, db_user),
+        subject_name=db_user,
         object_type=NodeType.HOST,
         object_id=host_id(db_host),
         object_name=db_host,

@@ -1,3 +1,5 @@
+> ⚠️ **DEPRECATED** — describes the archived DARPA THEIA pipeline. Active stack is BOTSv2 (Splunk). See `CLAUDE.md`.
+
 # EDR System Architecture
 
 **Thesis**: "Applying Causality Tracking and Incremental Alignment for Graph-Based Threat Hunting"

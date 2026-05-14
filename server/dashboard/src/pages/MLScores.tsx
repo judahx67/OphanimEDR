@@ -113,30 +113,43 @@ function MLScores() {
     if (error) return <div style={{ color: '#dc2626' }}>Error: {error}</div>
 
     const pageStyles = {
+        container: {
+            display: 'flex', flexDirection: 'column' as const, gap: '24px',
+        },
+        sectionPrefix: {
+            fontFamily: 'var(--font-ui)', fontSize: '11px', fontWeight: 600,
+            color: 'var(--text-muted)', textTransform: 'uppercase' as const,
+            letterSpacing: '0.1em', marginBottom: '4px',
+            display: 'flex', alignItems: 'center', gap: '6px',
+        },
+        prefixSlash: { color: 'var(--accent-primary)', fontWeight: 700 },
         title: {
-            fontFamily: 'var(--font-ui)', fontSize: '24px', fontWeight: 700,
-            marginBottom: '8px', color: 'var(--text-primary)',
+            fontFamily: 'var(--font-sans)', fontSize: '28px', fontWeight: 700,
+            color: 'var(--text-primary)', textTransform: 'uppercase' as const,
+            letterSpacing: '0.02em', margin: 0,
         },
         subtitle: {
-            fontFamily: 'var(--font-sans)', fontSize: '13px',
-            color: 'var(--text-muted)', marginBottom: '24px',
+            fontFamily: 'var(--font-ui)', fontSize: '12px',
+            color: 'var(--text-secondary)', marginTop: '6px',
+            maxWidth: 680, lineHeight: 1.6,
         },
         statsRow: {
-            display: 'flex', gap: '16px', marginBottom: '24px',
+            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px',
         },
         statCard: {
-            flex: 1, padding: '16px',
+            padding: '20px',
             background: 'var(--bg-card)',
-            border: '1px solid var(--border-strong)',
+            border: '2px solid var(--border-strong)',
+            display: 'flex', flexDirection: 'column' as const, gap: '8px',
         },
         statLabel: {
-            fontFamily: 'var(--font-ui)', fontSize: '10px', fontWeight: 600,
-            textTransform: 'uppercase' as const, letterSpacing: '0.1em',
-            color: 'var(--text-muted)', marginBottom: '4px',
+            fontFamily: 'var(--font-ui)', fontSize: '11px', fontWeight: 600,
+            textTransform: 'uppercase' as const, letterSpacing: '0.08em',
+            color: 'var(--text-muted)',
         },
         statValue: {
-            fontFamily: 'var(--font-ui)', fontSize: '22px', fontWeight: 700,
-            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-ui)', fontSize: '36px', fontWeight: 700,
+            color: 'var(--text-primary)', lineHeight: 1,
         },
         legend: {
             display: 'flex', flexWrap: 'wrap' as const, gap: '8px',
@@ -187,12 +200,18 @@ function MLScores() {
     }
 
     return (
-        <div>
-            <div style={pageStyles.title}>ML Scores — MITRE Tactic Intent</div>
-            <div style={pageStyles.subtitle}>
-                Per-process AutoGluon multi-label classification. Each row shows the predicted
-                probability of activity in each of 11 MITRE ATT&amp;CK tactics. Trained on graph
-                features with rule-engine incidents as weak labels.
+        <div style={pageStyles.container}>
+            <div>
+                <div style={pageStyles.sectionPrefix}>
+                    <span style={pageStyles.prefixSlash}>//</span>
+                    <span>MITRE Tactic Intent</span>
+                </div>
+                <h1 style={pageStyles.title}>ML Scores</h1>
+                <p style={pageStyles.subtitle}>
+                    Per-process multi-label classification. Each row shows the predicted
+                    probability of activity in each of 11 MITRE ATT&amp;CK tactics. Trained on graph
+                    features with rule-engine incidents as weak labels.
+                </p>
             </div>
 
             {summary && (
