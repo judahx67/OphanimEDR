@@ -67,13 +67,16 @@ services:
   # ── Event normalizer ───────────────────────────────────────
   ingest:
     build:
-      context: ./ingest
+      context: .
+      dockerfile: ingest/Dockerfile
     container_name: edr-ingest
     environment:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASS: guest
+      # Set to "botsv2" when replaying Splunk BOTSv2 events
+      SOURCE_FORMAT: ${SOURCE_FORMAT:-theia}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -153,6 +156,36 @@ services:
       - api
     restart: unless-stopped
 
+  # ── ML Edge Scorer (live, streaming) ─────────────────────────
+  # Consumes normalized_events in parallel with graph-builder.
+  # Scores each edge with both frozen LightGBM models and writes
+  # botsv2_ml_score / botsv2_ml_score_honest onto Neo4j edges.
+  # Publishes high-scoring events to ml_alerts queue.
+  ml-edge-scorer:
+    build:
+      context: .
+      dockerfile: ml-edge-scorer/Dockerfile
+    container_name: edr-ml-edge-scorer
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASS: edr-thesis
+      MODELS_DIR: /app/models
+      ML_THRESHOLD_HEADLINE: "0.9"
+      ML_THRESHOLD_HONEST: "0.7"
+    volumes:
+      - ./ml-engine/botsv2/models:/app/models:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    restart: unless-stopped
+
   # ── ML Engine (batch, on-demand) ────────────────────────────
   # Extracts per-process graph features from Neo4j, trains XGBoost
   # using Incident matched_nodes as positive labels, writes ml_score
@@ -179,6 +212,37 @@ services:
     profiles:
       - ml
 
+  # ── LLM Incident Narrative Analyzer ──────────────────────────
+  # Consumes ml_alerts, pulls k-hop subgraph, calls the Gemini API,
+  # writes Incident nodes with LLM narrative back to Neo4j.
+  # Requires GEMINI_API_KEY env var (free-tier Google AI Studio key).
+  # Start with: docker compose --profile llm up llm-analyzer
+  llm-analyzer:
+    build:
+      context: .
+      dockerfile: llm-analyzer/Dockerfile
+    container_name: edr-llm-analyzer
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASS: edr-thesis
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: gemini-2.5-flash-lite
+      MAX_NARRATIVES_PER_RUN: "200"
+      GEMINI_PACING_SECONDS: "2.0"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    profiles:
+      - llm
+    restart: unless-stopped
+
   # ── DARPA THEIA E3 replay ──────────────────────────────────
   # Full dataset (home machine):
   #   ../darpa_data/data/theia/ta1-theia-e3-official-1r.json.0  →  /data/theia.json
@@ -199,10 +263,12 @@ services:
       rabbitmq:
         condition: service_healthy
     volumes:
-      # Full 3.6 GB shard (home machine) — comment out if not available
-      - ../darpa_data/data/theia/ta1-theia-e3-official-1r.json.0:/data/theia.json:ro
-      # Compressed 150k-line sample (work / CI) — uncomment when full shard absent
-      # - ../darpa_data/theia-sample-150k.json.gz:/data/theia.json.gz:ro
+      # Full 3.6 GB shard (home machine) — uncomment when available
+      # - ../darpa_data/data/theia/ta1-theia-e3-official-1r.json.0:/data/theia.json:ro
+      # Compressed 150k-line sample
+      - ../archive/darpa_data/theia-sample-150k.json.gz:/data/theia.json.gz:ro
+      # BOTSv2 labeled Parquet — has _raw column (for --scenario botsv2)
+      - ../datasets/botsv2_labeled:/data/botsv2_labeled:ro
     profiles:
       - simulator
 

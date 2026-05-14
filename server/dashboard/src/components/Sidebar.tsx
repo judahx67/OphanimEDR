@@ -285,6 +285,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
                     <BrainCircuit24Regular style={styles.linkIcon} />
                     <span>ML Scores</span>
                 </NavLink>
+
             </nav>
 
             {/* Footer Actions */}

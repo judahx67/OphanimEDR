@@ -1,3 +1,5 @@
+> ⚠️ **DEPRECATED** — runbook for the archived THEIA replay demo. Active stack is BOTSv2. See `CLAUDE.md`.
+
 # EDR Demo Runbook
 
 A step-by-step guide for bringing up the full stack and observing the rule-based
