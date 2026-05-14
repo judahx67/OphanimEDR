@@ -9,9 +9,9 @@ Each NormalizedEvent becomes:
   - 1 edge (causal relationship), CREATE'd with timestamp
 
 Neo4j schema:
-  Nodes: (:Process), (:File), (:Socket), (:Registry), (:Memory), (:Pipe)
+  Nodes: (:Process), (:File), (:Socket), (:Registry), (:Memory), (:Pipe), (:Host), (:User), (:Url)
     - uuid (unique), name, endpoint_id, properties (JSON string), first_seen, last_seen
-  Edges: -[:FORK|EXEC|READ|WRITE|CONNECT|SEND|RECEIVE|MMAP|RENAME|DELETE|LOAD|MODIFY_REG]->
+  Edges: -[:FORK|EXEC|READ|WRITE|CONNECT|SEND|RECEIVE|MMAP|RENAME|DELETE|LOAD|MODIFY_REG|ACCESS|AUTH]->
     - event_id, timestamp, size, properties (JSON string)
 """
 
@@ -63,6 +63,10 @@ class GraphWriter:
         NodeType.REGISTRY: "Registry",
         NodeType.MEMORY: "Memory",
         NodeType.PIPE: "Pipe",
+        # BOTSv2 / Splunk superset
+        NodeType.HOST: "Host",
+        NodeType.USER: "User",
+        NodeType.URL: "Url",
     }
 
     def __init__(self, uri: str, user: str, password: str):
@@ -118,9 +122,21 @@ class GraphWriter:
         if not events:
             return 0
 
+        # Edge types where a self-loop (subj == obj) carries no causal signal.
+        # Any such row is a parser/normalizer bug — drop defensively.
+        NON_REFLEXIVE = {"ACCESS", "CONNECT", "SEND", "RECEIVE", "READ", "WRITE"}
+
         # Build batch params
         rows = []
+        skipped_self_loops = 0
         for ev in events:
+            if (
+                ev.edge_type.value in NON_REFLEXIVE
+                and ev.subject.id is not None
+                and ev.subject.id == ev.object.id
+            ):
+                skipped_self_loops += 1
+                continue
             rows.append({
                 "event_id": ev.event_id,
                 "timestamp": ev.timestamp,
@@ -137,6 +153,9 @@ class GraphWriter:
                 "size": ev.size,
                 "props": json.dumps(ev.properties),
             })
+
+        if skipped_self_loops:
+            logger.info("Dropped %d self-loop edges", skipped_self_loops)
 
         # Cypher can't dynamically set labels or relationship types, so we
         # group rows by the (subj_label, obj_label, edge_type) triple and

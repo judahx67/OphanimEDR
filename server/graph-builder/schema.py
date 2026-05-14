@@ -16,6 +16,10 @@ class NodeType(str, Enum):
     REGISTRY = "REGISTRY"
     MEMORY = "MEMORY"
     PIPE = "PIPE"
+    # BOTSv2 / Splunk superset
+    HOST = "HOST"
+    USER = "USER"
+    URL = "URL"
 
 
 class EdgeType(str, Enum):
@@ -31,6 +35,9 @@ class EdgeType(str, Enum):
     DELETE = "DELETE"
     LOAD = "LOAD"
     MODIFY_REG = "MODIFY_REG"
+    # BOTSv2 / Splunk superset
+    ACCESS = "ACCESS"
+    AUTH = "AUTH"
 
 
 class ProvenanceNode(BaseModel):
@@ -49,3 +56,6 @@ class NormalizedEvent(BaseModel):
     object: ProvenanceNode
     size: Optional[int] = None
     properties: dict[str, Any] = Field(default_factory=dict)
+    # BOTSv2 / Splunk passthrough — None for THEIA events
+    raw_event: Optional[str] = None
+    sourcetype: Optional[str] = None

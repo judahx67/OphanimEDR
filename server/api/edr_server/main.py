@@ -20,6 +20,10 @@ from .database import (
     get_recent_edges,
     get_ml_scores,
     get_ml_summary,
+    get_ml_edge_findings,
+    get_ml_edge_by_event_id,
+    get_ml_edge_summary,
+    get_llm_incident,
 )
 from .models import (
     GraphStats,
@@ -163,6 +167,53 @@ async def ml_scores(limit: int = Query(100, ge=1, le=1000)):
 async def ml_summary():
     """Aggregate stats on ml_score distribution across Process nodes."""
     return await get_ml_summary()
+
+
+@app.get("/api/ml/edges/top", tags=["ML"])
+async def ml_edge_findings(
+    rule_clear: bool = Query(True, description="Only return edges with no rule-engine Incident"),
+    limit: int = Query(50, ge=1, le=500),
+    min_score: float = Query(0.0, ge=0.0, le=1.0),
+):
+    """
+    Top-scoring edges from the ml-edge-scorer.
+
+    rule_clear=true (default): only edges NOT flagged by any rule-engine Incident.
+    This is the headline thesis query — 'what did ML find that rules missed?'
+    """
+    return await get_ml_edge_findings(rule_clear=rule_clear, limit=limit, min_score=min_score)
+
+
+@app.get("/api/ml/edges/by-id/{event_id}", tags=["ML"])
+async def ml_edge_by_id(event_id: str):
+    """
+    Fetch a single ML-scored edge by exact event_id, bypassing the
+    top-N dedup applied by `/api/ml/edges/top`. Useful for UI lookup
+    of a specific event_id (e.g. one referenced in an LLM narrative)
+    that may have been collapsed under a sibling representative.
+    """
+    result = await get_ml_edge_by_event_id(event_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="No scored edge with this event_id")
+    return result
+
+
+@app.get("/api/ml/edges/summary", tags=["ML"])
+async def ml_edge_summary():
+    """Aggregate stats on botsv2_ml_score distribution across all scored edges."""
+    return await get_ml_edge_summary()
+
+
+@app.get("/api/ml/incidents/{event_id}", tags=["ML"])
+async def ml_llm_incident(event_id: str):
+    """
+    Fetch the LLM-generated narrative for a flagged edge by event_id.
+    Written by the llm-analyzer service.
+    """
+    result = await get_llm_incident(event_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="No LLM narrative found for this event_id")
+    return result
 
 
 # ---------------------------------------------------------------------------
