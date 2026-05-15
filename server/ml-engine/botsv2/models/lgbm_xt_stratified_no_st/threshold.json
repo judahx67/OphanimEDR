@@ -1,10 +1,10 @@
 {
-  "threshold": 0.42999999999999994,
+  "threshold": 0.95,
   "metric_used": "f1",
   "val_metrics_at_threshold": {
     "metric": "f1",
-    "val_f1": 0.9254220873551344,
-    "val_precision": 0.8617447243431732,
-    "val_recall": 0.999261015058561
+    "val_f1": 0.9577028581541457,
+    "val_precision": 0.9785124465071424,
+    "val_recall": 0.9377599353049908
   }
 }

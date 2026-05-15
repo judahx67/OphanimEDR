@@ -1,80 +1,43 @@
 {
-  "test_n": 599999,
-  "test_positive_rate": 0.5354692257820429,
-  "roc_auc": 0.9134731538592871,
-  "precision": 0.7131471675111433,
-  "recall": 0.8739732508302701,
-  "f1": 0.7854117949808116,
-  "mcc": 0.49220872107887004,
+  "test_n": 1039990,
+  "test_positive_rate": 0.05133895518226137,
+  "roc_auc": 0.3432757738221732,
+  "precision": 0.0,
+  "recall": 0.0,
+  "f1": 0.0,
+  "mcc": -0.020140080442256153,
   "confusion_matrix": [
     [
-      165774,
-      112944
+      978861,
+      7737
     ],
     [
-      40490,
-      280791
+      53392,
+      0
     ]
   ],
-  "threshold": 0.42999999999999994,
-  "per_scenario_recall": {
-    "s200_webapp_attack": {
-      "n": 219316,
-      "recall": 0.9998267340276131
-    },
-    "s400_taedonggang_apt": {
-      "n": 101965,
-      "recall": 0.6032756337959103
-    }
-  },
+  "threshold": 0.05,
+  "per_scenario_recall": {},
   "per_sourcetype_recall": {
-    "stream_mysql": {
-      "n_malicious": 69290,
-      "recall": 1.0
-    },
-    "stream_http": {
-      "n_malicious": 62513,
-      "recall": 1.0
-    },
-    "stream_tcp": {
-      "n_malicious": 51365,
-      "recall": 0.8881144748369513
-    },
-    "stream_ip": {
-      "n_malicious": 50109,
-      "recall": 0.9358598255802351
-    },
-    "access_combined": {
-      "n_malicious": 31798,
-      "recall": 1.0
-    },
     "pan_traffic": {
-      "n_malicious": 16834,
-      "recall": 0.017345847689200427
+      "n_malicious": 18624,
+      "recall": 0.0
     },
     "suricata": {
-      "n_malicious": 14222,
-      "recall": 0.06398537477148081
+      "n_malicious": 14906,
+      "recall": 0.0
     },
-    "mysql_server_stats": {
-      "n_malicious": 4076,
-      "recall": 1.0
+    "stream_ip": {
+      "n_malicious": 9259,
+      "recall": 0.0
     },
-    "mysql_transaction_details": {
-      "n_malicious": 3958,
-      "recall": 1.0
+    "stream_tcp": {
+      "n_malicious": 9259,
+      "recall": 0.0
     },
-    "linux_audit": {
-      "n_malicious": 3780,
-      "recall": 1.0
-    },
-    "auditd": {
-      "n_malicious": 3719,
-      "recall": 1.0
-    },
-    "stream_arp": {
-      "n_malicious": 3547,
-      "recall": 1.0
+    "XmlWinEventLog_Microsoft-Windows-Sysmon_Operational": {
+      "n_malicious": 1344,
+      "recall": 0.0
     }
   }
 }

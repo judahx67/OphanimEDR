@@ -39,16 +39,16 @@ IN_DIR = Path("J:/THESIS-EDR/datasets/botsv2_features")
 OUT_DIR = Path(__file__).parent / "data"
 TMP_DIR = OUT_DIR / "_tmp"
 
-# 3M target — keeps all ~2.15M malicious + ~850k proportionally-sampled benign.
-# Lower than this would start dropping malicious rows because we keep 100% of mal.
-TARGET_TOTAL = 3_000_000
+# 5.2M target — keeps all ~173K malicious (0.125% rate) + ~5M proportionally-
+# sampled benign, giving ~3.3% positive rate. Old target (3M) was sized for the
+# old inflated label set (2.15M positives) and would leave too few positives here.
+TARGET_TOTAL = 5_200_000
 TRAIN_FRAC = 0.60
 VAL_FRAC = 0.20
 SEED = 42
 
-# Hard RAM ceiling — we'd rather crash the script than the OS. Checked
-# at every batch boundary (cheap: ~200µs per check).
-RAM_LIMIT_GB = 7.0
+# Hard RAM ceiling. Raised to 10 GB (host has 18 GB total).
+RAM_LIMIT_GB = 10.0
 RAM_LIMIT_BYTES = int(RAM_LIMIT_GB * 1024 ** 3)
 
 # Stream chunk size for the splitting pass. 100k rows × 50 cols ≈ a few hundred

@@ -2,8 +2,9 @@
   "split": "temporal",
   "extra_trees": true,
   "smoke": null,
-  "fit_time_s": 79.49396872520447,
-  "best_iteration": 456,
+  "dropped_features": [],
+  "fit_time_s": 41.296910762786865,
+  "best_iteration": 61,
   "n_features": 39,
   "n_categorical": 26
 }

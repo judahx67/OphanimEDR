@@ -139,6 +139,7 @@ def train_lgbm(
         num_leaves=31,
         feature_fraction=1.0,
         min_data_in_leaf=20,
+        is_unbalance=True,  # reweight classes; needed after label tightening (1% positive rate)
         n_jobs=6,
         random_state=42,
         verbose=-1,
