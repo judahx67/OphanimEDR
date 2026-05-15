@@ -29,8 +29,8 @@ WHAT THIS IS
     --profile simulator run --rm simulator `
     --scenario botsv2 --limit 5000 --rate 500
 
-  NOTE: deploy.ps1 -Replay flag is THEIA-era and will not work
-        for BOTSv2 - use the docker compose run command above.
+  Or via deploy.ps1:
+  .\deploy\deploy.ps1 -Replay 5000 -ReplayRate 500
 
 ----------------------------------------------------------------
   ENDPOINTS

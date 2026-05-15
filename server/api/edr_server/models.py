@@ -35,7 +35,7 @@ class IncidentInDB(BaseModel):
     title: str
     description: str = ""
     mitre_technique: Optional[str] = None
-    endpoint_id: str = "theia-e3"
+    endpoint_id: str = "botsv2"
 
     # Causal subgraph snapshot (serialized lists)
     matched_nodes: list[dict[str, Any]] = Field(default_factory=list)

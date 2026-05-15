@@ -89,8 +89,8 @@ def normalize_splunk_event(msg: dict) -> Optional[NormalizedEvent]:
     if not parsed.subject_id or not parsed.object_id:
         return None
 
-    # Timestamp: BOTSv2 _time is epoch seconds; convert to nanoseconds for
-    # schema parity with THEIA (which uses nanos throughout).
+    # Timestamp: BOTSv2 _time is epoch seconds; convert to nanoseconds so
+    # the wire schema can carry sub-second resolution if a future source needs it.
     ts_ns = int(time_epoch_s) * 1_000_000_000 if time_epoch_s else 0
 
     subj = ProvenanceNode(

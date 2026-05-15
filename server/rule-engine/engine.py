@@ -213,7 +213,7 @@ class RuleEngine:
             "title": title,
             "description": rule["description"],
             "mitre_technique": rule.get("mitre"),
-            "endpoint_id": event.get("endpoint_id", "theia-e3"),
+            "endpoint_id": event.get("endpoint_id", "botsv2"),
             "matched_nodes": json.dumps(list(state.matched_nodes.values())),
             "matched_edges": json.dumps(state.matched_edges),
             "rule_conditions": json.dumps(

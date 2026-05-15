@@ -2,9 +2,9 @@
 Build a feature dict from a NormalizedEvent for LightGBM scoring.
 
 For BOTSv2 events (_raw + sourcetype set on the event) we re-run the
-botsv2_parsers dispatch to fill the content features. For THEIA events or
-events with no _raw, only the graph-triple features are populated and the
-score is flagged as "degraded".
+botsv2_parsers dispatch to fill the content features. If `_raw` is missing
+or the parser returns nothing useful, only the graph-triple features are
+populated and the score is flagged as "degraded".
 
 Output is a flat dict matching the 39-column model feature schema:
   sourcetype, subject_type, object_type, edge_type,
@@ -39,7 +39,7 @@ def build_feature_row(event_dict: dict) -> tuple[dict, str]:
 
     Returns (feature_dict, quality) where quality is:
       "full"     — _raw present and parsed cleanly
-      "degraded" — no _raw (THEIA) or parser returned empty content fields
+      "degraded" — no _raw or parser returned empty content fields
     """
     raw = event_dict.get("raw_event") or ""
     sourcetype = event_dict.get("sourcetype") or ""

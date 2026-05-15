@@ -91,8 +91,22 @@ class GraphWriter:
                 time.sleep(2)
         raise RuntimeError("Could not connect to Neo4j after 30 attempts")
 
+    # Relationship types that get a uniqueness constraint on event_id.
+    # Matches the EdgeType enum in botsv2_parsers/parsers.py and the
+    # CDM_TO_EDGE mapping that lived in the (now-deleted) THEIA normalizer.
+    EDGE_TYPES = (
+        "FORK", "EXEC", "READ", "WRITE", "CONNECT", "SEND", "RECEIVE",
+        "MMAP", "RENAME", "DELETE", "LOAD", "MODIFY_REG", "ACCESS", "AUTH",
+    )
+
     def _create_constraints(self):
-        """Create uniqueness constraints and indexes."""
+        """Create uniqueness constraints and indexes.
+
+        Node uuid uniqueness lets MERGE upsert nodes safely. Relationship
+        event_id uniqueness is the duplicate-edge guard: even if RabbitMQ
+        redelivers a message (at-least-once) or any upstream resends, we
+        end up with one edge per event_id rather than parallel duplicates.
+        """
         with self._driver.session() as session:
             for label in self.LABELS.values():
                 try:
@@ -102,6 +116,15 @@ class GraphWriter:
                     )
                 except Exception as e:
                     logger.warning("Constraint for %s: %s", label, e)
+
+            for edge_type in self.EDGE_TYPES:
+                try:
+                    session.run(
+                        f"CREATE CONSTRAINT IF NOT EXISTS "
+                        f"FOR ()-[r:{edge_type}]-() REQUIRE r.event_id IS UNIQUE"
+                    )
+                except Exception as e:
+                    logger.warning("Rel constraint for %s: %s", edge_type, e)
 
             # Index on endpoint_id for multi-host queries
             try:
@@ -238,12 +261,14 @@ class GraphWriter:
                 ELSE o.name
             END
 
-        CREATE (s)-[r:{edge_type} {{
-            event_id: row.event_id,
-            timestamp: row.timestamp,
-            size: row.size,
-            properties: row.props
-        }}]->(o)
+        // MERGE on event_id keeps the write idempotent under RabbitMQ
+        // at-least-once redelivery. A relationship-uniqueness constraint
+        // on r.event_id (see _create_constraints) backs the invariant.
+        MERGE (s)-[r:{edge_type} {{event_id: row.event_id}}]->(o)
+        ON CREATE SET
+            r.timestamp = row.timestamp,
+            r.size = row.size,
+            r.properties = row.props
         """
 
     def close(self):
@@ -303,9 +328,12 @@ def main():
     conn = connect_rabbitmq()
     channel = conn.channel()
 
-    channel.exchange_declare(exchange=EXCHANGE, exchange_type="direct", durable=True)
+    # graph-builder consumes from the normalized-events fanout. The fanout
+    # is the canonical delivery point for normalized events; each consumer
+    # (graph-builder, ml-edge-scorer) declares its own queue bound to it.
+    channel.exchange_declare(exchange="edr_fanout", exchange_type="fanout", durable=True)
     channel.queue_declare(queue=NORMALIZED_QUEUE, durable=True)
-    channel.queue_bind(exchange=EXCHANGE, queue=NORMALIZED_QUEUE, routing_key="normalized")
+    channel.queue_bind(exchange="edr_fanout", queue=NORMALIZED_QUEUE)
 
     channel.basic_qos(prefetch_count=BATCH_SIZE)
 
