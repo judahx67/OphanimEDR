@@ -3,11 +3,14 @@ LLM Analyzer Service.
 
 Consumes ml_alerts from RabbitMQ. For each alert:
   1. Pull a 2-hop subgraph from Neo4j around the flagged edge.
-  2. Send the subgraph + alert context to Claude (via Anthropic SDK).
+  2. Send the subgraph + alert context to Gemini (via google-genai SDK).
   3. Write the LLM narrative back as a Neo4j Incident node linked to the edge.
 
-Uses prompt caching on the system prompt (cached across all alerts in a session).
+LLM choice is provisional pending prompt-tuning work — the analyzer may switch
+to Anthropic later; the prompt format and Neo4j write contract are model-agnostic.
+
 Caps throughput to MAX_NARRATIVES_PER_RUN to avoid API budget blowout during demo.
+Sleeps GEMINI_PACING_SECONDS between calls to stay under per-minute rate limits.
 """
 
 import json

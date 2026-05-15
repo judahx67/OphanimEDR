@@ -50,12 +50,11 @@ class ProvenanceNode(BaseModel):
 class NormalizedEvent(BaseModel):
     event_id: str
     timestamp: int
-    endpoint_id: str = "theia-e3"
+    endpoint_id: str = "botsv2"
     edge_type: EdgeType
     subject: ProvenanceNode
     object: ProvenanceNode
     size: Optional[int] = None
     properties: dict[str, Any] = Field(default_factory=dict)
-    # BOTSv2 / Splunk passthrough — None for THEIA events
     raw_event: Optional[str] = None
     sourcetype: Optional[str] = None

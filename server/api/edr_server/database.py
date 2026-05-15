@@ -457,9 +457,8 @@ async def get_ml_edge_findings(
     driver = get_driver()
 
     # Two variants: rule-clear (no incident on subject/object nodes) vs all scored.
-    # BOTSv2 incidents are tracked by matched_nodes UUIDs; all current incidents
-    # are THEIA-era so BOTSv2 edges are effectively always rule-clear.
-    # The min_score parameter provides the meaningful filter for thesis use.
+    # BOTSv2 incidents are tracked by matched_nodes UUIDs; the min_score parameter
+    # provides the score-band filter for the "ML caught what rules missed" headline.
     rule_filter = """
           AND NOT exists {
             MATCH (i:Incident)

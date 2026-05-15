@@ -17,7 +17,7 @@
     server | down
 
 .PARAMETER Replay
-    After starting, replay N THEIA events through the pipeline.
+    After starting, replay N BOTSv2 events through the pipeline.
     E.g.  -Replay 30000
 
 .PARAMETER ReplayRate
@@ -160,20 +160,20 @@ Write-Step "Service status:"
 docker compose -f $ComposeFile ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# THEIA replay (optional)
+# BOTSv2 replay (optional)
 # ─────────────────────────────────────────────────────────────────────────────
 
 if ($Replay -gt 0) {
-    $theiaFile = Join-Path $ProjectRoot "darpa_data\data\theia\ta1-theia-e3-official-1r.json.0"
-    if (-not (Test-Path $theiaFile)) {
-        Write-Warn "DARPA THEIA file not found at:"
-        Write-Warn "  $theiaFile"
+    $botsv2Dir = Join-Path $ProjectRoot "datasets\botsv2_labeled"
+    if (-not (Test-Path $botsv2Dir)) {
+        Write-Warn "BOTSv2 labeled dataset not found at:"
+        Write-Warn "  $botsv2Dir"
         Write-Warn "Skipping replay. Place the dataset there and re-run with -Replay $Replay"
     } else {
-        Write-Step "Replaying $Replay THEIA events at ${ReplayRate} events/sec..."
+        Write-Step "Replaying $Replay BOTSv2 events at ${ReplayRate} events/sec..."
         Write-Info "(Runs in the foreground — Ctrl-C to stop early)"
         docker compose -f $ComposeFile --profile simulator run --rm simulator `
-            --scenario theia `
+            --scenario botsv2 `
             --limit    $Replay `
             --rate     $ReplayRate
         Write-Step "Replay complete."
@@ -192,7 +192,7 @@ Write-Info "API / Swagger  http://localhost:8000/docs"
 Write-Info "Neo4j Browser  http://localhost:7474   (neo4j / edr-thesis)"
 Write-Info "RabbitMQ Admin http://localhost:15672  (guest / guest)"
 Write-Host ""
-Write-Host "  Replay THEIA data" -ForegroundColor Yellow
+Write-Host "  Replay BOTSv2 data" -ForegroundColor Yellow
 Write-Info ".\scripts\deploy.ps1 -Replay 30000"
 Write-Host ""
 Write-Host "  Stop everything" -ForegroundColor Yellow
