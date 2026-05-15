@@ -1,0 +1,21 @@
+scenario,category,value,hits,t_min,t_max,t_span_days,window_start,window_end,outside_window_pct,top_sourcetypes
+s200_webapp_attack,ips,172.31.4.249,1698096,2017-08-01T00:00:14+00:00,2017-08-31T23:59:45+00:00,31.00,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,stream_http=625932; stream_tcp=341686; stream_ip=325622
+s200_webapp_attack,domains,brewertalk.com,967624,2017-08-01T00:02:51+00:00,2017-08-31T23:59:47+00:00,31.00,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,stream_http=634712; access_combined=317893; suricata=7106
+s200_webapp_attack,domains,www.brewertalk.com,933418,2017-08-01T00:02:51+00:00,2017-08-31T23:59:47+00:00,31.00,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,stream_http=623063; access_combined=297795; suricata=5066
+s200_webapp_attack,url_paths,/member.php,292668,2017-08-01T00:05:00+00:00,2017-08-31T23:59:13+00:00,31.00,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,stream_http=145767; mysql_transaction_details=55925; mysql_server_stats=54713
+s200_webapp_attack,url_paths,/search.php,96954,2017-08-01T00:05:00+00:00,2017-08-31T23:59:13+00:00,31.00,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,stream_http=79649; mysql_server_stats=9265; mysql_transaction_details=7473
+s200_webapp_attack,attack_signatures,updatexml,1139,2017-08-16T15:24:49+00:00,2017-08-16T15:31:54+00:00,0.00,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,mysql_server_stats=502; mysql_transaction_details=501; stream_http=136
+s200_webapp_attack,attack_signatures,1502408189,219,2017-08-15T23:35:50+00:00,2017-08-16T15:31:54+00:00,0.66,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,stream_http=172; mysql_server_stats=23; mysql_transaction_details=23
+s200_webapp_attack,attack_signatures,tor browser 7.0.4,0,,,,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,
+s300_ransomware,attack_signatures,.crypt,4260,2017-08-18T21:52:17+00:00,2017-08-19T00:55:08+00:00,0.13,2017-08-17T00:00:00+00:00,2017-08-21T00:00:00+00:00,,stream_smb=2206; XmlWinEventLog_Microsoft-Windows-Sysmon_Operational=2054
+s300_ransomware,domains,eidk.duckdns.org,12,2017-08-03T18:20:26+00:00,2017-08-03T18:22:56+00:00,0.00,2017-08-17T00:00:00+00:00,2017-08-21T00:00:00+00:00,,stream_dns=12
+s300_ransomware,domains,eidk.hopto.org,8,2017-08-03T18:20:16+00:00,2017-08-03T18:21:36+00:00,0.00,2017-08-17T00:00:00+00:00,2017-08-21T00:00:00+00:00,,stream_dns=8
+s300_ransomware,files,frothly_marketing_campaign_q317.pptx.crypt,1,2017-08-19T00:39:56+00:00,2017-08-19T00:39:56+00:00,0.00,2017-08-17T00:00:00+00:00,2017-08-21T00:00:00+00:00,,XmlWinEventLog_Microsoft-Windows-Sysmon_Operational=1
+s300_ransomware,files,got.s07e02.bots.bots.bots.mkv.crypt,0,,,,2017-08-17T00:00:00+00:00,2017-08-21T00:00:00+00:00,,
+s300_ransomware,files,hr_mkraeusen.zip,0,,,,2017-08-17T00:00:00+00:00,2017-08-21T00:00:00+00:00,,
+s400_taedonggang_apt,ips,52.42.208.228,509870,2017-08-01T00:00:01+00:00,2017-08-31T23:59:08+00:00,31.00,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,stream_mysql=327050; stream_ip=84953; stream_tcp=81996
+s400_taedonggang_apt,ips,45.77.65.211,164291,2017-08-11T14:40:56+00:00,2017-08-26T08:26:05+00:00,14.74,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,pan_traffic=48397; suricata=38371; stream_tcp=29069
+s400_taedonggang_apt,files,invoice.zip,8,2017-08-24T03:27:14+00:00,2017-08-24T03:41:53+00:00,0.01,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,stream_smtp=4; XmlWinEventLog_Microsoft-Windows-Sysmon_Operational=2; WinHostMon=1
+s400_taedonggang_apt,attack_signatures,912345678,4,2017-08-24T03:27:14+00:00,2017-08-24T03:27:33+00:00,0.00,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,stream_smtp=4
+s400_taedonggang_apt,files,winsys32.dll,3,2017-08-24T03:36:49+00:00,2017-08-24T04:07:27+00:00,0.02,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,XmlWinEventLog_Microsoft-Windows-Sysmon_Operational=3
+s400_taedonggang_apt,files,나는_데이비드를_사랑한다.hwp,0,,,,2017-08-02T00:00:00+00:00,2017-08-26T00:00:00+00:00,,

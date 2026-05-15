@@ -1,150 +1,109 @@
-# BOTSv2 IOC Corpus
-# Source: chan2git/splunk-bots BOTSv2 walkthrough
-# Extracted: 2026-04-25
+# BOTSv2 IOC Corpus — empirically tightened (2026-05-15)
+# Source: chan2git/splunk-bots BOTSv2 walkthrough, originally extracted 2026-04-25.
 #
-# NOTE: Draft — requires human verification before use in labeling pipeline.
-# Flagged items need review:
-#   - 10.0.2.101 and similar RFC1918 IPs will match huge swaths of benign internal traffic
-#   - Time windows are INFERRED from scenario date ranges, not given in the walkthrough
-#   - Some IOCs are indirect (e.g. USB vendor IDs) and won't map to network/host events cleanly
+# This file was rewritten after a per-IOC verification pass against the
+# BOTSv2 corpus (188M rows, 26 parseable sourcetypes). Each surviving IOC
+# is annotated with its empirical hit count and time concentration so the
+# basis of every label decision is traceable.
 #
-# Time windows: BOTSv2 data spans 2017-08-02 to 2017-08-25 (epoch 1501632000 to 1503705600).
-# Without per-scenario timelines in the walkthrough, we use the full dataset window.
-# TODO(human): tighten windows per scenario if possible.
+# Tooling : server/ml-engine/botsv2/audit/audit_iocs.py
+# Evidence: server/ml-engine/botsv2/audit/audit_iocs_hits.csv
+# Report  : plans/reports/audit-260515-2004-iocs-yaml-verification.md
+#
+# Key principle: an IOC is only kept if its hit pattern is concentrated in
+# time (matches in a window proportional to the scenario duration, not the
+# full corpus). Broad IOCs (victim domains, internal IPs, generic URL paths,
+# or pseudo-random short strings) labelled all benign traffic as malicious
+# under the prior labelling, inflating the positive class ~12×.
 
 scenarios:
 
   # s100 dropped from automatic labeling (insider threat email content is
-  # encoded/split across SMTP frames; literal substring matching doesn't catch
-  # most of it). Listed for documentation only — not used by label.py.
+  # encoded/split across SMTP frames; literal substring matching doesn't
+  # catch most of it). Listed for documentation only.
   - id: s100_insider_threat
     name: "Amber Turing - Insider Threat / Data Exfiltration"
     enabled: false
     time_window:
-      start: 1501632000   # 2017-08-02 00:00 UTC (dataset start)
-      end: 1503705600     # 2017-08-25 00:00 UTC (dataset end)
-    # IP scope note: internal IP matching alone is too broad. Label only when
-    # combined with other IOCs in the same row (email address, domain, file).
-    ips: []               # 10.0.2.101 excluded — too noisy
-    hosts:
-      - amber
-      - aturing-mbp
-    users:
-      - aturing
-      - amber.turing
-      - aturing@froth.ly
-    domains:
-      - berkbeer.com
-      - www.berkbeer.com
-      - yeastiebeastie.com
-    emails:
-      - aturing@froth.ly
-      - ambersthebest@yeastiebeastie.com
-      - mberk@berkbeer.com
-      - hbernhard@berkbeer.com
-    files:
-      - Saccharomyces_cerevisiae_patent.docx
-    url_paths:
-      - /images/ceoberk.png
+      start: 1501632000     # 2017-08-02 00:00 UTC
+      end:   1503705600     # 2017-08-25 00:00 UTC
 
   - id: s200_webapp_attack
     name: "Brewertalk.com Web Application Attack (XSS + SQLi)"
+    # Empirical window. XSS exfil cookie 1502408189 spans Aug 15 23:35 → Aug 16
+    # 15:31 (16h). SQLi updatexml payload is a 7-minute burst on Aug 16
+    # 15:24:49 → 15:31:54. Window extended to 15:00–16:00 to bracket any
+    # post-exploitation activity.
     time_window:
-      start: 1501632000
-      end: 1503705600
-    # Note: 45.77.65.211 and 52.42.208.228 removed — also used by s400 APT
-    # and would otherwise overwhelm s400's labeling. s200 still has plenty of
-    # specific IOCs (URL paths, brewertalk.com, updatexml signature, Tor UA).
-    ips:
-      - 172.31.4.249        # brewertalk internal IP (s200-specific)
-    hosts:
-      - www.brewertalk.com
-      - brewertalk
-    users:
-      - kIagerfield          # maliciously-created account
-    domains:
-      - brewertalk.com
-      - www.brewertalk.com
-    url_paths:
-      - /member.php
-      - /search.php
+      start: 1502841300     # 2017-08-15 23:15:00 UTC
+      end:   1502899200     # 2017-08-16 16:00:00 UTC
+    # DROPPED — labelled all benign brewertalk traffic as malicious:
+    #   ips:         172.31.4.249    (1,698,096 hits over 31d)
+    #   domains:     brewertalk.com  (967,624 hits over 31d)
+    #                www.brewertalk.com (933,418 hits over 31d)
+    #   url_paths:   /member.php     (292,668 hits over 31d, generic phpBB)
+    #                /search.php     (96,954 hits over 31d, generic phpBB)
+    #   attack_sig:  "tor browser 7.0.4" (0 hits anywhere in corpus)
     attack_signatures:
-      - updatexml            # SQL injection signature in _raw
-      - "1502408189"         # cookie value exfiltrated via XSS
-      - "Tor Browser 7.0.4"  # attacker user-agent indicator
+      - updatexml             # 1,139 hits in 7-min burst (mysql_server_stats=502, mysql_transaction_details=501, stream_http=136)
+      - "1502408189"          # 219 hits over 16h (XSS-exfiltrated cookie value)
 
   - id: s300_ransomware
     name: "Mallory Kraeusen - Ransomware + fpsaud Malware"
+    # Empirical window: .crypt activity Aug 18 21:52 → Aug 19 00:55 (~3h).
+    # Pre-attack DNS recon (eidk.* on Aug 3 18:20) sits 15d before this
+    # window and is dropped per the verification report's recommendation —
+    # 20 events not worth a multi-phase model.
     time_window:
-      start: 1502928000     # 2017-08-17 00:00 UTC
-      end: 1503273600       # 2017-08-21 00:00 UTC
-    hosts:
-      - MACLORY-AIR13
-      - kutekitten
-    users:
-      - mkraeusen
-    domains:
-      - eidk.duckdns.org
-      - eidk.hopto.org
+      start: 1503093600     # 2017-08-18 21:00 UTC
+      end:   1503104400     # 2017-08-19 00:00 UTC
+    # DROPPED — never matched (0 hits):
+    #   files:   GoT.S07E02.BOTS.BOTS.BOTS.mkv.crypt, HR_mkraeusen.zip
+    #   domains: eidk.duckdns.org, eidk.hopto.org   (12/8 hits but outside window)
     files:
-      - Frothly_marketing_campaign_Q317.pptx.crypt
-      - GoT.S07E02.BOTS.BOTS.BOTS.mkv.crypt
-      - HR_mkraeusen.zip
-    # Generic ransomware filename signature — added because the .crypt extension
-    # is the strongest single indicator of ransomware activity in this dataset
-    # (33k+ raw matches vs ~30 for specific filenames).
+      - Frothly_marketing_campaign_Q317.pptx.crypt   # 1 hit Aug 19 00:39 (Sysmon)
     attack_signatures:
-      - ".crypt"
+      - ".crypt"             # 4,260 hits in 3h window (stream_smb=2206 + Sysmon=2054)
 
   - id: s400_taedonggang_apt
     name: "Taedonggang APT - Spear-phishing → C2 → Exfil"
+    # Empirical window: 45.77.65.211 C2 hits Aug 11 14:40 → Aug 26 08:26 (~15d).
+    # Phishing-delivery cluster is a separate 40-minute event on Aug 24
+    # 03:27 → 04:07 (stream_smtp delivery → Sysmon file write).
     time_window:
-      start: 1501632000
-      end: 1503705600
+      start: 1502462400     # 2017-08-11 14:00 UTC
+      end:   1503744000     # 2017-08-26 12:00 UTC
+    # DROPPED:
+    #   ips: 52.42.208.228 (509,870 hits over 31d; 327k in stream_mysql — legit
+    #        MySQL endpoint mislabelled by prior labeller as APT infra)
+    #   files: 나는_데이비드를_사랑한다.hwp (0 hits; encoding mismatch or absent)
     ips:
-      - 45.77.65.211         # APT external infra (moved here from s200 since
-                             # APT events are rarer — they need this IP more)
-      - 52.42.208.228        # APT SSL traffic endpoint
+      - 45.77.65.211         # 164,291 hits over 14.7d (pan_traffic=48k, suricata=38k, stream_tcp=29k); real APT C2
     files:
-      - invoice.zip
-      - winsys32.dll
-      - "나는_데이비드를_사랑한다.hwp"
+      - invoice.zip          # 8 hits on Aug 24 03:27 (stream_smtp=4, Sysmon=2, WinHostMon=1)
+      - winsys32.dll         # 3 hits on Aug 24 03:36–04:07 (Sysmon only)
     attack_signatures:
-      - "912345678"          # zip password
+      - "912345678"          # 4 hits on Aug 24 03:27 (stream_smtp); zip password from phishing email
 
-# Cross-scenario IOCs that apply globally
-global:
-  # Any event whose _raw contains these should be flagged regardless of scenario
-  suspicious_tools: []
-  # Attacker infrastructure observed across multiple scenarios
-  shared_infrastructure_ips:
-    - 45.77.65.211            # s200 + s400
-    - 52.42.208.228           # s200 brewertalk + s400 APT SSL
-
-# Labeling rules (consumed by label.py)
+# Labelling rules (consumed by label.py)
 labeling:
-  # ONLY these IOC categories are used for label matching. Other categories
-  # (hosts, users, emails) are kept in the YAML for documentation but are NOT
-  # used for labeling because:
-  #   - hosts: appear in 'host' field of every event the victim machine produces
-  #     -> labels all of victim's normal traffic as malicious
-  #   - users: usernames like 'aturing' or 'mkraeusen' appear in file paths,
-  #     hostnames (wrk-aturing), and registry keys for normal user activity
-  #     -> false-positive explosion
-  #   - emails: too noisy when matched against full _raw (may appear in legit
-  #     mail relay logs unrelated to the insider threat)
+  # ONLY these IOC categories drive label matching. Others (hosts, users,
+  # emails) appear in IOC strings but are excluded because they collide with
+  # the victim's own benign activity (e.g. user "aturing" appears in every
+  # path on Amber's workstation, host "MACLORY-AIR13" produces benign logs
+  # the entire time the user is at the office).
   match_categories:
-    - ips                # external attacker infrastructure
-    - domains            # attacker C2 / phishing
-    - files              # specific malicious filenames
-    - url_paths          # specific attack request paths
-    - attack_signatures  # exfil signatures, encoded payloads
-    - registry_keys      # APT persistence keys
-  # Skip ambiguous patterns that are part of normal system activity
-  blocklist_patterns:
-    - "schtasks.exe"     # too generic — Windows uses this normally
-    - "/process.php"     # too short and generic — many legitimate web apps have this
-    - "software\\microsoft\\network"  # normal Windows registry path
-    - "ryan kovar"       # author name, not an IOC of attack
-  min_ioc_specificity: 8     # skip IOC strings shorter than 8 chars unless in ips/url_paths
+    - ips
+    - domains
+    - files
+    - url_paths
+    - attack_signatures
+    - registry_keys
+  # All prior blocklist patterns are now redundant — the broad IOCs they
+  # protected against have been removed from the scenario lists themselves.
+  blocklist_patterns: []
+  # IOC strings shorter than 8 chars are skipped unless in ips / url_paths /
+  # attack_signatures (those carry deliberately-short high-signal strings
+  # like ".crypt" and "1502408189").
+  min_ioc_specificity: 8
   case_sensitive: false
