@@ -5,8 +5,8 @@
   "dropped_features": [
     "sourcetype"
   ],
-  "fit_time_s": 395.7611954212189,
-  "best_iteration": 3946,
+  "fit_time_s": 167.11393213272095,
+  "best_iteration": 1035,
   "n_features": 38,
   "n_categorical": 25
 }

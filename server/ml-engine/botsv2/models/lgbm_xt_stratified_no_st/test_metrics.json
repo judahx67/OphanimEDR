@@ -1,84 +1,84 @@
 {
-  "test_n": 600045,
-  "test_positive_rate": 0.7160046329858594,
-  "roc_auc": 0.9689186858457381,
-  "precision": 0.8609039518566126,
-  "recall": 0.9992505266097967,
-  "f1": 0.9249325657752997,
-  "mcc": 0.7127086508058408,
+  "test_n": 1039741,
+  "test_positive_rate": 0.033065926995280555,
+  "roc_auc": 0.9853492961464535,
+  "precision": 0.9813643825621694,
+  "recall": 0.9389470622454915,
+  "f1": 0.959687249160151,
+  "mcc": 0.9585899328525677,
   "confusion_matrix": [
     [
-      101046,
-      69364
+      1004748,
+      613
     ],
     [
-      322,
-      429313
+      2099,
+      32281
     ]
   ],
-  "threshold": 0.42999999999999994,
+  "threshold": 0.95,
   "per_scenario_recall": {
-    "s200_webapp_attack": {
-      "n": 341118,
-      "recall": 0.9991088127861912
-    },
     "s400_taedonggang_apt": {
-      "n": 87549,
-      "recall": 0.9998058230248204
+      "n": 11209,
+      "recall": 0.8446783834418771
+    },
+    "s200_webapp_attack": {
+      "n": 4275,
+      "recall": 0.9494736842105264
     },
     "s300_ransomware": {
-      "n": 968,
-      "recall": 0.9989669421487604
+      "n": 693,
+      "recall": 0.8845598845598845
     }
   },
   "per_sourcetype_recall": {
-    "stream_http": {
-      "n_malicious": 99321,
-      "recall": 1.0
-    },
-    "stream_mysql": {
-      "n_malicious": 97104,
-      "recall": 1.0
-    },
-    "stream_tcp": {
-      "n_malicious": 67791,
-      "recall": 0.9998967414553555
-    },
-    "stream_ip": {
-      "n_malicious": 64673,
-      "recall": 0.9998763007746664
-    },
-    "access_combined": {
-      "n_malicious": 49974,
-      "recall": 1.0
-    },
-    "mysql_server_stats": {
-      "n_malicious": 11512,
-      "recall": 0.9883599722029187
-    },
-    "mysql_transaction_details": {
-      "n_malicious": 11317,
-      "recall": 0.9878943182822303
-    },
-    "stream_arp": {
-      "n_malicious": 5028,
-      "recall": 1.0
+    "pan_traffic": {
+      "n_malicious": 9598,
+      "recall": 0.9998958116274224
     },
     "suricata": {
-      "n_malicious": 4110,
-      "recall": 0.9978102189781022
+      "n_malicious": 7726,
+      "recall": 0.9724307533005436
     },
-    "pan_traffic": {
-      "n_malicious": 3779,
-      "recall": 1.0
+    "stream_tcp": {
+      "n_malicious": 5800,
+      "recall": 0.9982758620689656
     },
-    "linux_audit": {
-      "n_malicious": 3359,
-      "recall": 0.9985114617445668
+    "stream_ip": {
+      "n_malicious": 5738,
+      "recall": 0.9987800627396305
     },
-    "auditd": {
-      "n_malicious": 3288,
-      "recall": 1.0
+    "stream_http": {
+      "n_malicious": 1929,
+      "recall": 0.9984447900466563
+    },
+    "XmlWinEventLog_Microsoft-Windows-Sysmon_Operational": {
+      "n_malicious": 1310,
+      "recall": 0.999236641221374
+    },
+    "access_combined": {
+      "n_malicious": 962,
+      "recall": 0.0
+    },
+    "apache_error": {
+      "n_malicious": 796,
+      "recall": 0.0
+    },
+    "stream_smb": {
+      "n_malicious": 223,
+      "recall": 0.9865470852017937
+    },
+    "mysql_server_stats": {
+      "n_malicious": 122,
+      "recall": 0.9180327868852459
+    },
+    "mysql_transaction_details": {
+      "n_malicious": 94,
+      "recall": 0.8829787234042553
+    },
+    "ps": {
+      "n_malicious": 77,
+      "recall": 0.0
     }
   }
 }
