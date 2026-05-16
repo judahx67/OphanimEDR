@@ -57,6 +57,10 @@ GEMINI_PACING_SECONDS = float(os.environ.get("GEMINI_PACING_SECONDS", "2.0"))
 # Cap narratives per run to control API spend during thesis demo
 MAX_NARRATIVES = int(os.environ.get("MAX_NARRATIVES_PER_RUN", "50"))
 
+# Dedup window: suppress repeated alerts for the same (subj, obj, edge_type)
+# pattern within this many seconds. Prevents LLM flood on repeated events.
+DEDUP_WINDOW_SECONDS = int(os.environ.get("DEDUP_WINDOW_SECONDS", "300"))
+
 # ── System prompt (cached) ────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """You are a cybersecurity analyst assistant for an EDR (Endpoint Detection and Response) system.
@@ -270,9 +274,22 @@ def main():
     # Only one alert at a time (LLM calls are slow)
     channel.basic_qos(prefetch_count=1)
 
-    stats = {"received": 0, "analyzed": 0, "skipped": 0, "errors": 0}
+    stats = {"received": 0, "analyzed": 0, "deduped": 0, "skipped": 0, "errors": 0}
     narratives_written = 0
     last_log = time.time()
+    # dedup_cache: pattern_key → (first_seen_ts, duplicate_count)
+    dedup_cache: dict[str, tuple[float, int]] = {}
+
+    def _dedup_key(alert: dict) -> str:
+        subj = alert.get("subject") or {}
+        obj = alert.get("object") or {}
+        return f"{subj.get('id','')}|{obj.get('id','')}|{alert.get('edge_type','')}"
+
+    def _prune_dedup_cache() -> None:
+        cutoff = time.time() - DEDUP_WINDOW_SECONDS
+        expired = [k for k, (ts, _) in dedup_cache.items() if ts < cutoff]
+        for k in expired:
+            del dedup_cache[k]
 
     def on_message(ch, method, properties, body):
         nonlocal last_log, narratives_written
@@ -286,12 +303,27 @@ def main():
                 ch.basic_ack(delivery_tag=method.delivery_tag)
                 return
 
+            # Dedup: if same (subj, obj, edge_type) seen recently, skip LLM call
+            _prune_dedup_cache()
+            key = _dedup_key(alert)
+            now = time.time()
+            if key in dedup_cache:
+                first_ts, count = dedup_cache[key]
+                dedup_cache[key] = (first_ts, count + 1)
+                stats["deduped"] += 1
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+                return
+            dedup_cache[key] = (now, 0)
+
             subj = alert.get("subject") or {}
             obj = alert.get("object") or {}
             subj_id = subj.get("id", "")
             obj_id = obj.get("id", "")
 
-            subgraph = pull_subgraph(neo4j_driver, subj_id, obj_id, hops=2)
+            # 1-hop keeps context manageable; 2-hop can reach 60+ nodes on busy hosts
+            subgraph = pull_subgraph(neo4j_driver, subj_id, obj_id, hops=1)
+            # Annotate how many duplicate alerts were suppressed
+            alert["_dedup_count"] = dedup_cache[key][1]
             subgraph_text = subgraph_to_text(subgraph, alert)
 
             analysis, raw = analyze_with_llm(client, subgraph_text)
@@ -320,9 +352,9 @@ def main():
         now = time.time()
         if now - last_log > 30:
             logger.info(
-                "Stats: received=%d analyzed=%d skipped=%d errors=%d (cap=%d)",
-                stats["received"], stats["analyzed"], stats["skipped"],
-                stats["errors"], MAX_NARRATIVES,
+                "Stats: received=%d analyzed=%d deduped=%d skipped=%d errors=%d (cap=%d)",
+                stats["received"], stats["analyzed"], stats["deduped"],
+                stats["skipped"], stats["errors"], MAX_NARRATIVES,
             )
             last_log = now
 
