@@ -103,7 +103,7 @@ SET r.botsv2_ml_score         = row.score_headline,
     r.botsv2_ml_score_quality = row.quality,
     r.botsv2_ml_scored_at     = row.scored_at,
     r.botsv2_ml_alert         = row.is_alert
-RETURN count(r) AS matched
+RETURN collect(row.event_id) AS matched_ids
 """
 
 # In-memory write buffer: flush every WRITE_BATCH_SIZE events or WRITE_FLUSH_SECS seconds
@@ -115,9 +115,53 @@ _last_flush: float = 0.0
 # Minimum age (seconds) before a batch is flushed — lets graph-builder write edges first
 WRITE_DELAY_SECS = float(os.environ.get("WRITE_DELAY_SECS", "3.0"))
 
+# Retry buffer for scores whose edges weren't in Neo4j yet at flush time.
+# Each entry: (row_dict, attempts_remaining, next_retry_after)
+_retry_buffer: list[tuple[dict, int, float]] = []
+_MAX_RETRIES = 3
+_RETRY_BASE_SECS = 5.0  # first retry after 5s, then 10s, then 20s
+
+_WRITE_ORPHAN_CYPHER = """
+MERGE (o:OrphanScore {event_id: $event_id})
+SET o.score_headline  = $score_headline,
+    o.score_honest    = $score_honest,
+    o.quality         = $quality,
+    o.scored_at       = $scored_at,
+    o.is_alert        = $is_alert,
+    o.created_at      = $scored_at
+"""
+
+_stats_orphans = 0
+
+
+def _flush_retries(driver) -> None:
+    global _retry_buffer, _stats_orphans
+    now = time.time()
+    still_pending: list[tuple[dict, int, float]] = []
+    for row, attempts_left, retry_after in _retry_buffer:
+        if now < retry_after:
+            still_pending.append((row, attempts_left, retry_after))
+            continue
+        with driver.session() as session:
+            result = session.run(_WRITE_SCORES_BATCH_CYPHER, rows=[row])
+            record = result.single()
+            matched_ids = record["matched_ids"] if record else []
+        if matched_ids:
+            logger.debug("retry_success event_id=%s", row["event_id"])
+        elif attempts_left > 1:
+            wait = _RETRY_BASE_SECS * (2 ** (_MAX_RETRIES - attempts_left))
+            still_pending.append((row, attempts_left - 1, now + wait))
+        else:
+            _stats_orphans += 1
+            logger.warning("orphan_score event_id=%s (edge never appeared)", row["event_id"])
+            with driver.session() as session:
+                session.run(_WRITE_ORPHAN_CYPHER, **row)
+    _retry_buffer = still_pending
+
 
 def _flush_buffer(driver) -> int:
-    global _write_buffer, _last_flush
+    global _write_buffer, _last_flush, _retry_buffer
+    _flush_retries(driver)
     if not _write_buffer:
         _last_flush = time.time()
         return 0
@@ -127,9 +171,15 @@ def _flush_buffer(driver) -> int:
     with driver.session() as session:
         result = session.run(_WRITE_SCORES_BATCH_CYPHER, rows=batch)
         record = result.single()
-        matched = record["matched"] if record else 0
-    logger.info("flush_buffer: batch=%d matched=%d sample_id=%s",
-                len(batch), matched, batch[0]["event_id"] if batch else "none")
+        matched_ids = set(record["matched_ids"]) if record else set()
+    matched = len(matched_ids)
+    unmatched_rows = [r for r in batch if r["event_id"] not in matched_ids]
+    if unmatched_rows:
+        logger.debug("flush_buffer: %d unmatched → retry queue", len(unmatched_rows))
+        for row in unmatched_rows:
+            _retry_buffer.append((row, _MAX_RETRIES, time.time() + _RETRY_BASE_SECS))
+    logger.info("flush_buffer: batch=%d matched=%d retrying=%d orphans_total=%d",
+                len(batch), matched, len(_retry_buffer), _stats_orphans)
     return matched
 
 
