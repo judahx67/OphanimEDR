@@ -327,6 +327,8 @@ async def get_node_subgraph(node_id: str, hops: int = 2) -> dict:
               type(rel) AS edge_type,
               rel.event_id AS event_id,
               rel.timestamp AS timestamp,
+              rel.size AS size,
+              rel.properties AS properties,
               rel.botsv2_ml_score AS ml_score,
               rel.botsv2_ml_score_honest AS ml_score_honest,
               rel.botsv2_ml_alert AS ml_alert
@@ -344,12 +346,21 @@ async def get_node_subgraph(node_id: str, hops: int = 2) -> dict:
                 if uid and uid not in nodes:
                     nodes[uid] = {"id": uid, "label": label, "name": name or uid}
             if record["src_id"] and record["dst_id"]:
+                props = {}
+                if record["properties"]:
+                    try:
+                        import json as _json
+                        props = _json.loads(record["properties"]) if isinstance(record["properties"], str) else dict(record["properties"])
+                    except Exception:
+                        pass
                 edges.append({
                     "source": record["src_id"],
                     "target": record["dst_id"],
                     "type": record["edge_type"],
                     "event_id": record["event_id"],
                     "timestamp": record["timestamp"],
+                    "size": int(record["size"]) if record["size"] is not None else None,
+                    "properties": props,
                     "ml_score": float(record["ml_score"]) if record["ml_score"] is not None else None,
                     "ml_score_honest": float(record["ml_score_honest"]) if record["ml_score_honest"] is not None else None,
                     "ml_alert": record["ml_alert"],

@@ -32,6 +32,9 @@ interface SubgraphEdge {
     target: string
     type: string
     event_id: string | null
+    timestamp: number | null
+    size: number | null
+    properties: Record<string, unknown>
     ml_score: number | null
     ml_score_honest: number | null
     ml_alert: boolean | null
@@ -51,6 +54,88 @@ interface LLMNarrative {
     confidence: string
     analyst_action: string
     false_positive_risk: string
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+/** Extract the most meaningful detail string for an edge based on its type and properties. */
+function edgeDetail(edge: SubgraphEdge): string | null {
+    const p = edge.properties || {}
+    const str = (v: unknown) => (v != null ? String(v) : null)
+    const num = (v: unknown) => (typeof v === 'number' && v > 0 ? v : null)
+
+    switch (edge.type) {
+        case 'ACCESS':
+        case 'SEND':
+        case 'RECEIVE': {
+            const method = str(p.http_method)
+            const status = str(p.http_status)
+            const uri = str(p.http_uri)
+            const bytes = num(edge.size ?? p.bytes as number)
+            const parts: string[] = []
+            if (method) parts.push(method)
+            if (status) parts.push(status)
+            if (uri) parts.push(uri.length > 40 ? uri.slice(0, 40) + '…' : uri)
+            if (!parts.length && bytes) parts.push(fmtBytes(bytes))
+            return parts.join(' · ') || null
+        }
+        case 'CONNECT': {
+            const sport = str(p.src_port)
+            const dport = str(p.dest_port)
+            const proto = str(p.transport) ?? str(p.protocol)
+            const bytes = num(edge.size ?? p.bytes as number)
+            const parts: string[] = []
+            if (sport && dport) parts.push(`${sport} → ${dport}`)
+            if (proto) parts.push(proto.toUpperCase())
+            if (bytes) parts.push(fmtBytes(bytes))
+            return parts.join(' · ') || null
+        }
+        case 'EXEC':
+        case 'FORK': {
+            const cmd = str(p.command_line) ?? str(p.process_name)
+            return cmd ? (cmd.length > 60 ? cmd.slice(0, 60) + '…' : cmd) : null
+        }
+        case 'READ':
+        case 'WRITE':
+        case 'DELETE':
+        case 'RENAME':
+        case 'LOAD': {
+            const bytes = num(edge.size ?? p.bytes as number)
+            return bytes ? fmtBytes(bytes) : null
+        }
+        case 'MODIFY_REG': {
+            const key = str(p.registry_key)
+            return key ? (key.length > 50 ? '…' + key.slice(-50) : key) : null
+        }
+        case 'AUTH': {
+            const user = str(p.user)
+            return user ?? null
+        }
+        default:
+            return null
+    }
+}
+
+function fmtBytes(b: number): string {
+    if (b >= 1_000_000) return `${(b / 1_000_000).toFixed(1)} MB`
+    if (b >= 1_000) return `${(b / 1_000).toFixed(1)} KB`
+    return `${b} B`
+}
+
+/** Shorten a node name to the meaningful part (filename, hostname, last path segment). */
+function shortName(name: string, label: string): string {
+    if (!name) return '?'
+    if (label === 'Url' || label === 'File') {
+        // Show filename or last path segment
+        const last = name.split(/[/\\]/).filter(Boolean).pop()
+        return last && last !== name ? last : name.slice(0, 22)
+    }
+    if (label === 'Socket') {
+        // sock:ip:port->ip:port/proto — show just the dest ip:port
+        const m = name.match(/->([^/]+)/)
+        return m ? m[1] : name.slice(0, 22)
+    }
+    return name.length > 22 ? name.slice(0, 22) + '…' : name
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -486,8 +571,9 @@ export default function Problems() {
                                             const srcNode = subgraph.nodes.find(n => n.id === e.source)
                                             const dstNode = subgraph.nodes.find(n => n.id === e.target)
                                             const isThis = e.event_id === selected.event_id
-                                            const srcName = (srcNode?.name || e.source || '').slice(0, 20)
-                                            const dstName = (dstNode?.name || e.target || '').slice(0, 20)
+                                            const srcName = shortName(srcNode?.name || '', srcNode?.label || '')
+                                            const dstName = shortName(dstNode?.name || '', dstNode?.label || '')
+                                            const detail = edgeDetail(e)
                                             return (
                                                 <div key={i} style={{
                                                     padding: '5px 8px',
@@ -496,21 +582,30 @@ export default function Problems() {
                                                     display: 'flex', alignItems: 'center', gap: 6,
                                                 }}>
                                                     <EdgeTypeBadge type={e.type} />
-                                                    <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-secondary)', flex: 1, minWidth: 0 }}>
+                                                    <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-secondary)', flex: 1, minWidth: 0, overflow: 'hidden' }}>
                                                         <span title={srcNode?.name}>{srcName}</span>
                                                         <span style={{ color: 'var(--text-muted)' }}> → </span>
                                                         <span title={dstNode?.name}>{dstName}</span>
+                                                        {detail && (
+                                                            <span style={{
+                                                                marginLeft: 6, color: 'var(--text-muted)',
+                                                                fontSize: 10, fontStyle: 'italic',
+                                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                            }} title={detail}>
+                                                                {detail}
+                                                            </span>
+                                                        )}
                                                     </span>
                                                     {e.ml_score_honest !== null && (
                                                         <span style={{
                                                             fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700,
                                                             color: SEV_COLOR((e.ml_score_honest || 0) * 100),
-                                                            minWidth: 44, textAlign: 'right',
+                                                            minWidth: 44, textAlign: 'right', flexShrink: 0,
                                                         }}>
                                                             {formatPct(e.ml_score_honest || 0)}
                                                         </span>
                                                     )}
-                                                    {e.ml_alert && <span style={{ color: 'var(--status-critical)', fontSize: 12 }}>⚠</span>}
+                                                    {e.ml_alert && <span style={{ color: 'var(--status-critical)', fontSize: 12, flexShrink: 0 }}>⚠</span>}
                                                 </div>
                                             )
                                         })}
