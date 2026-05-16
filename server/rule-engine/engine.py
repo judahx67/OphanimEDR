@@ -8,7 +8,13 @@ State machine:
   - State 0..N-1 = how many conditions have been satisfied so far.
   - When state reaches len(rule.conditions), the rule fires.
 
-Partial states expire after WINDOW_SECONDS to avoid stale matches.
+FSM keying: states are keyed by (rule_id, root_process_id). When a causal
+chain crosses a process boundary (e.g. parent FORKs child, child CONNECTs),
+we scan all states for this rule and match on active_subject_id — avoiding the
+bug where a key lookup on the child's ID misses the parent-rooted state.
+
+Expiration: uses event-time (event["timestamp"] in ns) rather than wall-clock
+time, so replayed telemetry respects the original causal windows.
 """
 
 import re
@@ -31,7 +37,7 @@ class PartialMatch:
     rule_id: str
     root_process_id: str   # UUID of the first subject that started the chain
     step: int              # number of conditions already satisfied
-    last_event_ts: float   # wall-clock time of last advancement
+    last_event_ts_s: float # event-time (seconds) of last advancement
     # Snapshot of matched edges so far (for subgraph in incident)
     matched_edges: list[dict[str, Any]] = field(default_factory=list)
     matched_nodes: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -95,6 +101,12 @@ def _edge_snapshot(event: dict) -> dict:
     }
 
 
+def _event_ts_s(event: dict) -> float:
+    """Return event timestamp in seconds; fall back to wall-clock if missing."""
+    ts_ns = event.get("timestamp") or 0
+    return ts_ns / 1_000_000_000 if ts_ns else time.time()
+
+
 class RuleEngine:
     def __init__(self, rules_dir: str | None = None):
         self._rules_list = load_rules(rules_dir)
@@ -102,13 +114,12 @@ class RuleEngine:
         # Active partial matches:  (rule_id, root_process_id) -> PartialMatch
         self._states: dict[tuple[str, str], PartialMatch] = {}
 
-    def _expire_old_states(self):
-        now = time.time()
+    def _expire_old_states(self, now_s: float):
         expired = []
         for k, v in self._states.items():
             rule = self._rules.get(k[0])
             window = rule.get("window", WINDOW_SECONDS) if rule else WINDOW_SECONDS
-            if now - v.last_event_ts > window:
+            if now_s - v.last_event_ts_s > window:
                 expired.append(k)
         for k in expired:
             del self._states[k]
@@ -118,7 +129,8 @@ class RuleEngine:
         Feed one NormalizedEvent into the engine.
         Returns a (possibly empty) list of fired incidents (as dicts).
         """
-        self._expire_old_states()
+        now_s = _event_ts_s(event)
+        self._expire_old_states(now_s)
         fired: list[dict] = []
 
         for rule in self._rules_list:
@@ -126,39 +138,41 @@ class RuleEngine:
             n = len(conditions)
             subj_id = event.get("subject", {}).get("id", "")
 
-            # --- Try to advance existing partial matches for this rule ---
-            key = (rule["id"], subj_id)
-            state = self._states.get(key)
+            # --- Scan ALL partial states for this rule where active_subject matches ---
+            # This handles cross-process chains (FORK → child actions) correctly.
+            for key, state in list(self._states.items()):
+                if key[0] != rule["id"]:
+                    continue
+                if state.step >= n:
+                    continue
+                if state.active_subject_id != subj_id:
+                    continue
 
-            if state is not None and state.step < n:
-                # The subject of this event must match the active subject
-                if state.active_subject_id == subj_id or state.step == 0:
-                    cond = conditions[state.step]
-                    if _matches_condition(cond, event):
-                        state.matched_edges.append(_edge_snapshot(event))
-                        subj_node = event.get("subject", {})
-                        obj_node = event.get("object", {})
-                        if subj_node.get("id"):
-                            state.matched_nodes[subj_node["id"]] = _node_snapshot(subj_node)
-                        if obj_node.get("id"):
-                            state.matched_nodes[obj_node["id"]] = _node_snapshot(obj_node)
-                        state.step += 1
-                        state.last_event_ts = time.time()
-                        # Update active subject for next step
-                        # If the matched object is a PROCESS, it becomes the new active subject
-                        if obj_node.get("node_type") == "PROCESS":
-                            state.active_subject_id = obj_node.get("id", subj_id)
-                        else:
-                            state.active_subject_id = subj_id
+                cond = conditions[state.step]
+                if not _matches_condition(cond, event):
+                    continue
 
-                        if state.step == n:
-                            # Rule fired
-                            incident = self._build_incident(rule, state, event)
-                            fired.append(incident)
-                            del self._states[key]
+                state.matched_edges.append(_edge_snapshot(event))
+                subj_node = event.get("subject", {})
+                obj_node = event.get("object", {})
+                if subj_node.get("id"):
+                    state.matched_nodes[subj_node["id"]] = _node_snapshot(subj_node)
+                if obj_node.get("id"):
+                    state.matched_nodes[obj_node["id"]] = _node_snapshot(obj_node)
+                state.step += 1
+                state.last_event_ts_s = now_s
+                # If the object is a process, it becomes the next active subject
+                if obj_node.get("node_type") == "PROCESS":
+                    state.active_subject_id = obj_node.get("id", subj_id)
+                else:
+                    state.active_subject_id = subj_id
+
+                if state.step == n:
+                    incident = self._build_incident(rule, state, event)
+                    fired.append(incident)
+                    del self._states[key]
 
             # --- Try to start a new partial match from step 0 ---
-            # (only if this event matches the first condition)
             if n > 0 and _matches_condition(conditions[0], event):
                 new_key = (rule["id"], subj_id)
                 if new_key not in self._states:
@@ -180,7 +194,7 @@ class RuleEngine:
                         rule_id=rule["id"],
                         root_process_id=subj_id,
                         step=1,
-                        last_event_ts=time.time(),
+                        last_event_ts_s=now_s,
                         matched_edges=[_edge_snapshot(event)],
                         matched_nodes=nodes,
                         active_subject_id=active,

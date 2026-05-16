@@ -56,9 +56,11 @@ EXCHANGE = "edr"
 # Models directory — mounted read-only from ml-engine/botsv2/models/
 MODELS_DIR = Path(os.environ.get("MODELS_DIR", "/app/models"))
 
-# Alert thresholds
-THRESHOLD_HEADLINE = float(os.environ.get("ML_THRESHOLD_HEADLINE", "0.9"))
-THRESHOLD_HONEST = float(os.environ.get("ML_THRESHOLD_HONEST", "0.7"))
+# Alert thresholds — overridable via env, but default is derived from each
+# model's threshold.json (set by threshold-calibration.py) so the value is
+# always consistent with training-time calibration.
+_THRESHOLD_HEADLINE_ENV = os.environ.get("ML_THRESHOLD_HEADLINE")
+_THRESHOLD_HONEST_ENV = os.environ.get("ML_THRESHOLD_HONEST")
 
 # Prefetch / batch
 PREFETCH = int(os.environ.get("PREFETCH", "50"))
@@ -187,6 +189,21 @@ def main():
     honest_model = models["lgbm_xt_temporal_no_st"]
     logger.info("Models loaded: %s", list(models.keys()))
 
+    # Resolve alert thresholds: env override > model's threshold.json
+    threshold_headline = (
+        float(_THRESHOLD_HEADLINE_ENV) if _THRESHOLD_HEADLINE_ENV
+        else headline_model.threshold
+    )
+    threshold_honest = (
+        float(_THRESHOLD_HONEST_ENV) if _THRESHOLD_HONEST_ENV
+        else honest_model.threshold
+    )
+    logger.info(
+        "Alert thresholds: headline=%.4f (model=%.4f)  honest=%.4f (model=%.4f)",
+        threshold_headline, headline_model.threshold,
+        threshold_honest, honest_model.threshold,
+    )
+
     neo4j_driver = connect_neo4j()
     conn = connect_rabbitmq()
     channel = conn.channel()
@@ -224,8 +241,8 @@ def main():
             score_headline = headline_model.predict_proba(feature_row)
             score_honest = honest_model.predict_proba(feature_row)
 
-            is_alert = (score_headline >= THRESHOLD_HEADLINE or
-                        score_honest >= THRESHOLD_HONEST)
+            is_alert = (score_headline >= threshold_headline or
+                        score_honest >= threshold_honest)
 
             buffer_scores(
                 neo4j_driver, event_id,
@@ -276,7 +293,7 @@ def main():
     channel.basic_consume(queue=SCORER_QUEUE, on_message_callback=on_message)
     logger.info(
         "Scoring edges from '%s' (headline_threshold=%.2f, honest_threshold=%.2f)",
-        NORMALIZED_QUEUE, THRESHOLD_HEADLINE, THRESHOLD_HONEST,
+        NORMALIZED_QUEUE, threshold_headline, threshold_honest,
     )
 
     try:

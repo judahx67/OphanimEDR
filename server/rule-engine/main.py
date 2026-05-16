@@ -113,7 +113,8 @@ def _write_incident_to_neo4j(driver, incident: dict):
       i.confidence      = $confidence,
       i.created_at      = $created_at,
       i.updated_at      = $updated_at,
-      i.notes           = $notes
+      i.notes           = $notes,
+      i.source          = 'rule-engine'
     """
     with driver.session() as s:
         s.run(query, **incident)

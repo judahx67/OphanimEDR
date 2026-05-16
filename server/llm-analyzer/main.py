@@ -2,7 +2,7 @@
 LLM Analyzer Service.
 
 Consumes ml_alerts from RabbitMQ. For each alert:
-  1. Pull a 2-hop subgraph from Neo4j around the flagged edge.
+  1. Pull a 1-hop subgraph from Neo4j around the flagged edge.
   2. Send the subgraph + alert context to Gemini (via google-genai SDK).
   3. Write the LLM narrative back as a Neo4j Incident node linked to the edge.
 
