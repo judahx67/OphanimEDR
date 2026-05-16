@@ -6,14 +6,33 @@ botsv2_parsers dispatch to fill the content features. If `_raw` is missing
 or the parser returns nothing useful, only the graph-triple features are
 populated and the score is flagged as "degraded".
 
-Output is a flat dict matching the 39-column model feature schema:
+Output is a flat dict matching the 42-column model feature schema:
   sourcetype, subject_type, object_type, edge_type,
+  external_ip, src_ip, dest_ip,
   + NUMERIC_FEATURES + CATEGORICAL_FEATURES
 """
 from __future__ import annotations
 
 from botsv2_parsers import get_parser
 from botsv2_parsers.parsers import NUMERIC_FEATURES, CATEGORICAL_FEATURES
+
+_PRIVATE_PREFIXES = ("10.", "192.168.")
+_PRIVATE_172 = tuple(f"172.{i}." for i in range(16, 32))
+
+
+def _is_private(ip: str | None) -> bool:
+    if not ip or not isinstance(ip, str):
+        return True
+    return ip.startswith(_PRIVATE_PREFIXES) or ip.startswith(_PRIVATE_172)
+
+
+def _external_ip(src: str | None, dst: str | None) -> str | None:
+    """Return the non-RFC-1918 endpoint; falls back to dst if both private."""
+    if not _is_private(src):
+        return src
+    if not _is_private(dst):
+        return dst
+    return dst
 
 # BOTSv2 NodeType strings → model-schema strings (PascalCase to match training data)
 # The training data used the BOTSv2 schema NodeType which is already PascalCase.
@@ -54,18 +73,28 @@ def build_feature_row(event_dict: dict) -> tuple[dict, str]:
     subject_type = _NODE_TYPE_MAP.get(subject_type_raw, subject_type_raw)
     object_type = _NODE_TYPE_MAP.get(object_type_raw, object_type_raw)
 
+    # Network IPs from graph nodes or properties
+    props = event_dict.get("properties", {})
+    src_ip = props.get("src_ip") or subject.get("ip") or None
+    dest_ip = props.get("dest_ip") or obj.get("ip") or None
+    external_ip = _external_ip(src_ip, dest_ip)
+
     row: dict = {
         "sourcetype": sourcetype or None,
         "subject_type": subject_type or None,
         "object_type": object_type or None,
         "edge_type": edge_type or None,
+        "external_ip": external_ip,
+        "src_ip": src_ip,
+        "dest_ip": dest_ip,
     }
 
     # Numeric + categorical defaults
     for c in NUMERIC_FEATURES:
         row[c] = None
     for c in CATEGORICAL_FEATURES:
-        row[c] = None
+        if c not in row:  # don't overwrite src_ip/dest_ip already set above
+            row[c] = None
 
     quality = "degraded"
 

@@ -131,7 +131,11 @@ NUMERIC_FEATURES = [
 # Categorical content features. String, truncated to MAX_STR_LEN at parse time.
 # Converted to pandas category at train time (codes aligned across train/val/test).
 CATEGORICAL_FEATURES = [
-    # Network
+    # Network identity — external_ip is the non-RFC-1918 endpoint of the flow,
+    # direction-independent (C2 IP appears in src or dest depending on phase).
+    # src_ip/dest_ip kept too for directional signal where it exists.
+    "external_ip", "src_ip", "dest_ip",
+    # Network metadata
     "transport", "protocol", "app_proto",
     # HTTP
     "http_method", "http_uri", "http_user_agent", "http_referrer",
@@ -145,17 +149,15 @@ CATEGORICAL_FEATURES = [
     "suricata_event_type", "suricata_alert_category",
 ]
 
-# IPs are kept ONLY for graph node identity (subject_id/object_id derivation).
-# They never appear in the model-feature view — they're IOCs themselves and
-# would let the model "cheat" by memorizing attacker infrastructure.
+# IPs are now features (see CATEGORICAL_FEATURES above).
 NETWORK_ID_COLS = ["src_ip", "dest_ip"]
 
 
 # Full union schema written by extract_features.py.
+# NETWORK_ID_COLS (src_ip, dest_ip) are now in CATEGORICAL_FEATURES — not listed separately.
 ALL_FEATURED_COLS = (
     IDENTITY_COLS
     + GRAPH_COLS
-    + NETWORK_ID_COLS
     + NUMERIC_FEATURES
     + CATEGORICAL_FEATURES
 )
@@ -172,10 +174,9 @@ LEAKY_COLS = [
     "source",      # log file path correlates with host
     "host",        # the answer is sometimes just "this host got compromised"
     "scenario",    # literally the label we're trying to predict
-    "src_ip",      # external attacker infrastructure = the IOC list
-    "dest_ip",     # same
-    "subject_id",  # encodes IPs / hostnames
+    "subject_id",  # high-cardinality graph merge key, not a content feature
     "object_id",   # same
+    # src_ip / dest_ip moved to CATEGORICAL_FEATURES
 ]
 
 # Graph-metadata columns the model doesn't need (the *types* are kept).

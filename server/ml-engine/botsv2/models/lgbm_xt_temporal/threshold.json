@@ -3,8 +3,8 @@
   "metric_used": "f1",
   "val_metrics_at_threshold": {
     "metric": "f1",
-    "val_f1": 0.012003192967587437,
-    "val_precision": 0.04019536664246584,
-    "val_recall": 0.007054980190449711
+    "val_f1": 0.37744208066575746,
+    "val_precision": 0.7544712623719396,
+    "val_recall": 0.2516739649220361
   }
 }

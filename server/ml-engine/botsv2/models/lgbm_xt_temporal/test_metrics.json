@@ -1,19 +1,19 @@
 {
   "test_n": 1039990,
   "test_positive_rate": 0.05133895518226137,
-  "roc_auc": 0.8232734228816196,
-  "precision": 0.00012884937508053087,
-  "recall": 3.7458795325142346e-05,
-  "f1": 5.804335838871637e-05,
-  "mcc": -0.02856283212207848,
+  "roc_auc": 0.9530333840430012,
+  "precision": 0.6079700842775018,
+  "recall": 0.20401932873838777,
+  "f1": 0.30551543283456506,
+  "mcc": 0.33394898862880823,
   "confusion_matrix": [
     [
-      971078,
-      15520
+      979574,
+      7024
     ],
     [
-      53390,
-      2
+      42499,
+      10893
     ]
   ],
   "threshold": 0.05,
@@ -21,23 +21,23 @@
   "per_sourcetype_recall": {
     "pan_traffic": {
       "n_malicious": 18624,
-      "recall": 0.0
+      "recall": 0.19378221649484537
     },
     "suricata": {
       "n_malicious": 14906,
-      "recall": 0.0
+      "recall": 0.32590902992083726
     },
     "stream_ip": {
       "n_malicious": 9259,
-      "recall": 0.00021600604816934875
+      "recall": 0.25013500378010584
     },
     "stream_tcp": {
       "n_malicious": 9259,
-      "recall": 0.0
+      "recall": 0.00021600604816934875
     },
     "XmlWinEventLog_Microsoft-Windows-Sysmon_Operational": {
       "n_malicious": 1344,
-      "recall": 0.0
+      "recall": 0.08035714285714286
     }
   }
 }
