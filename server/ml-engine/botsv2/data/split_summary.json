@@ -1,10 +1,10 @@
 {
   "seed": 42,
-  "target_total": 3000000,
-  "actual_total": 3000000,
-  "malicious_total": 2150080,
-  "benign_sampled": 849920,
-  "ram_limit_gb": 7.0,
+  "target_total": 5200000,
+  "actual_total": 5200000,
+  "malicious_total": 173032,
+  "benign_sampled": 5026968,
+  "ram_limit_gb": 10.0,
   "columns": [
     "_time",
     "app_proto",
@@ -60,53 +60,53 @@
   "temporal_split": [
     {
       "name": "train",
-      "rows": 1800001,
-      "malicious": 1389137,
-      "positive_rate": 0.7717423490320283,
+      "rows": 3120007,
+      "malicious": 33318,
+      "positive_rate": 0.010678822194950203,
       "time_min": 1501545602,
-      "time_max": 1503011461
+      "time_max": 1503249777
     },
     {
       "name": "val",
-      "rows": 600000,
-      "malicious": 439662,
-      "positive_rate": 0.73277,
-      "time_min": 1503011470,
-      "time_max": 1503430804
+      "rows": 1040003,
+      "malicious": 86322,
+      "positive_rate": 0.08300168364898948,
+      "time_min": 1503249778,
+      "time_max": 1503729374
     },
     {
       "name": "test",
-      "rows": 599999,
-      "malicious": 321281,
-      "positive_rate": 0.5354692257820429,
-      "time_min": 1503430806,
-      "time_max": 1504223995
+      "rows": 1039990,
+      "malicious": 53392,
+      "positive_rate": 0.05133895518226137,
+      "time_min": 1503729375,
+      "time_max": 1504223999
     }
   ],
   "stratified_split": [
     {
       "name": "train",
-      "rows": 1799665,
-      "malicious": 1290125,
-      "positive_rate": 0.7168695284955812,
+      "rows": 3119853,
+      "malicious": 104028,
+      "positive_rate": 0.0333438787019773,
       "time_min": 1501545602,
-      "time_max": 1504223955
+      "time_max": 1504223999
     },
     {
       "name": "val",
-      "rows": 600290,
-      "malicious": 430320,
-      "positive_rate": 0.7168535207982808,
-      "time_min": 1501545660,
-      "time_max": 1504223995
+      "rows": 1040406,
+      "malicious": 34624,
+      "positive_rate": 0.03327931595934664,
+      "time_min": 1501545602,
+      "time_max": 1504223999
     },
     {
       "name": "test",
-      "rows": 600045,
-      "malicious": 429635,
-      "positive_rate": 0.7160046329858594,
-      "time_min": 1501545648,
-      "time_max": 1504223880
+      "rows": 1039741,
+      "malicious": 34380,
+      "positive_rate": 0.033065926995280555,
+      "time_min": 1501545602,
+      "time_max": 1504223999
     }
   ]
 }
