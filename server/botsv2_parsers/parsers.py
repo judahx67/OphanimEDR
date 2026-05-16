@@ -883,7 +883,7 @@ def get_parser(sourcetype: str) -> Callable[[str, str | None], ParsedRow]:
         return parse_stream
     if sourcetype == "suricata":
         return parse_suricata
-    if sourcetype == "access_combined":
+    if sourcetype in ("access_combined", "WebLogic_Access_Combined"):
         return parse_access_combined
     if sourcetype.startswith("XmlWinEventLog") and "Sysmon" in sourcetype:
         return parse_sysmon

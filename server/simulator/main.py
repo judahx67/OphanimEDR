@@ -73,7 +73,7 @@ PARSEABLE_SOURCETYPES = frozenset({
     "stream_mysql", "stream_smb", "stream_smtp", "stream_udp",
     "suricata", "access_combined", "WebLogic_Access_Combined",
     "XmlWinEventLog_Microsoft-Windows-Sysmon_Operational",
-    "pan_traffic", "pan_threat",
+    "pan_traffic",
     "mysql_server_stats", "mysql_transaction_details",
     "WinHostMon", "WinRegistry",
     "linux_audit", "auditd",
