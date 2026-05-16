@@ -6,5 +6,12 @@
     "val_f1": 0.48707304256437206,
     "val_precision": 0.9981692870988585,
     "val_recall": 0.32213109056787376
+  },
+  "deployment": {
+    "threshold": 0.921,
+    "precision_target": 0.99,
+    "val_precision": 1.0,
+    "val_recall": 0.0,
+    "val_alert_rate": 0.0
   }
 }

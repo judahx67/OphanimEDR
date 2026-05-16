@@ -93,7 +93,7 @@ class GraphWriter:
 
     # Relationship types that get a uniqueness constraint on event_id.
     # Matches the EdgeType enum in botsv2_parsers/parsers.py and the
-    # CDM_TO_EDGE mapping that lived in the (now-deleted) THEIA normalizer.
+    # Matches the EdgeType enum in botsv2_parsers/parsers.py.
     EDGE_TYPES = (
         "FORK", "EXEC", "READ", "WRITE", "CONNECT", "SEND", "RECEIVE",
         "MMAP", "RENAME", "DELETE", "LOAD", "MODIFY_REG", "ACCESS", "AUTH",
