@@ -65,6 +65,8 @@ NUMERIC_FEATURES = [
 ]
 
 CATEGORICAL_FEATURES = [
+    # Network identity — kept in sync with ml-engine/botsv2/schema.py
+    "external_ip", "src_ip", "dest_ip",
     "transport", "protocol", "app_proto",
     "http_method", "http_uri", "http_user_agent", "http_referrer",
     "http_content_type", "site",
