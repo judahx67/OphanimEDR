@@ -56,6 +56,17 @@ class FrozenModel:
         else:
             self.threshold = 0.5
 
+        # Guard: booster's internal feature list must match feature_names.json.
+        # A mismatch means the model artifact and the schema file are out of sync.
+        booster_features = self.booster.feature_name()
+        if booster_features != self.feature_names:
+            import logging
+            logging.getLogger("model-loader").error(
+                "SCHEMA MISMATCH in %s: booster has %d features, feature_names.json has %d. "
+                "Scores may be wrong. Rebuild models after schema changes.",
+                model_dir.name, len(booster_features), len(self.feature_names),
+            )
+
     def predict_proba(self, row: dict) -> float:
         """Score a single feature dict. Returns probability of malicious class."""
         import pandas as pd
