@@ -3,8 +3,8 @@
   "extra_trees": true,
   "smoke": null,
   "dropped_features": [],
-  "fit_time_s": 41.296910762786865,
-  "best_iteration": 61,
-  "n_features": 39,
-  "n_categorical": 26
+  "fit_time_s": 67.33828401565552,
+  "best_iteration": 205,
+  "n_features": 42,
+  "n_categorical": 29
 }

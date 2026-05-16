@@ -67,7 +67,56 @@ def load_split(split: str, smoke: int | None = None) -> tuple[pd.DataFrame, pd.D
         val_pl = val_pl.sample(n=min(smoke // 4, val_pl.height), seed=42)
         test_pl = test_pl.sample(n=min(smoke // 4, test_pl.height), seed=42)
 
-    return train_pl.to_pandas(), val_pl.to_pandas(), test_pl.to_pandas()
+    train_pd = train_pl.to_pandas()
+    val_pd   = val_pl.to_pandas()
+    test_pd  = test_pl.to_pandas()
+
+    for df in (train_pd, val_pd, test_pd):
+        _add_external_ip(df)
+
+    return train_pd, val_pd, test_pd
+
+
+_PRIVATE_PREFIXES = ("10.", "192.168.")
+_PRIVATE_172 = tuple(f"172.{i}." for i in range(16, 32))
+
+
+def _is_private(ip: str | None) -> bool:
+    if not ip or not isinstance(ip, str):
+        return True  # null → treat as private so the other side wins
+    return ip.startswith(_PRIVATE_PREFIXES) or ip.startswith(_PRIVATE_172)
+
+
+def _add_external_ip(df: "pd.DataFrame") -> None:
+    """Add external_ip = the non-RFC-1918 endpoint of the flow.
+
+    Direction-independent: works whether the C2 server appears as src or dest.
+    If both are private (internal east-west), falls back to dest_ip.
+    Vectorised: avoids row-wise apply on 3M rows.
+    """
+    if "src_ip" not in df.columns or "dest_ip" not in df.columns:
+        df["external_ip"] = None
+        return
+
+    src = df["src_ip"].fillna("").astype(str)
+    dst = df["dest_ip"].fillna("").astype(str)
+
+    src_private = (
+        src.str.startswith("10.")
+        | src.str.startswith("192.168.")
+        | src.str.match(r"^172\.(1[6-9]|2\d|3[01])\.")
+        | (src == "")
+    )
+    dst_private = (
+        dst.str.startswith("10.")
+        | dst.str.startswith("192.168.")
+        | dst.str.match(r"^172\.(1[6-9]|2\d|3[01])\.")
+        | (dst == "")
+    )
+
+    # Use src when it's public; otherwise dst (even if also private)
+    df["external_ip"] = src.where(~src_private, dst)
+    df["external_ip"] = df["external_ip"].replace("", None)
 
 
 def prepare_features(
