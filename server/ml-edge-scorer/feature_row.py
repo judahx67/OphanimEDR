@@ -73,10 +73,11 @@ def build_feature_row(event_dict: dict) -> tuple[dict, str]:
     subject_type = _NODE_TYPE_MAP.get(subject_type_raw, subject_type_raw)
     object_type = _NODE_TYPE_MAP.get(object_type_raw, object_type_raw)
 
-    # Network IPs from graph nodes or properties
+    # Network IPs: carried inside properties["botsv2_fields"] by the normalizer
     props = event_dict.get("properties", {})
-    src_ip = props.get("src_ip") or subject.get("ip") or None
-    dest_ip = props.get("dest_ip") or obj.get("ip") or None
+    botsv2 = props.get("botsv2_fields") or {}
+    src_ip = botsv2.get("src_ip") or props.get("src_ip") or subject.get("ip") or None
+    dest_ip = botsv2.get("dest_ip") or props.get("dest_ip") or obj.get("ip") or None
     external_ip = _external_ip(src_ip, dest_ip)
 
     row: dict = {
