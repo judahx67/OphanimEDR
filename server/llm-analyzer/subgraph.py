@@ -116,6 +116,9 @@ def subgraph_to_text(subgraph: dict, alert: dict) -> str:
                  f"{alert.get('score_honest', '?'):.4f} (honest)")
     lines.append(f"  sourcetype: {alert.get('sourcetype', 'N/A')}")
     lines.append(f"  endpoint  : {alert.get('endpoint_id', '?')}")
+    dedup = alert.get("_dedup_count", 0)
+    if dedup:
+        lines.append(f"  NOTE      : {dedup} additional identical alerts suppressed (same src/dst/edge in last 5 min)")
     lines.append("")
 
     lines.append("## Subgraph Nodes")
