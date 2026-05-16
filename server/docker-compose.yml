@@ -73,8 +73,10 @@ services:
       BATCH_SIZE: 200
       BATCH_TIMEOUT: 2.0
       MODELS_DIR: /app/ml-edge-scorer/models
-      ML_THRESHOLD_HEADLINE: "0.9"
-      ML_THRESHOLD_HONEST: "0.7"
+      # Alert thresholds default to each model's threshold.json (F1-optimal).
+      # Override here only if a specific precision/recall tradeoff is needed.
+      # ML_THRESHOLD_HEADLINE: "0.9"
+      # ML_THRESHOLD_HONEST: "0.7"
     volumes:
       - ./ml-engine/botsv2/models:/app/ml-edge-scorer/models:ro
     depends_on:
