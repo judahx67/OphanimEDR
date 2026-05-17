@@ -107,16 +107,27 @@ async def node_subgraph(node_id: str, hops: int = Query(2, ge=1, le=4)):
 
 @app.get("/api/graph/subgraph", tags=["Graph"])
 async def node_subgraph_by_query(
-    node_id: str = Query(..., description="Provenance node UUID"),
+    node_id: list[str] = Query(..., description="Provenance node UUID(s). Pass repeatedly to include multiple roots."),
     hops: int = Query(2, ge=1, le=4),
 ):
-    """Same as /api/graph/subgraph/{node_id} but takes node_id as a query
-    parameter — avoids URL-encoding issues with '?' or '/' in socket IDs.
+    """K-hop neighbourhood around one or more root nodes.
+
+    Pass `?node_id=...&node_id=...` to merge the neighbourhoods of multiple
+    roots — typically the subject and object of a flagged edge, which gives a
+    fuller picture than the subject alone for socket-to-socket edges.
     """
-    result = await get_node_subgraph(node_id, hops=hops)
-    if not result["nodes"]:
-        raise HTTPException(status_code=404, detail="Node not found")
-    return result
+    merged_nodes: dict[str, dict] = {}
+    merged_edges: dict[str, dict] = {}
+    for nid in node_id:
+        result = await get_node_subgraph(nid, hops=hops)
+        for n in result["nodes"]:
+            merged_nodes.setdefault(n["id"], n)
+        for e in result["edges"]:
+            key = e.get("event_id") or f"{e['source']}|{e['target']}|{e['type']}"
+            merged_edges.setdefault(key, e)
+    if not merged_nodes:
+        raise HTTPException(status_code=404, detail="No nodes found for provided id(s)")
+    return {"nodes": list(merged_nodes.values()), "edges": list(merged_edges.values())}
 
 
 # ---------------------------------------------------------------------------
