@@ -25,6 +25,8 @@ from google import genai
 from google.genai import types as genai_types
 
 from subgraph import pull_subgraph, subgraph_to_text
+from mitre import load_techniques, select_candidates, format_candidates_for_prompt
+import groq_provider
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,15 +73,20 @@ You will be given a provenance graph subgraph representing suspicious activity d
 
 Your task is to analyse the subgraph and produce a structured incident analysis.
 
+If a "MITRE Candidates" section is provided in the user message, the
+mitre_technique field MUST be one of those IDs (or null if none fit).
+Without that section, fall back to your own MITRE judgement.
+
 ## Output Format (JSON only, no prose outside this structure)
 {
   "attack_hypothesis": "One sentence describing the likely attack or suspicious behaviour",
-  "mitre_technique": "e.g. T1059.001 - Command and Scripting Interpreter: PowerShell (or null if unclear)",
+  "mitre_technique": "e.g. T1059.001 (or null if unclear; if MITRE Candidates section was provided you MUST pick from those IDs)",
   "mitre_tactic": "e.g. Execution (or null if unclear)",
   "evidence_summary": "2-4 bullet points of specific indicators from the subgraph",
   "confidence": "high | medium | low",
   "analyst_action": "Specific recommended next step for a human analyst",
-  "false_positive_risk": "high | medium | low — likelihood this is benign activity"
+  "false_positive_risk": "high | medium | low — likelihood this is benign activity",
+  "yara_rule": "A valid YARA rule string targeting a stable artefact from this alert (filename, command-line string, URI path, registry key). Null if no stable signature exists or if the only indicators are dynamic (IPs, timestamps, ephemeral ports). The rule MUST be syntactically valid YARA, named after the attack pattern (snake_case), and include a meta block with author='edr-llm-analyzer' and a reference to the event_id."
 }
 
 Be concise and precise. Base your analysis only on the provided subgraph data. If the data is insufficient, say so in evidence_summary and set confidence to low."""
@@ -126,6 +133,12 @@ SET
   i.analyst_action  = $analyst_action,
   i.false_positive_risk = $false_positive_risk,
   i.narrative_raw   = $narrative_raw,
+  i.yara_rule       = $yara_rule,
+  i.agreement_status     = $agreement_status,
+  i.secondary_model      = $secondary_model,
+  i.secondary_mitre      = $secondary_mitre,
+  i.secondary_confidence = $secondary_confidence,
+  i.secondary_hypothesis = $secondary_hypothesis,
   i.score_headline  = $score_headline,
   i.score_honest    = $score_honest,
   i.severity        = $severity,
@@ -138,9 +151,16 @@ MERGE (i)-[:TRIGGERED_BY {edge_event_id: $event_id}]->(o)
 """
 
 
-def write_incident(driver, alert: dict, analysis: dict, narrative_raw: str) -> None:
+def write_incident(
+    driver,
+    alert: dict,
+    analysis: dict,
+    narrative_raw: str,
+    agreement: dict | None = None,
+) -> None:
     confidence = analysis.get("confidence", "low")
     severity = {"high": "critical", "medium": "high", "low": "medium"}.get(confidence, "medium")
+    agreement = agreement or {}
 
     with driver.session() as session:
         session.run(
@@ -155,18 +175,32 @@ def write_incident(driver, alert: dict, analysis: dict, narrative_raw: str) -> N
             analyst_action=analysis.get("analyst_action", ""),
             false_positive_risk=analysis.get("false_positive_risk", "unknown"),
             narrative_raw=narrative_raw,
+            yara_rule=analysis.get("yara_rule") or "",
             score_headline=alert.get("score_headline", 0.0),
             score_honest=alert.get("score_honest", 0.0),
             severity=severity,
             created_at=int(time.time() * 1000),
             endpoint_id=alert.get("endpoint_id", ""),
+            agreement_status=agreement.get("agreement_status", "disabled"),
+            secondary_model=agreement.get("secondary_model", ""),
+            secondary_mitre=agreement.get("secondary_mitre", ""),
+            secondary_confidence=agreement.get("secondary_confidence", ""),
+            secondary_hypothesis=agreement.get("secondary_hypothesis", ""),
         )
 
 
 # ── LLM call ─────────────────────────────────────────────────────────────
 
-def analyze_with_llm(client: genai.Client, subgraph_text: str) -> tuple[dict, str]:
-    """Call Gemini and request JSON output. Returns (parsed_json, raw_text).
+def analyze_with_llm(
+    client: genai.Client,
+    subgraph_text: str,
+    mitre_section: str = "",
+) -> tuple[dict, str, dict]:
+    """Call Gemini and request JSON output.
+
+    Returns (parsed_json, raw_text, usage) where usage has prompt/output/total
+    token counts pulled from the Gemini response's usage_metadata. Used by the
+    main loop to track per-alert token spend and surface budget pressure.
 
     Retries on transient 429 RESOURCE_EXHAUSTED using the server-suggested
     delay; gives up after 3 attempts and propagates the error.
@@ -174,7 +208,11 @@ def analyze_with_llm(client: genai.Client, subgraph_text: str) -> tuple[dict, st
     cfg = genai_types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
         response_mime_type="application/json",
-        max_output_tokens=2048,
+        # 800 fits the 7-field schema + a small YARA rule comfortably.
+        # 2048 caused gemini-2.5-flash-lite to drift into degenerate token
+        # loops (emitting "0000..." until cap) on a non-trivial fraction of
+        # alerts — wasted budget AND broke JSON parsing.
+        max_output_tokens=800,
     )
     # gemini-2.5-* models add a "thinking" budget that eats output tokens
     # before any visible text. Disable it when present.
@@ -184,9 +222,12 @@ def analyze_with_llm(client: genai.Client, subgraph_text: str) -> tuple[dict, st
     last_err: Exception | None = None
     for attempt in range(3):
         try:
+            user_msg = f"Analyse this provenance subgraph alert:\n\n{subgraph_text}"
+            if mitre_section:
+                user_msg += f"\n\n{mitre_section}"
             response = client.models.generate_content(
                 model=GEMINI_MODEL,
-                contents=f"Analyse this provenance subgraph alert:\n\n{subgraph_text}",
+                contents=user_msg,
                 config=cfg,
             )
             break
@@ -228,9 +269,29 @@ def analyze_with_llm(client: genai.Client, subgraph_text: str) -> tuple[dict, st
             "confidence": "low",
             "analyst_action": "Review raw LLM output",
             "false_positive_risk": "unknown",
+            "yara_rule": None,
         }
 
-    return analysis, raw
+    um = getattr(response, "usage_metadata", None)
+    usage = {
+        "prompt_tokens": getattr(um, "prompt_token_count", 0) or 0,
+        "output_tokens": getattr(um, "candidates_token_count", 0) or 0,
+        "total_tokens": getattr(um, "total_token_count", 0) or 0,
+    }
+
+    # Surface truncation explicitly — flash-lite drifts into degenerate
+    # repeat-token loops on some inputs, hitting max_output_tokens with
+    # garbage. Logging finish_reason makes that visible without a debugger.
+    cands = getattr(response, "candidates", None) or []
+    finish_reason = ""
+    if cands:
+        fr = getattr(cands[0], "finish_reason", None)
+        finish_reason = getattr(fr, "name", str(fr or ""))
+    if finish_reason and finish_reason not in ("STOP", "FINISH_REASON_STOP"):
+        logger.warning("Gemini finish_reason=%s (output may be truncated/malformed)", finish_reason)
+    usage["finish_reason"] = finish_reason
+
+    return analysis, raw, usage
 
 
 # ── RabbitMQ ──────────────────────────────────────────────────────────────
@@ -263,7 +324,18 @@ def main():
         return
 
     client = genai.Client(api_key=GEMINI_API_KEY)
+    mitre_techniques = load_techniques()
     neo4j_driver = connect_neo4j()
+
+    groq_client = None
+    if groq_provider.is_enabled():
+        try:
+            groq_client = groq_provider.make_client()
+            logger.info("Groq second-opinion enabled (model=%s)", groq_provider.GROQ_MODEL)
+        except Exception as e:
+            logger.warning("Groq enabled but client init failed (%s) — running Gemini-only", e)
+    else:
+        logger.info("Groq second-opinion disabled (set GROQ_API_KEY to enable)")
     conn = connect_rabbitmq()
     channel = conn.channel()
 
@@ -274,7 +346,11 @@ def main():
     # Only one alert at a time (LLM calls are slow)
     channel.basic_qos(prefetch_count=1)
 
-    stats = {"received": 0, "analyzed": 0, "deduped": 0, "skipped": 0, "errors": 0}
+    stats = {
+        "received": 0, "analyzed": 0, "deduped": 0, "skipped": 0, "errors": 0,
+        "tokens_prompt": 0, "tokens_output": 0, "tokens_total": 0,
+        "subgraph_chars_total": 0,
+    }
     narratives_written = 0
     last_log = time.time()
     # dedup_cache: pattern_key → (first_seen_ts, duplicate_count)
@@ -326,20 +402,51 @@ def main():
             alert["_dedup_count"] = dedup_cache[key][1]
             subgraph_text = subgraph_to_text(subgraph, alert)
 
-            analysis, raw = analyze_with_llm(client, subgraph_text)
-            write_incident(neo4j_driver, alert, analysis, raw)
+            mitre_candidates = select_candidates(mitre_techniques, alert, subgraph)
+            mitre_section = format_candidates_for_prompt(mitre_candidates)
+
+            analysis, raw, usage = analyze_with_llm(client, subgraph_text, mitre_section)
+
+            agreement: dict | None = None
+            if groq_client is not None:
+                try:
+                    user_msg = f"Analyse this provenance subgraph alert:\n\n{subgraph_text}"
+                    if mitre_section:
+                        user_msg += f"\n\n{mitre_section}"
+                    secondary, _, sec_usage = groq_provider.analyze(
+                        groq_client, SYSTEM_PROMPT, user_msg,
+                    )
+                    agreement = groq_provider.compare(analysis, secondary)
+                    stats["tokens_total"] += sec_usage.get("total_tokens", 0)
+                    stats["tokens_prompt"] += sec_usage.get("prompt_tokens", 0)
+                    stats["tokens_output"] += sec_usage.get("output_tokens", 0)
+                    if groq_provider.GROQ_PACING_SECONDS > 0:
+                        time.sleep(groq_provider.GROQ_PACING_SECONDS)
+                except Exception as e:
+                    logger.warning("Groq second-opinion failed: %s", e)
+                    agreement = {"agreement_status": "secondary_error"}
+
+            write_incident(neo4j_driver, alert, analysis, raw, agreement)
 
             narratives_written += 1
             stats["analyzed"] += 1
+            stats["tokens_prompt"] += usage["prompt_tokens"]
+            stats["tokens_output"] += usage["output_tokens"]
+            stats["tokens_total"] += usage["total_tokens"]
+            stats["subgraph_chars_total"] += len(subgraph_text)
 
             # Pace requests to stay under the per-minute free-tier rate limit.
             if GEMINI_PACING_SECONDS > 0:
                 time.sleep(GEMINI_PACING_SECONDS)
             logger.info(
-                "Incident written for event_id=%s confidence=%s mitre=%s",
+                "Incident written event_id=%s confidence=%s mitre=%s tokens=%d/%d subgraph_chars=%d mitre_candidates=%d agreement=%s",
                 alert.get("event_id", "?"),
                 analysis.get("confidence", "?"),
                 analysis.get("mitre_technique", "?"),
+                usage["prompt_tokens"], usage["output_tokens"],
+                len(subgraph_text),
+                len(mitre_candidates),
+                (agreement or {}).get("agreement_status", "disabled"),
             )
 
             ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -351,10 +458,16 @@ def main():
 
         now = time.time()
         if now - last_log > 30:
+            n = max(stats["analyzed"], 1)
             logger.info(
-                "Stats: received=%d analyzed=%d deduped=%d skipped=%d errors=%d (cap=%d)",
+                "Stats: received=%d analyzed=%d deduped=%d skipped=%d errors=%d "
+                "tokens(total=%d prompt=%d out=%d, avg=%d/alert) avg_subgraph=%d chars (cap=%d)",
                 stats["received"], stats["analyzed"], stats["deduped"],
-                stats["skipped"], stats["errors"], MAX_NARRATIVES,
+                stats["skipped"], stats["errors"],
+                stats["tokens_total"], stats["tokens_prompt"], stats["tokens_output"],
+                stats["tokens_total"] // n,
+                stats["subgraph_chars_total"] // n,
+                MAX_NARRATIVES,
             )
             last_log = now
 
