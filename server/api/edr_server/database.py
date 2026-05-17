@@ -663,7 +663,13 @@ async def get_llm_incident(event_id: str) -> dict | None:
                 i.score_honest AS score_honest,
                 i.severity AS severity,
                 i.created_at AS created_at,
-                i.endpoint_id AS endpoint_id
+                i.endpoint_id AS endpoint_id,
+                i.yara_rule AS yara_rule,
+                i.agreement_status AS agreement_status,
+                i.secondary_model AS secondary_model,
+                i.secondary_mitre AS secondary_mitre,
+                i.secondary_confidence AS secondary_confidence,
+                i.secondary_hypothesis AS secondary_hypothesis
             """,
             event_id=event_id,
         )

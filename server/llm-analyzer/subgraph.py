@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from neo4j import Driver
 
+from prune import prune
+
 
 _KHOP_CYPHER = """
 MATCH (start)
@@ -102,7 +104,13 @@ def pull_subgraph(driver: Driver, subj_id: str, obj_id: str, hops: int = 2) -> d
 
 
 def subgraph_to_text(subgraph: dict, alert: dict) -> str:
-    """Render a subgraph as compact text for the LLM prompt."""
+    """Render a subgraph as compact text for the LLM prompt.
+
+    Runs the pruner first to bound size. The prompt explicitly tells the LLM
+    when nodes/edges were elided so it doesn't over-extrapolate from the
+    visible slice.
+    """
+    pruned = prune(subgraph, alert)
     lines = []
 
     lines.append("## Flagged Edge")
@@ -121,17 +129,36 @@ def subgraph_to_text(subgraph: dict, alert: dict) -> str:
         lines.append(f"  NOTE      : {dedup} additional identical alerts suppressed (same src/dst/edge in last 5 min)")
     lines.append("")
 
-    lines.append("## Subgraph Nodes")
-    for n in subgraph.get("nodes", []):
+    lines.append(f"## Subgraph Nodes ({len(pruned.nodes)} kept)")
+    for n in pruned.nodes:
         lines.append(f"  [{n['label']}] {n['name']!r}  id={n['id']}")
 
     lines.append("")
-    lines.append("## Subgraph Edges")
-    for e in subgraph.get("edges", []):
+    lines.append(f"## Subgraph Edges ({len(pruned.edges)} kept)")
+    for e in pruned.edges:
         alert_tag = " *** ALERT ***" if e.get("is_alert") else ""
         score_str = ""
         if e.get("score") is not None:
-            score_str = f"  score={e['score']:.3f}/{e.get('score_honest', '?'):.3f}"
+            score_str = f"  score={e['score']:.3f}/{e.get('score_honest') or 0:.3f}"
         lines.append(f"  {e['src'][:12]}..  --[{e['type']}]-->  {e['dst'][:12]}..{score_str}{alert_tag}")
+
+    if pruned.collapsed:
+        lines.append("")
+        lines.append("## Repeated Patterns (collapsed)")
+        for c in pruned.collapsed:
+            src_lbl, etype, dst_lbl = c["signature"]
+            samples = ", ".join(repr(s) for s in c["sample_dst_names"][:3])
+            alert_tag = "  *** contains ALERT ***" if c["any_alert"] else ""
+            lines.append(
+                f"  [{src_lbl}] --[{etype}]--> [{dst_lbl}]  × {c['count']} similar  "
+                f"e.g. {samples}{alert_tag}"
+            )
+
+    elided_bits = [f"{k}={v}" for k, v in pruned.dropped.items() if v]
+    if elided_bits:
+        lines.append("")
+        lines.append(f"## Elided\n  {', '.join(elided_bits)}")
+        lines.append("  (LLM note: above counts were dropped to fit context; "
+                     "absence does not imply benignity)")
 
     return "\n".join(lines)

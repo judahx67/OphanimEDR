@@ -54,6 +54,12 @@ interface LLMNarrative {
     confidence: string
     analyst_action: string
     false_positive_risk: string
+    yara_rule?: string | null
+    agreement_status?: string | null
+    secondary_model?: string | null
+    secondary_mitre?: string | null
+    secondary_confidence?: string | null
+    secondary_hypothesis?: string | null
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -667,6 +673,50 @@ export default function Problems() {
                                         <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Analyst Action</div>
                                         <div style={{ color: 'var(--text-primary)' }}>{narrative.analyst_action}</div>
                                     </div>
+                                    {narrative.agreement_status && narrative.agreement_status !== 'disabled' && (
+                                        <div style={{
+                                            borderLeft: `3px solid ${
+                                                narrative.agreement_status === 'exact' ? '#16a34a' :
+                                                narrative.agreement_status === 'parent' ? '#84cc16' :
+                                                narrative.agreement_status === 'conflict' ? '#dc2626' :
+                                                'var(--text-muted)'
+                                            }`,
+                                            paddingLeft: 10, marginTop: 8,
+                                        }}>
+                                            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>
+                                                Second Opinion ({narrative.secondary_model || 'secondary'}) — {narrative.agreement_status}
+                                            </div>
+                                            {narrative.secondary_mitre && (
+                                                <div style={{ color: 'var(--text-primary)', fontSize: 12 }}>
+                                                    MITRE: {narrative.secondary_mitre} (confidence: {narrative.secondary_confidence || '?'})
+                                                </div>
+                                            )}
+                                            {narrative.secondary_hypothesis && (
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 2 }}>
+                                                    {narrative.secondary_hypothesis}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {narrative.yara_rule && (
+                                        <div style={{
+                                            borderLeft: '3px solid var(--accent-warning, #d97706)',
+                                            paddingLeft: 10, marginTop: 8,
+                                        }}>
+                                            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>
+                                                YARA Rule (LLM-generated · deploy to endpoints for live detection)
+                                            </div>
+                                            <pre style={{
+                                                fontFamily: 'var(--font-mono, monospace)',
+                                                fontSize: 11,
+                                                background: 'var(--bg-tertiary, #1a1a1a)',
+                                                padding: 8, borderRadius: 4,
+                                                overflow: 'auto',
+                                                color: 'var(--text-primary)',
+                                                margin: 0,
+                                            }}>{narrative.yara_rule}</pre>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--text-muted)' }}>

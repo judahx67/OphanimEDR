@@ -131,7 +131,14 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: gemini-2.5-flash-lite
       MAX_NARRATIVES_PER_RUN: "200"
-      GEMINI_PACING_SECONDS: "2.0"
+      # Pacing conservative on purpose — we burn one Gemini call + (optional)
+      # one Groq call per alert. 8s gives ~7 alerts/min, well under both
+      # free-tier per-minute caps.
+      GEMINI_PACING_SECONDS: "8.0"
+      # Optional Groq second-opinion. Empty key → cross-ref skipped.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: llama-3.3-70b-versatile
+      GROQ_PACING_SECONDS: "4.0"
     depends_on:
       rabbitmq:
         condition: service_healthy
