@@ -279,7 +279,13 @@ export default function Problems() {
         setNarrative(null)
         setSubgraphLoading(true)
         try {
-            const res = await axios.get('/api/graph/subgraph', { params: { node_id: f.subject.id, hops: 1 } })
+            // Pass both endpoints — sockets are leaf-like so subject-only
+            // 1-hop often returns just the flagged edge itself.
+            const params = new URLSearchParams()
+            params.append('node_id', f.subject.id)
+            params.append('node_id', f.object.id)
+            params.append('hops', '1')
+            const res = await axios.get(`/api/graph/subgraph?${params.toString()}`)
             setSubgraph(res.data)
         } catch { /* ignore */ } finally {
             setSubgraphLoading(false)
@@ -566,6 +572,19 @@ export default function Problems() {
                                             </span>
                                         }
                                     </div>
+                                    {/* Sparse-context hint: network flow alerts (pan_traffic/suricata) carry
+                                        no process linkage, so the 1-hop graph is just the flagged edge itself. */}
+                                    {subgraph.edges.length <= 2 && !subgraph.nodes.some(n => n.label === 'Process') && (
+                                        <div style={{
+                                            fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-muted)',
+                                            background: 'var(--bg-tertiary)', padding: '6px 8px', marginBottom: 8,
+                                            borderLeft: '2px solid var(--accent-warning, #d97706)',
+                                        }}>
+                                            ℹ Network-flow alert — no process context in the graph.
+                                            pan_traffic/suricata sourcetypes record socket-to-socket edges
+                                            without the originating process.
+                                        </div>
+                                    )}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 260, overflowY: 'auto' }}>
                                         {subgraph.edges.slice(0, 50).map((e, i) => {
                                             const srcNode = subgraph.nodes.find(n => n.id === e.source)
