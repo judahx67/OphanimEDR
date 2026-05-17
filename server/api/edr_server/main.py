@@ -91,9 +91,28 @@ async def recent_edges(limit: int = Query(100, ge=1, le=1000)):
     return await get_recent_edges(limit=limit)
 
 
-@app.get("/api/graph/subgraph/{node_id}", tags=["Graph"])
+@app.get("/api/graph/subgraph/{node_id:path}", tags=["Graph"])
 async def node_subgraph(node_id: str, hops: int = Query(2, ge=1, le=4)):
-    """K-hop neighbourhood of a provenance node (for graph explorer)."""
+    """K-hop neighbourhood of a provenance node (for graph explorer).
+
+    Uses :path converter so node_ids containing forward slashes (e.g.
+    'sock:host:port->host:port/tcp') are matched as a single parameter.
+    Query strings ('?') in node_ids must still be URL-encoded by the caller.
+    """
+    result = await get_node_subgraph(node_id, hops=hops)
+    if not result["nodes"]:
+        raise HTTPException(status_code=404, detail="Node not found")
+    return result
+
+
+@app.get("/api/graph/subgraph", tags=["Graph"])
+async def node_subgraph_by_query(
+    node_id: str = Query(..., description="Provenance node UUID"),
+    hops: int = Query(2, ge=1, le=4),
+):
+    """Same as /api/graph/subgraph/{node_id} but takes node_id as a query
+    parameter — avoids URL-encoding issues with '?' or '/' in socket IDs.
+    """
     result = await get_node_subgraph(node_id, hops=hops)
     if not result["nodes"]:
         raise HTTPException(status_code=404, detail="Node not found")

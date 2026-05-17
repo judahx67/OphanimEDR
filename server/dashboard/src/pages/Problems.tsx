@@ -279,7 +279,7 @@ export default function Problems() {
         setNarrative(null)
         setSubgraphLoading(true)
         try {
-            const res = await axios.get(`/api/graph/subgraph/${encodeURIComponent(f.subject.id)}?hops=1`)
+            const res = await axios.get('/api/graph/subgraph', { params: { node_id: f.subject.id, hops: 1 } })
             setSubgraph(res.data)
         } catch { /* ignore */ } finally {
             setSubgraphLoading(false)
