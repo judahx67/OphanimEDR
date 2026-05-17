@@ -291,8 +291,14 @@ def main():
             score_headline = headline_model.predict_proba(feature_row)
             score_honest = honest_model.predict_proba(feature_row)
 
-            is_alert = (score_headline >= threshold_headline or
-                        score_honest >= threshold_honest)
+            # Honest model decides alerting (no-sourcetype variant).
+            # Headline score still written to Neo4j for comparison, but does
+            # NOT trigger alerts on its own. Rationale: per test_metrics.json,
+            # honest has 99.77% precision (23 FP / 1M events) vs headline's
+            # 60.80% (7,024 FP). Headline's high AUC comes from cross-sourcetype
+            # ranking via the categorical sourcetype prior, not better detection.
+            # See docs/decisions/model-choice.md.
+            is_alert = score_honest >= threshold_honest
 
             buffer_scores(
                 neo4j_driver, event_id,
@@ -342,8 +348,8 @@ def main():
 
     channel.basic_consume(queue=SCORER_QUEUE, on_message_callback=on_message)
     logger.info(
-        "Scoring edges from '%s' (headline_threshold=%.2f, honest_threshold=%.2f)",
-        NORMALIZED_QUEUE, threshold_headline, threshold_honest,
+        "Scoring edges from '%s' (alerting on honest>=%.4f; headline>=%.4f stored but not alerting)",
+        NORMALIZED_QUEUE, threshold_honest, threshold_headline,
     )
 
     try:
