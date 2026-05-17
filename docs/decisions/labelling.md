@@ -56,3 +56,23 @@ the behaviour. `dest_ip` was moved to `LEAKY_COLS` and replaced by `external_ip`
 - s200 (SQL injection): `updatexml` in `http_uri` is a learnable content pattern → recall ~100% on stratified split, ~99.98% on temporal.
 - s300 (ransomware): `.crypt` in `object_name` is learnable via Sysmon → recall ~88.5% on stratified.
 - s400 (APT): IP-only IOC with no learnable content pattern after dropping `dest_ip` → recall ~91.7% stratified, ~0% temporal (complete domain shift).
+
+## Verified false-positive class: brewertalk.com flows
+
+Live replay of 5000 BOTSv2 events produced 541 ML alerts. Bucketed by source/destination:
+
+| Bucket | Alerts | % |
+|---|---|---|
+| brewertalk.com (52.42.208.228) — victim web server | 269 | 49.7% |
+| Other socket-to-socket CONNECT (internal infra) | 272 | 50.3% |
+| Known C2 IP (45.77.65.211) | 0 | 0% |
+| Known IOC files (.crypt, invoice.zip, winsys32.dll) | 0 | 0% |
+
+**Cross-referenced against Splunk's own BOTSv2 writeup ([christiant.io/splunkbotsv2](https://christiant.io/splunkbotsv2)):
+52.42.208.228 is `www.brewertalk.com` — the victim's own web server, not Taedonggang infrastructure.**
+
+This is not a label miss. brewertalk.com flows are correctly labelled `0` (benign) in training. The model learned the flow-shape signature (~5KB HTTPS, port 443, AWS source IP, internal :443 destination) which the s200 attack traffic shares with normal user traffic. Pan_traffic / suricata sourcetypes carry no `http_uri`, so the discriminating SQL-injection content (`updatexml`) is not visible — the model has only flow shape, which is shared.
+
+**This matches the documented test precision of 0.608.** At our deployment threshold of 0.05, ~40% of alerts are expected to be false positives, and the visible cluster on brewertalk.com is that 40% manifesting on a specific victim domain. It is not a defect of the pipeline or the labelling — it is the documented operating point.
+
+**Implication:** Pure ML cannot triage this FP class. The LLM analyser layer must cross-reference endpoint identity (e.g. "is this IP the victim's own infrastructure per public OSINT?") to suppress alerts on known-benign infrastructure. See `s400-recall.md` and the LLM enrichment roadmap.

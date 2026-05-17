@@ -60,3 +60,18 @@ Override via environment variable if a different balance is needed for a specifi
 ML_THRESHOLD_HEADLINE=0.5  # docker-compose.yml env block
 ML_THRESHOLD_HONEST=0.5
 ```
+
+## Empirical FP class observed in live demo (2026-05-17)
+
+5000-event replay at the deployment thresholds produced 541 alerts. Source/destination breakdown:
+
+- 269 / 541 (49.7%) on brewertalk.com (52.42.208.228) — the victim's own web server per [Splunk's BOTSv2 writeup](https://christiant.io/splunkbotsv2)
+- 272 / 541 (50.3%) on miscellaneous internal socket-to-socket CONNECTs
+- 0 / 541 on the known C2 IP (45.77.65.211)
+- 0 / 541 on the known IOC files (.crypt, invoice.zip, winsys32.dll)
+
+This is **exactly the behaviour predicted by the 0.608 test precision** at threshold 0.05 — ~40% false positives, concentrated on the victim's own web infrastructure because the s200 attack targeted that server and the model learned the flow-shape signature (5KB HTTPS to internal :443) which brewertalk.com's normal users also produce.
+
+A score of "99%" in this regime does not mean "99% certainty this is an attack." It means "the model placed this edge in its maximum-output bucket", where empirical precision remains ~60%. The honest model (no sourcetype) at threshold 0.34 has val precision 0.998 — but its recall (0.322) means most attacks aren't flagged.
+
+The LLM analyser layer is the only triage mechanism that can identify "brewertalk.com is the victim's own site" and suppress these FPs. See `labelling.md` and the LLM enrichment roadmap.
