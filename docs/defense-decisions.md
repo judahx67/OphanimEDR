@@ -54,6 +54,15 @@ Startup guard in `ml-edge-scorer/model_loader.py` catches schema drift at deploy
 
 ## 4. Model choice and training
 
+**[→ model-choice.md](decisions/model-choice.md)**
+
+**Deployed for alerting:** `lgbm_xt_temporal_no_st` ("honest" — no sourcetype).
+Test precision **0.9977**, recall 0.187, F1 0.315. Only **23 false positives in 1M test events.**
+
+**Retained for comparison:** `lgbm_xt_temporal` (headline — with sourcetype). AUC 0.9530, but precision only 0.608 and **7,024 false positives in 1M events**. The high AUC comes from `sourcetype` acting as a categorical prior on label distribution (e.g. `apache_error` has 94% positive rate), not from better detection — per-sourcetype recall is identical between the two models.
+
+**Both scores written to Neo4j**; only the honest model triggers alerts.
+
 **Model:** `LightGBMClassifier(extra_trees=True, boosting_type='gbdt')` — LightGBMXT.
 
 **Why LightGBM over GNN/embedding approaches?**
