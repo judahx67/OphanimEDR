@@ -16,6 +16,7 @@ interface EdgeFinding {
     subject: { id: string; name: string; label: string }
     object: { id: string; name: string; label: string }
     endpoint_id: string | null
+    analysis_status?: 'ok' | 'failed' | 'none'
 }
 
 interface EdgeSummary {
@@ -228,6 +229,9 @@ export default function Problems() {
     const [findings, setFindings] = useState<EdgeFinding[]>([])
     const [summary, setSummary] = useState<EdgeSummary | null>(null)
     const [minScore, setMinScore] = useState(0.4)
+    // Default 'ok' hides degenerate parse-error incidents (pre-fix Gemini runs)
+    // so the demo screen shows actionable analysis only. 'any' restores legacy behaviour.
+    const [analysisFilter, setAnalysisFilter] = useState<'ok' | 'any' | 'none'>('ok')
     const [eventIdFilter, setEventIdFilter] = useState('')
     // When the typed event_id isn't in the current top-N, fall back to the
     // /api/ml/edges/by-id/{id} endpoint and surface that single row.
@@ -243,7 +247,7 @@ export default function Problems() {
         setLoading(true)
         try {
             const [findRes, sumRes] = await Promise.all([
-                axios.get(`/api/ml/edges/top?rule_clear=false&limit=100&min_score=${minScore}`),
+                axios.get(`/api/ml/edges/top?rule_clear=false&limit=100&min_score=${minScore}&analysis=${analysisFilter}`),
                 axios.get('/api/ml/edges/summary'),
             ])
             setFindings(findRes.data)
@@ -255,7 +259,7 @@ export default function Problems() {
         }
     }
 
-    useEffect(() => { load() }, [minScore])
+    useEffect(() => { load() }, [minScore, analysisFilter])
 
     // When user pastes a full event_id, try the dedup-bypass endpoint so the
     // exact row surfaces even if the top-N deduped it under a sibling.
@@ -394,6 +398,30 @@ export default function Problems() {
                         {(minScore * 100).toFixed(0)}%
                     </span>
                 </div>
+                {/* LLM analysis filter — separate concept from min_score */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 4, marginLeft: 16,
+                    paddingLeft: 12, borderLeft: '1px solid var(--border-light)',
+                }}>
+                    <span style={{
+                        fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600,
+                        color: 'var(--text-muted)', textTransform: 'uppercase',
+                        marginRight: 6,
+                    }}>Analysis</span>
+                    {[
+                        { label: 'With LLM', value: 'ok' as const },
+                        { label: 'Any', value: 'any' as const },
+                        { label: 'Pending', value: 'none' as const },
+                    ].map(o => (
+                        <button key={o.value} onClick={() => setAnalysisFilter(o.value)} style={{
+                            padding: '5px 10px', fontFamily: 'var(--font-ui)', fontSize: 11,
+                            fontWeight: 600, letterSpacing: '0.04em', cursor: 'pointer',
+                            border: `2px solid ${analysisFilter === o.value ? 'var(--accent-primary)' : 'var(--border-light)'}`,
+                            background: analysisFilter === o.value ? 'var(--accent-primary)' : 'transparent',
+                            color: analysisFilter === o.value ? '#fff' : 'var(--text-secondary)',
+                        }}>{o.label}</button>
+                    ))}
+                </div>
                 <input
                     type="text"
                     placeholder="filter by event_id…"
@@ -482,7 +510,23 @@ export default function Problems() {
                                         >
                                             <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                                    <EdgeTypeBadge type={f.edge_type} />
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <EdgeTypeBadge type={f.edge_type} />
+                                                        {f.analysis_status === 'ok' && (
+                                                            <span title="LLM analysis available" style={{
+                                                                fontSize: 9, fontWeight: 700, padding: '1px 5px',
+                                                                background: 'rgba(22,163,74,0.15)', color: '#16a34a',
+                                                                borderRadius: 2, letterSpacing: '0.05em',
+                                                            }}>LLM</span>
+                                                        )}
+                                                        {f.analysis_status === 'failed' && (
+                                                            <span title="LLM ran but output failed to parse" style={{
+                                                                fontSize: 9, fontWeight: 700, padding: '1px 5px',
+                                                                background: 'rgba(220,38,38,0.15)', color: '#dc2626',
+                                                                borderRadius: 2, letterSpacing: '0.05em',
+                                                            }}>ERR</span>
+                                                        )}
+                                                    </div>
                                                     <span
                                                         title={f.event_id ? `Full event_id: ${f.event_id}\nClick to copy` : ''}
                                                         onClick={ev => {
@@ -709,11 +753,12 @@ export default function Problems() {
                                             <pre style={{
                                                 fontFamily: 'var(--font-mono, monospace)',
                                                 fontSize: 11,
-                                                background: 'var(--bg-tertiary, #1a1a1a)',
-                                                padding: 8, borderRadius: 4,
+                                                background: '#0d1117',
+                                                padding: 10, borderRadius: 4,
                                                 overflow: 'auto',
-                                                color: 'var(--text-primary)',
+                                                color: '#e6edf3',
                                                 margin: 0,
+                                                border: '1px solid #30363d',
                                             }}>{narrative.yara_rule}</pre>
                                         </div>
                                     )}

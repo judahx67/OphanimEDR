@@ -14,7 +14,7 @@ Master tracker. One page. Updated as state changes. Links out for detail.
 | ML model (deployed) | `lgbm_xt_temporal_no_st` (honest, no sourcetype) — **99.77% precision, 23 FP/1M test events** |
 | ML model (comparison) | `lgbm_xt_temporal` (headline, with sourcetype) — stored but does not alert |
 | Rule engine | 36 YAML rules; FSM cross-process keying fixed; event-time expiration |
-| LLM analyser | Gemini 2.0 Flash; 1-hop subgraph; dedup TTL 5min; alerts only on honest model |
+| LLM analyser | Gemini 2.0 Flash; 1-hop pruned subgraph; MITRE-candidate-constrained; optional Groq second-opinion; YARA-rule output |
 | Dashboard | Working; multi-root subgraph; meaningful edge detail; sparse-context hint |
 | Defense docs | 5 decisions docs + binder; all magic numbers justified |
 
@@ -30,6 +30,7 @@ Defense-prep phases 01–04 → **done**. Next active work is **Phase 5: LLM enr
 
 | Date | Change | Why |
 |---|---|---|
+| 2026-05-17 | **Phase 5 LLM enrichment** landed | Token instrumentation, subgraph pruner (fan-out collapse), curated MITRE feed (31 techniques), YARA rule output, Groq second-opinion. See [llm-enrichment.md](decisions/llm-enrichment.md) |
 | 2026-05-17 | Scorer flipped to **honest-only** alerting | Headline model has 305× more FPs; AUC was misleading. See [model-choice.md](decisions/model-choice.md) |
 | 2026-05-17 | Documented brewertalk.com FP class | 49.7% of demo alerts hit victim's own infra — exactly the documented 0.608 precision manifesting |
 | 2026-05-17 | Multi-root subgraph (subject + object) | 1-hop on socket-only was meaningless; now passes both endpoints |
@@ -59,6 +60,7 @@ Defense-prep phases 01–04 → **done**. Next active work is **Phase 5: LLM enr
   - [`labelling.md`](decisions/labelling.md) — IOC labelling, leakage disclosure
   - [`s400-recall.md`](decisions/s400-recall.md) — APT temporal domain shift
   - [`detection-paths.md`](decisions/detection-paths.md) — rule-engine + ML two-path framing
+  - [`llm-enrichment.md`](decisions/llm-enrichment.md) — Phase 5: pruning, MITRE feed, YARA output, multi-LLM cross-ref
 - [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — detailed component architecture (519 lines, reference)
 - [`docs/CONTEXT.md`](CONTEXT.md) — historical handoff (AutoGluon → manual rebuild)
 
@@ -98,7 +100,7 @@ Defense-prep phases 01–04 → **done**. Next active work is **Phase 5: LLM enr
 
 | Item | Status |
 |---|---|
-| LLM enrichment (MITRE feed, multi-LLM, graph pre-processing, YARA output) | Next active phase |
+| LLM enrichment (MITRE feed, multi-LLM, graph pre-processing, YARA output) | **Done** — see [llm-enrichment.md](decisions/llm-enrichment.md) |
 | k-way merge replay (Phase 02 deferred) | Deferred — risky pre-defense |
 | `server/` reorganization (Phase 04 deferred) | Deferred — risky pre-defense |
 | DLQs on consumer queues (Phase 03 item 2) | Deferred — robustness only |

@@ -458,6 +458,7 @@ async def get_ml_edge_findings(
     rule_clear: bool = True,
     limit: int = 50,
     min_score: float = 0.0,
+    analysis: str = "any",
 ) -> list[dict]:
     """
     Top-scoring BOTSv2 edges from the ml-edge-scorer.
@@ -477,6 +478,32 @@ async def get_ml_edge_findings(
           }
     """ if rule_clear else ""
 
+    # Push the LLM-analysis filter into Cypher so it runs BEFORE the per-edge-type
+    # cap. Otherwise dominant edge types (ACCESS/CONNECT on brewertalk traffic)
+    # eat the global limit and MODIFY_REG/FORK/WRITE incidents with valid LLM
+    # analysis never reach the dashboard.
+    analysis_filter = ""
+    if analysis == "ok":
+        analysis_filter = """
+          AND exists {
+            MATCH (i:Incident {event_id: r.event_id, source: 'ml-llm'})
+            WHERE i.attack_hypothesis IS NOT NULL
+              AND NOT i.attack_hypothesis STARTS WITH 'Parse error'
+          }
+        """
+    elif analysis == "any_attempt":
+        analysis_filter = """
+          AND exists {
+            MATCH (i:Incident {event_id: r.event_id, source: 'ml-llm'})
+          }
+        """
+    elif analysis == "none":
+        analysis_filter = """
+          AND NOT exists {
+            MATCH (i:Incident {event_id: r.event_id, source: 'ml-llm'})
+          }
+        """
+
     # Deduplicate by (subject, object, edge_type) and stratify by edge_type so
     # one high-volume sourcetype (e.g. stream:http gacrux→brewertalk) cannot
     # crowd out lower-volume but still interesting types (CONNECT/FORK/etc.).
@@ -488,6 +515,7 @@ async def get_ml_edge_findings(
       AND r.botsv2_ml_score_honest >= $min_score
       AND r.botsv2_ml_score_quality = 'full'
     {rule_filter}
+    {analysis_filter}
     WITH s, o, type(r) AS edge_type,
          max(r.botsv2_ml_score_honest) AS best_honest
     MATCH (s)-[r2]->(o)
@@ -524,7 +552,21 @@ async def get_ml_edge_findings(
         row.timestamp       AS timestamp,
         row.subj_id AS subj_id, row.subj_name AS subj_name, row.subj_label AS subj_label,
         row.obj_id  AS obj_id,  row.obj_name  AS obj_name,  row.obj_label  AS obj_label,
-        row.endpoint_id     AS endpoint_id
+        row.endpoint_id     AS endpoint_id,
+        // LLM analysis status per row. Lets the dashboard hide degenerate
+        // parse-errors (early flash-lite runs before max_output_tokens=800)
+        // without N round-trips to /api/ml/incidents/{id}.
+        CASE
+            WHEN exists {{
+                MATCH (i:Incident {{event_id: row.event_id, source: 'ml-llm'}})
+                WHERE i.attack_hypothesis IS NOT NULL
+                  AND NOT i.attack_hypothesis STARTS WITH 'Parse error'
+            }} THEN 'ok'
+            WHEN exists {{
+                MATCH (i:Incident {{event_id: row.event_id, source: 'ml-llm'}})
+            }} THEN 'failed'
+            ELSE 'none'
+        END AS analysis_status
     LIMIT $limit
     """
 
@@ -549,7 +591,10 @@ async def get_ml_edge_findings(
                     "id": rec["obj_id"], "name": rec["obj_name"], "label": rec["obj_label"],
                 },
                 "endpoint_id": rec["endpoint_id"],
+                "analysis_status": rec["analysis_status"],
             })
+
+    # Filter already pushed into Cypher above; rows are pre-filtered.
     return rows
 
 

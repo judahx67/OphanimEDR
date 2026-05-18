@@ -204,14 +204,28 @@ async def ml_edge_findings(
     rule_clear: bool = Query(True, description="Only return edges with no rule-engine Incident"),
     limit: int = Query(50, ge=1, le=500),
     min_score: float = Query(0.0, ge=0.0, le=1.0),
+    analysis: str = Query(
+        "any",
+        regex="^(any|ok|any_attempt|none)$",
+        description=(
+            "Filter by LLM analysis status. "
+            "'any' = no filter, "
+            "'ok' = LLM produced parseable JSON (hides parse-errors), "
+            "'any_attempt' = analyser ran (ok or failed), "
+            "'none' = no LLM analysis yet."
+        ),
+    ),
 ):
     """
     Top-scoring edges from the ml-edge-scorer.
 
     rule_clear=true (default): only edges NOT flagged by any rule-engine Incident.
     This is the headline thesis query — 'what did ML find that rules missed?'
+    Each row carries an `analysis_status` field for client-side rendering.
     """
-    return await get_ml_edge_findings(rule_clear=rule_clear, limit=limit, min_score=min_score)
+    return await get_ml_edge_findings(
+        rule_clear=rule_clear, limit=limit, min_score=min_score, analysis=analysis,
+    )
 
 
 @app.get("/api/ml/edges/by-id/{event_id}", tags=["ML"])
