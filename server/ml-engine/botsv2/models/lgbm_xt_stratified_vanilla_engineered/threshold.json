@@ -1,0 +1,12 @@
+{
+  "threshold": 0.11,
+  "metric_used": "manual_post_eval_live_probe",
+  "val_metrics_at_threshold": {
+    "metric": "f1",
+    "val_f1": 1.0,
+    "val_precision": 1.0,
+    "val_recall": 1.0
+  },
+  "previous_threshold": 0.10999999999999999,
+  "rationale": "Threshold 0.11 catches 12/12 novel attack probes (incl. mimikatz with only 2 booleans). FPs (legit PowerShell, OneDrive .exe) score 0.999 regardless of threshold because image_is_lolbin alone gives near-certain positive \u2014 these need LLM disambiguation rather than threshold tuning."
+}

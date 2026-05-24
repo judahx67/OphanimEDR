@@ -34,6 +34,32 @@ def _external_ip(src: str | None, dst: str | None) -> str | None:
         return dst
     return dst
 
+
+# Derived content helpers — must match extract_features.py exactly so live
+# scoring sees the same vocabulary as training.
+
+def _basename(path):
+    if not path:
+        return None
+    p = str(path).replace("\\", "/")
+    return p.rsplit("/", 1)[-1] or None
+
+
+def _ext(name):
+    base = _basename(name)
+    if not base or "." not in base:
+        return None
+    return "." + base.rsplit(".", 1)[-1].lower()
+
+
+def _parent_dir(path):
+    if not path:
+        return None
+    p = str(path).replace("\\", "/")
+    if "/" not in p:
+        return None
+    return p.rsplit("/", 1)[0] or None
+
 # BOTSv2 NodeType strings → model-schema strings (PascalCase to match training data)
 # The training data used the BOTSv2 schema NodeType which is already PascalCase.
 # The live NormalizedEvent uses UPPER_CASE. We map here.
@@ -61,7 +87,10 @@ def build_feature_row(event_dict: dict) -> tuple[dict, str]:
       "degraded" — no _raw or parser returned empty content fields
     """
     raw = event_dict.get("raw_event") or ""
-    sourcetype = event_dict.get("sourcetype") or ""
+    # Sourcetype is still normalized because parser dispatch (get_parser)
+    # keys off it. The honest model itself does not see sourcetype as a
+    # feature — column is dropped at train.
+    sourcetype = (event_dict.get("sourcetype") or "").replace(":", "_").replace("/", "_")
 
     # Graph triple from NormalizedEvent fields
     subject = event_dict.get("subject") or {}
@@ -99,6 +128,7 @@ def build_feature_row(event_dict: dict) -> tuple[dict, str]:
 
     quality = "degraded"
 
+    object_name = None
     if raw and sourcetype:
         parser = get_parser(sourcetype)
         parsed = parser(raw, event_dict.get("endpoint_id"))
@@ -109,6 +139,9 @@ def build_feature_row(event_dict: dict) -> tuple[dict, str]:
                     row[k] = v
             quality = "full"
 
+        # Capture object_name from parser output for derived-feature computation.
+        object_name = parsed.object_name
+
         # Also pick up botsv2_fields if the normalizer already cached them
         # (avoids double-parsing when ingest already did the work).
     elif event_dict.get("properties", {}).get("botsv2_fields"):
@@ -117,5 +150,33 @@ def build_feature_row(event_dict: dict) -> tuple[dict, str]:
             if k in row:
                 row[k] = v
         quality = "full"
+
+    # NormalizedEvent's object.name is the runtime equivalent of parsed.object_name
+    # when no parser ran (e.g. ingest already pre-extracted the triple).
+    object_name = object_name or obj.get("name")
+
+    # Derived content features — must match extract_features.py exactly.
+    # File-only derivation; Socket/Url/Process object_names look like
+    # "172.31.0.100:443" and pollute the .ext vocabulary if we don't gate.
+    is_file = object_type == "File"
+    row["object_name_ext"] = _ext(object_name)      if is_file else None
+    row["object_basename"] = _basename(object_name) if is_file else None
+    row["target_dir"]      = _parent_dir(object_name) if is_file else None
+    # image_basename always meaningful (process image, regardless of object).
+    row["image_basename"]  = _basename(row.get("image"))
+
+    # Engineered MITRE-derived boolean features. Same shared module the
+    # training pipeline uses — guarantees no train/serve skew.
+    from botsv2_parsers.engineered_features import compute as _eng_compute
+    eng = _eng_compute(
+        image=row.get("image"),
+        parent_image=row.get("parent_image"),
+        command_line=row.get("command_line"),
+        target=object_name if is_file else None,
+        registry_key=row.get("registry_key"),
+        http_uri=row.get("http_uri"),
+    )
+    for k, v in eng.items():
+        row[k] = v
 
     return row, quality

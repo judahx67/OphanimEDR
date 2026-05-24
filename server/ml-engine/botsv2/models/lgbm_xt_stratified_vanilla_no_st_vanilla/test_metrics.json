@@ -1,0 +1,64 @@
+{
+  "test_n": 1039757,
+  "test_positive_rate": 0.0009232926539566456,
+  "roc_auc": 0.9821244078888047,
+  "precision": 0.6480529022777369,
+  "recall": 0.91875,
+  "f1": 0.7600172339508833,
+  "mcc": 0.7713823967689927,
+  "confusion_matrix": [
+    [
+      1038318,
+      479
+    ],
+    [
+      78,
+      882
+    ]
+  ],
+  "threshold": 0.8099999999999999,
+  "per_scenario_recall": {
+    "s200_webapp_attack": {
+      "n": 242,
+      "recall": 0.9917355371900827
+    },
+    "s300_ransomware": {
+      "n": 715,
+      "recall": 0.8951048951048951
+    },
+    "s400_taedonggang_apt": {
+      "n": 3,
+      "recall": 0.6666666666666666
+    }
+  },
+  "per_sourcetype_recall": {
+    "XmlWinEventLog_Microsoft-Windows-Sysmon_Operational": {
+      "n_malicious": 400,
+      "recall": 1.0
+    },
+    "stream_smb": {
+      "n_malicious": 242,
+      "recall": 1.0
+    },
+    "mysql_transaction_details": {
+      "n_malicious": 106,
+      "recall": 1.0
+    },
+    "mysql_server_stats": {
+      "n_malicious": 98,
+      "recall": 1.0
+    },
+    "ps": {
+      "n_malicious": 75,
+      "recall": 0.0
+    },
+    "stream_http": {
+      "n_malicious": 38,
+      "recall": 0.9473684210526315
+    },
+    "WinEventLog_Security": {
+      "n_malicious": 1,
+      "recall": 0.0
+    }
+  }
+}

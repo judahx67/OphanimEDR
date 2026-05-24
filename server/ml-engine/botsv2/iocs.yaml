@@ -76,9 +76,19 @@ scenarios:
     # DROPPED:
     #   ips: 52.42.208.228 (509,870 hits over 31d; 327k in stream_mysql — legit
     #        MySQL endpoint mislabelled by prior labeller as APT infra)
+    #   ips: 45.77.65.211 (164,291 hits — REAL C2 IP, but labels network flows
+    #        that are feature-identical to benign once dest_ip is dropped at train
+    #        (leaky-IOC exclusion). Drove honest-temporal AUC to 0.34 — model
+    #        learnt "flows look like s400 -> benign" and inverted. Replaced by
+    #        the weak_positive_hosts rule below.)
     #   files: 나는_데이비드를_사랑한다.hwp (0 hits; encoding mismatch or absent)
-    ips:
-      - 45.77.65.211         # 164,291 hits over 14.7d (pan_traffic=48k, suricata=38k, stream_tcp=29k); real APT C2
+    # DROPPED 2026-05-24 — weak_positive_hosts/smtp cohort produced 92k+ false
+    # Sysmon positives (ambient splunk-winhostinfo/WmiPrvSE/taskhost telemetry on
+    # victim hosts during a 15-day window). Model memorised that ambient shape
+    # instead of attack content. Live-event probe scored 0.31/0.73 on novel
+    # compromise events. Reverted to IOC-substring-only labelling — yields only
+    # ~12 Sysmon positives for s400 (too few for supervised learning on s400
+    # alone, but s300 ransomware via .crypt content is intact).
     files:
       - invoice.zip          # 8 hits on Aug 24 03:27 (stream_smtp=4, Sysmon=2, WinHostMon=1)
       - winsys32.dll         # 3 hits on Aug 24 03:36–04:07 (Sysmon only)

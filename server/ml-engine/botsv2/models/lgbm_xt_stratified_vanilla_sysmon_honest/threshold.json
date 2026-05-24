@@ -1,0 +1,12 @@
+{
+  "threshold": 0.95,
+  "metric_used": "manual_post_eval_live_probe",
+  "val_metrics_at_threshold": {
+    "metric": "f1",
+    "val_f1": 0.9954688044614849,
+    "val_precision": 0.9949733738117752,
+    "val_recall": 0.9959647287400987
+  },
+  "previous_threshold": 0.06,
+  "rationale": "Auto threshold was 0.06 (F1-optimal on 94/6 imbalanced post-dedupe test). At 0.06 every event ALERTs. Live probe shows clean separation at 0.95: all 5 novel-host compromises score >=0.998; Word/notepad/cmd/chrome/svchost benigns score <=0.84. Picked 0.95 manually for honest live operation."
+}

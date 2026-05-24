@@ -5,16 +5,15 @@ Consumes NormalizedEvent messages from the 'normalized_events' RabbitMQ queue
 (separate consumer group from graph-builder — neither blocks the other).
 
 For each event:
-  1. Build a 39-column feature row from the event's _raw + graph triple.
-  2. Score with both frozen LightGBM models:
-       lgbm_xt_temporal        → botsv2_ml_score         (headline, 0.9877 ROC-AUC)
-       lgbm_xt_temporal_no_st  → botsv2_ml_score_honest  (honest,   0.9135 ROC-AUC)
+  1. Build a 41-column feature row from the event's _raw + graph triple.
+  2. Score with the frozen honest LightGBM model:
+       lgbm_xt_temporal_no_st  → botsv2_ml_score  (no sourcetype, 0.9378 ROC-AUC)
   3. MATCH the edge in Neo4j by event_id and SET the score properties.
-  4. If either score exceeds the alert threshold, publish to 'ml_alerts' queue.
+  4. If score exceeds the alert threshold, publish to 'ml_alerts' queue.
 
-Alert thresholds (static, locked in plan):
-  headline: 0.9    (botsv2_ml_score >= 0.9)
-  honest:   0.7    (botsv2_ml_score_honest >= 0.7)
+Alert threshold: 0.85 (from model's threshold.json, manual_post_eval).
+The headline model was dropped 2026-05-24 — 72% of its gain came from
+sourcetype alone, making its 0.99 AUC a memorization artefact.
 """
 
 import json
@@ -59,7 +58,6 @@ MODELS_DIR = Path(os.environ.get("MODELS_DIR", "/app/models"))
 # Alert thresholds — overridable via env, but default is derived from each
 # model's threshold.json (set by threshold-calibration.py) so the value is
 # always consistent with training-time calibration.
-_THRESHOLD_HEADLINE_ENV = os.environ.get("ML_THRESHOLD_HEADLINE")
 _THRESHOLD_HONEST_ENV = os.environ.get("ML_THRESHOLD_HONEST")
 
 # Prefetch / batch
@@ -98,8 +96,7 @@ def connect_neo4j():
 _WRITE_SCORES_BATCH_CYPHER = """
 UNWIND $rows AS row
 MATCH ()-[r {event_id: row.event_id}]->()
-SET r.botsv2_ml_score         = row.score_headline,
-    r.botsv2_ml_score_honest  = row.score_honest,
+SET r.botsv2_ml_score         = row.score_honest,
     r.botsv2_ml_score_quality = row.quality,
     r.botsv2_ml_scored_at     = row.scored_at,
     r.botsv2_ml_alert         = row.is_alert
@@ -123,8 +120,7 @@ _RETRY_BASE_SECS = 5.0  # first retry after 5s, then 10s, then 20s
 
 _WRITE_ORPHAN_CYPHER = """
 MERGE (o:OrphanScore {event_id: $event_id})
-SET o.score_headline  = $score_headline,
-    o.score_honest    = $score_honest,
+SET o.score_honest    = $score_honest,
     o.quality         = $quality,
     o.scored_at       = $scored_at,
     o.is_alert        = $is_alert,
@@ -183,7 +179,7 @@ def _flush_buffer(driver) -> int:
     return matched
 
 
-def buffer_scores(driver, event_id: str, score_headline: float, score_honest: float,
+def buffer_scores(driver, event_id: str, score_honest: float,
                   quality: str, is_alert: bool) -> int:
     """Buffer score writes. Flushes when batch is full AND the buffer has aged
     past WRITE_DELAY_SECS, giving graph-builder time to write the edges first."""
@@ -193,7 +189,6 @@ def buffer_scores(driver, event_id: str, score_headline: float, score_honest: fl
         _last_flush = now
     _write_buffer.append({
         "event_id": event_id,
-        "score_headline": round(score_headline, 4),
         "score_honest": round(score_honest, 4),
         "quality": quality,
         "scored_at": int(now * 1000),
@@ -235,24 +230,15 @@ def main():
     logger.info("Loading models from %s", MODELS_DIR)
 
     models = load_models(MODELS_DIR)
-    headline_model = models["lgbm_xt_temporal"]
-    honest_model = models["lgbm_xt_temporal_no_st"]
+    honest_model = models["lgbm_xt_stratified_vanilla_sysmon_honest"]
     logger.info("Models loaded: %s", list(models.keys()))
 
-    # Resolve alert thresholds: env override > model's threshold.json
-    threshold_headline = (
-        float(_THRESHOLD_HEADLINE_ENV) if _THRESHOLD_HEADLINE_ENV
-        else headline_model.threshold
-    )
     threshold_honest = (
         float(_THRESHOLD_HONEST_ENV) if _THRESHOLD_HONEST_ENV
         else honest_model.threshold
     )
-    logger.info(
-        "Alert thresholds: headline=%.4f (model=%.4f)  honest=%.4f (model=%.4f)",
-        threshold_headline, headline_model.threshold,
-        threshold_honest, honest_model.threshold,
-    )
+    logger.info("Alert threshold: honest>=%.4f (model=%.4f)",
+                threshold_honest, honest_model.threshold)
 
     neo4j_driver = connect_neo4j()
     conn = connect_rabbitmq()
@@ -288,29 +274,24 @@ def main():
 
             feature_row, quality = build_feature_row(event)
 
-            score_headline = headline_model.predict_proba(feature_row)
             score_honest = honest_model.predict_proba(feature_row)
 
-            # Honest model decides alerting (no-sourcetype variant).
-            # Headline score still written to Neo4j for comparison, but does
-            # NOT trigger alerts on its own. Rationale: per test_metrics.json,
-            # honest has 99.77% precision (23 FP / 1M events) vs headline's
-            # 60.80% (7,024 FP). Headline's high AUC comes from cross-sourcetype
-            # ranking via the categorical sourcetype prior, not better detection.
-            # See docs/decisions/model-choice.md.
+            # Honest (no-sourcetype) model is the sole alert source.
+            # Headline model was archived 2026-05-24 after feature-importance
+            # audit: sourcetype carried 72% of gain — AUC was memorization,
+            # not content learning.
             is_alert = score_honest >= threshold_honest
 
             buffer_scores(
                 neo4j_driver, event_id,
-                score_headline, score_honest, quality, is_alert,
+                score_honest, quality, is_alert,
             )
             stats["scored"] += 1
 
             if is_alert:
                 alert_payload = {
                     "event_id": event_id,
-                    "score_headline": score_headline,
-                    "score_honest": score_honest,
+                    "score": score_honest,
                     "quality": quality,
                     "edge_type": event.get("edge_type"),
                     "subject": event.get("subject"),
@@ -348,8 +329,8 @@ def main():
 
     channel.basic_consume(queue=SCORER_QUEUE, on_message_callback=on_message)
     logger.info(
-        "Scoring edges from '%s' (alerting on honest>=%.4f; headline>=%.4f stored but not alerting)",
-        NORMALIZED_QUEUE, threshold_honest, threshold_headline,
+        "Scoring edges from '%s' (alerting on honest>=%.4f)",
+        NORMALIZED_QUEUE, threshold_honest,
     )
 
     try:

@@ -31,6 +31,9 @@ IN_DIR = Path("J:/THESIS-EDR/datasets/botsv2_parquet")
 OUT_DIR = Path("J:/THESIS-EDR/datasets/botsv2_labeled_v2")
 IOCS_PATH = Path(__file__).parent / "iocs.yaml"
 
+# Weak-positive cohort rule REMOVED 2026-05-24. See iocs.yaml header for
+# rationale. Pure IOC-substring labelling only.
+
 
 def load_scenarios(path: Path) -> list[dict]:
     """Load iocs.yaml and flatten each scenario's string IOCs into one list.
@@ -77,13 +80,13 @@ def load_scenarios(path: Path) -> list[dict]:
 
 
 def _label_chunk(df: pl.DataFrame, scenarios: list[dict]) -> tuple[pl.DataFrame, dict]:
-    """Label a single in-memory chunk. Avoids materializing _haystack for the
-    whole dataframe by computing match expressions inline against _raw/source/host."""
+    """Label a single in-memory chunk via IOC substring match in _raw."""
     df = df.with_columns(
         pl.lit(0, dtype=pl.Int8).alias("label"),
         pl.lit(None, dtype=pl.String).alias("scenario"),
     )
     hit_counts: dict[str, int] = {}
+
     for sc in scenarios:
         if not sc["patterns"]:
             hit_counts[sc["id"]] = 0
@@ -105,6 +108,7 @@ def _label_chunk(df: pl.DataFrame, scenarios: list[dict]) -> tuple[pl.DataFrame,
                 pl.when(match_expr).then(pl.lit(1, dtype=pl.Int8)).otherwise(pl.col("label")).alias("label"),
                 pl.when(match_expr).then(pl.lit(sc["id"])).otherwise(pl.col("scenario")).alias("scenario"),
             )
+
     return df, hit_counts
 
 
@@ -112,13 +116,13 @@ def label_partition(parquet_files: list[Path], scenarios: list[dict]) -> tuple[p
     """Read a partition file-by-file (memory-safer for big partitions), label,
     then concat. Returns labeled DF + per-scenario hit counts."""
     chunks: list[pl.DataFrame] = []
-    hit_counts: dict[str, int] = {sc["id"]: 0 for sc in scenarios}
+    hit_counts: dict[str, int] = {}
     for f in parquet_files:
         chunk = pl.read_parquet(f)
         labeled, hits = _label_chunk(chunk, scenarios)
         chunks.append(labeled)
         for sid, c in hits.items():
-            hit_counts[sid] += c
+            hit_counts[sid] = hit_counts.get(sid, 0) + c
     df = pl.concat(chunks, how="vertical_relaxed") if chunks else pl.DataFrame()
     return df, hit_counts
 
@@ -140,7 +144,7 @@ def main() -> int:
     total_rows = 0
     total_malicious = 0
     per_st_stats: list[dict] = []
-    per_scenario_total: dict[str, int] = {sc["id"]: 0 for sc in scenarios}
+    per_scenario_total: dict[str, int] = {}
     started = time.time()
 
     pbar = tqdm(partitions, unit="part")
@@ -168,7 +172,7 @@ def main() -> int:
         total_rows += df.height
         total_malicious += mal
         for sid, c in hits.items():
-            per_scenario_total[sid] += c
+            per_scenario_total[sid] = per_scenario_total.get(sid, 0) + c
         per_st_stats.append(
             {"sourcetype": st_name, "rows": df.height, "malicious": mal, "rate": mal / max(df.height, 1)}
         )

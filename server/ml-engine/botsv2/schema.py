@@ -117,7 +117,7 @@ GRAPH_COLS = GRAPH_TYPE_COLS + GRAPH_NAME_COLS + GRAPH_ID_COLS
 
 # Numeric content features. Int64 with nulls where parser couldn't fill.
 # LightGBM handles NaN natively; no imputation needed.
-NUMERIC_FEATURES = [
+_BASE_NUMERIC_FEATURES = [
     "src_port", "dest_port",
     "http_status", "http_content_length",
     "bytes", "bytes_in", "bytes_out",
@@ -127,6 +127,22 @@ NUMERIC_FEATURES = [
     "process_id",
     "suricata_alert_severity",
 ]
+
+# Engineered MITRE-derived boolean features (0/1). Computed by
+# botsv2_parsers.engineered_features.compute(). Single source of truth shared
+# by training (extract_features.py) and runtime (feature_row.py).
+# Added inline so they're treated as standard numeric features by train.py.
+import sys as _sys
+from pathlib import Path as _Path
+_SERVER_DIR = _Path(__file__).resolve().parents[2]
+if str(_SERVER_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_SERVER_DIR))
+try:
+    from botsv2_parsers.engineered_features import FEATURE_NAMES as _ENG
+except ImportError:
+    _ENG: list[str] = []
+
+NUMERIC_FEATURES = _BASE_NUMERIC_FEATURES + list(_ENG)
 
 # Categorical content features. String, truncated to MAX_STR_LEN at parse time.
 # Converted to pandas category at train time (codes aligned across train/val/test).
@@ -144,9 +160,17 @@ CATEGORICAL_FEATURES = [
     "dns_query", "dns_qtype", "dns_rcode",
     # Process / Sysmon
     "process_name", "image", "command_line", "parent_command_line",
+    "parent_image",
     "user", "integrity_level", "registry_key", "registry_value",
     # Suricata
     "suricata_event_type", "suricata_alert_category",
+    # Derived content features (2026-05-24) — promote attack-bearing tokens
+    # out of object_name/image (which are dropped at train) into bounded-
+    # cardinality categoricals the model can actually generalise across.
+    "object_name_ext",   # last "." segment of object_name (e.g. ".crypt", ".dll", ".exe")
+    "object_basename",   # last "/" or "\" segment of object_name (e.g. "winsys32.dll")
+    "image_basename",    # basename of image (e.g. "powershell.exe")
+    "target_dir",        # parent directory of object_name (e.g. "C:/Windows/System32")
 ]
 
 # IPs are now features (see CATEGORICAL_FEATURES above).
