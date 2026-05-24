@@ -1,0 +1,10 @@
+{
+  "split": "temporal",
+  "extra_trees": true,
+  "smoke": null,
+  "dropped_features": [],
+  "fit_time_s": 133.18231892585754,
+  "best_iteration": 511,
+  "n_features": 42,
+  "n_categorical": 29
+}

@@ -1,0 +1,12 @@
+{
+  "threshold": 0.85,
+  "metric_used": "manual_post_eval_live_probe",
+  "val_metrics_at_threshold": {
+    "metric": "f1",
+    "val_f1": 0.9997557116286817,
+    "val_precision": 0.9997390599495886,
+    "val_recall": 0.9997723638624856
+  },
+  "previous_threshold": 0.5399999999999999,
+  "rationale": "Raised from 0.54 to 0.85 for live-event precision. At 0.85: 6/6 novel compromise probes still ALERT (all score >0.99). benign Word save (0.79) correctly drops to benign. Notepad/svchost may still FP \u2014 LLM layer disambiguates."
+}

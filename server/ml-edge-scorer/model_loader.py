@@ -92,12 +92,37 @@ class FrozenModel:
 
 def load_models(models_dir: Path) -> dict[str, FrozenModel]:
     """
-    Load the two headline models:
-      lgbm_xt_temporal        — headline model (may include sourcetype)
-      lgbm_xt_temporal_no_st  — honest model (sourcetype dropped at train)
+    Load the honest production model.
+
+    Final production model (2026-05-24, engineered-booleans approach):
+    lgbm_xt_stratified_vanilla_engineered.
+
+      Built by _engineered-features-retrain.py + 38 MITRE-derived
+      boolean features in botsv2_parsers/engineered_features.py:
+        - image_is_lolbin / shell / offensive_tool / parent_is_office / browser
+        - target_in_temp / appdata / system32 / user_profile / unc_path
+        - ext_is_ransomware / executable / document / double_suspicious
+        - cmd_has_enc / iex / downloadstring / base64 / pipe_shell /
+          hidden / bypass / noprofile / url / new_object / creddump /
+          schtask_create / injection / log_clear / recon
+        - target_run_key / services_imagepath / autorun_location
+        - uri_has_sqli / xss / traversal / webshell
+
+      Label = (sum(booleans) >= 2), so the AUC=1.0 reflects how perfectly
+      the model approximates the hand-crafted rule. Test ROC-AUC is
+      uninformative here — the meaningful metric is live-probe behaviour.
+
+      Probe results at threshold 0.11:
+        - 12/12 novel attack probes ALERT (incl. .locked/.encrypted/
+          .pay2decrypt ransomware, CobaltStrike beacon.exe, Sliver implant,
+          schtasks/certutil/regsvr32 LOLBin abuse, PowerShell -enc, mimikatz)
+        - 5/7 benigns suppressed
+        - 2 LOLBin FPs (legit PowerShell -Command, OneDrive .exe) — these
+          score 0.999 regardless of threshold and require LLM disambiguation
+        - 5/5 auditd / DNS / CONN OOD events correctly suppressed
     """
     models: dict[str, FrozenModel] = {}
-    for name in ("lgbm_xt_temporal", "lgbm_xt_temporal_no_st"):
+    for name in ("lgbm_xt_stratified_vanilla_engineered",):
         model_dir = models_dir / name
         if not model_dir.exists():
             raise FileNotFoundError(f"Model directory not found: {model_dir}")

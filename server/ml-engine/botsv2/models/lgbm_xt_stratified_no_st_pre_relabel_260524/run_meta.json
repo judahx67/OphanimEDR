@@ -1,0 +1,12 @@
+{
+  "split": "stratified",
+  "extra_trees": true,
+  "smoke": null,
+  "dropped_features": [
+    "sourcetype"
+  ],
+  "fit_time_s": 167.11393213272095,
+  "best_iteration": 1035,
+  "n_features": 38,
+  "n_categorical": 25
+}

@@ -1,0 +1,31 @@
+{
+  "split": "stratified",
+  "extra_trees": false,
+  "smoke": null,
+  "dropped_features": [
+    "sourcetype",
+    "event_id",
+    "image",
+    "command_line",
+    "process_name",
+    "image_basename",
+    "target_dir",
+    "object_basename",
+    "user",
+    "parent_command_line",
+    "registry_key",
+    "registry_value",
+    "http_uri",
+    "dns_query",
+    "http_user_agent",
+    "http_referrer",
+    "site",
+    "src_ip",
+    "dest_ip",
+    "external_ip"
+  ],
+  "fit_time_s": 1.0896048545837402,
+  "best_iteration": 180,
+  "n_features": 26,
+  "n_categorical": 14
+}

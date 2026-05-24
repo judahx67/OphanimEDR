@@ -1,0 +1,48 @@
+{
+  "test_n": 1039983,
+  "test_positive_rate": 0.018605111814327734,
+  "roc_auc": 0.9378492724459084,
+  "precision": 0.6674483184202407,
+  "recall": 0.5589952969145692,
+  "f1": 0.6084266186645666,
+  "mcc": 0.6041201829774813,
+  "confusion_matrix": [
+    [
+      1015245,
+      5389
+    ],
+    [
+      8533,
+      10816
+    ]
+  ],
+  "threshold": 0.48999999999999994,
+  "per_scenario_recall": {
+    "s400_taedonggang_apt": {
+      "n": 19349,
+      "recall": 0.5589952969145692
+    }
+  },
+  "per_sourcetype_recall": {
+    "XmlWinEventLog_Microsoft-Windows-Sysmon_Operational": {
+      "n_malicious": 12684,
+      "recall": 0.7881583096814885
+    },
+    "WinEventLog_Security": {
+      "n_malicious": 5719,
+      "recall": 0.0
+    },
+    "stream_smtp": {
+      "n_malicious": 819,
+      "recall": 1.0
+    },
+    "WinEventLog_System": {
+      "n_malicious": 65,
+      "recall": 0.0
+    },
+    "WinEventLog_Application": {
+      "n_malicious": 62,
+      "recall": 0.0
+    }
+  }
+}

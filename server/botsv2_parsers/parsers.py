@@ -72,8 +72,13 @@ CATEGORICAL_FEATURES = [
     "http_content_type", "site",
     "dns_query", "dns_qtype", "dns_rcode",
     "process_name", "image", "command_line", "parent_command_line",
+    "parent_image",
     "user", "integrity_level", "registry_key", "registry_value",
     "suricata_event_type", "suricata_alert_category",
+    # Derived content features (2026-05-24) — see ml-engine/botsv2/schema.py.
+    # Filled by feature_row.py / extract_features.py from object_name + image,
+    # NOT by parsers themselves.
+    "object_name_ext", "object_basename", "image_basename", "target_dir",
 ]
 
 _NUMERIC_SET = set(NUMERIC_FEATURES)
@@ -454,6 +459,9 @@ def parse_sysmon(raw: str, host: str | None) -> ParsedRow:
         fields["command_line"] = cmdline
     if parent_cmdline:
         fields["parent_command_line"] = parent_cmdline
+    parent_img = data.get("ParentImage")
+    if parent_img:
+        fields["parent_image"] = parent_img
     if user:
         fields["user"] = user
     if integrity:
@@ -888,6 +896,8 @@ def get_parser(sourcetype: str) -> Callable[[str, str | None], ParsedRow]:
     if sourcetype in ("access_combined", "WebLogic_Access_Combined"):
         return parse_access_combined
     if sourcetype.startswith("XmlWinEventLog") and "Sysmon" in sourcetype:
+        return parse_sysmon
+    if sourcetype == "mordor_sysmon":
         return parse_sysmon
     if sourcetype == "pan_traffic":
         return parse_pan_traffic

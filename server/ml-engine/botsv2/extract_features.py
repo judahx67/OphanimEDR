@@ -101,6 +101,34 @@ def _trunc(v) -> str | None:
     return s
 
 
+def _basename(path: str | None) -> str | None:
+    """Last component of a path, splitting on both / and \\."""
+    if not path:
+        return None
+    p = str(path).replace("\\", "/")
+    return p.rsplit("/", 1)[-1] or None
+
+
+def _ext(name: str | None) -> str | None:
+    """Final .extension of a filename (lowercased, includes dot). e.g.
+    '/x/y.docx.crypt' -> '.crypt'. Returns None if no dot in basename."""
+    base = _basename(name)
+    if not base or "." not in base:
+        return None
+    return "." + base.rsplit(".", 1)[-1].lower()
+
+
+def _parent_dir(path: str | None) -> str | None:
+    """Parent directory of a path. e.g. 'C:\\Windows\\System32\\foo.dll' ->
+    'C:/Windows/System32'. Returns None if no separator."""
+    if not path:
+        return None
+    p = str(path).replace("\\", "/")
+    if "/" not in p:
+        return None
+    return p.rsplit("/", 1)[0] or None
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Parser: stream_* (Splunk Stream JSON)
 # ──────────────────────────────────────────────────────────────────────────
@@ -397,6 +425,9 @@ def parse_sysmon(raw: str, host: str | None) -> ParsedRow:
         fields["command_line"] = cmdline
     if parent_cmdline:
         fields["parent_command_line"] = parent_cmdline
+    parent_img = data.get("ParentImage")
+    if parent_img:
+        fields["parent_image"] = parent_img
     if user:
         fields["user"] = user
     if integrity:
@@ -847,6 +878,10 @@ def get_parser(sourcetype: str) -> Callable[[str, str | None], ParsedRow]:
         return parse_access_combined
     if sourcetype.startswith("XmlWinEventLog") and "Sysmon" in sourcetype:
         return parse_sysmon
+    if sourcetype == "mordor_sysmon":
+        # Mordor JSON converted by _mordor-to-labeled-parquet.py emits Sysmon
+        # XML in _raw using the same schema as BOTSv2 Sysmon → reuse parser.
+        return parse_sysmon
     if sourcetype == "pan_traffic":
         return parse_pan_traffic
     if sourcetype.startswith("mysql_"):
@@ -880,8 +915,14 @@ def _build_arrow_schema() -> pa.Schema:
     # graph
     for c in S.GRAPH_COLS:
         fields.append(pa.field(c, pa.string()))
-    # net id
+    # net id — skip cols that are already in CATEGORICAL_FEATURES (after the
+    # 2026-05 refactor src_ip/dest_ip moved into CATEGORICAL_FEATURES but
+    # NETWORK_ID_COLS still lists them; emitting both creates duplicate Arrow
+    # fields and breaks pl.DataFrame construction).
+    _cat_set = set(S.CATEGORICAL_FEATURES)
     for c in S.NETWORK_ID_COLS:
+        if c in _cat_set:
+            continue
         fields.append(pa.field(c, pa.string()))
     # numeric (int64 is safe for all numeric features; LightGBM handles)
     for c in S.NUMERIC_FEATURES:
@@ -926,6 +967,48 @@ def featurize_batch(batch: pl.DataFrame, sourcetype: str, parser) -> pl.DataFram
         out[c] = [p.fields.get(c) for p in parsed]
     for c in S.CATEGORICAL_FEATURES:
         out[c] = [_trunc(p.fields.get(c)) for p in parsed]
+
+    # Derived content features (FILE objects only — applying these to
+    # Socket / Url / Process objects pollutes the vocab with values like
+    # ".100:443" or ".1 (x64 en-us)" that drown the real file extensions).
+    out["object_name_ext"] = [
+        _ext(p.object_name) if p.object_type == S.NodeType.FILE else None
+        for p in parsed
+    ]
+    out["object_basename"] = [
+        _trunc(_basename(p.object_name)) if p.object_type == S.NodeType.FILE else None
+        for p in parsed
+    ]
+    out["target_dir"] = [
+        _trunc(_parent_dir(p.object_name)) if p.object_type == S.NodeType.FILE else None
+        for p in parsed
+    ]
+    # image_basename is always meaningful — Process subjects carry image even
+    # when the edge object is not a File (e.g. CONNECT/MODIFY_REG/LOAD).
+    out["image_basename"]  = [_trunc(_basename(p.fields.get("image"))) for p in parsed]
+
+    # Engineered MITRE-derived boolean features. Use the same compute()
+    # function as ml-edge-scorer/feature_row.py — single source of truth.
+    import sys as _s
+    from pathlib import Path as _P
+    _server = _P(__file__).resolve().parents[2]
+    if str(_server) not in _s.path:
+        _s.path.insert(0, str(_server))
+    from botsv2_parsers.engineered_features import compute as _eng_compute, FEATURE_NAMES as _eng_names
+    eng_rows: list[dict] = []
+    for p in parsed:
+        target = p.object_name if p.object_type == S.NodeType.FILE else None
+        registry_key = p.fields.get("registry_key")
+        eng_rows.append(_eng_compute(
+            image=p.fields.get("image"),
+            parent_image=p.fields.get("parent_image"),
+            command_line=p.fields.get("command_line"),
+            target=target,
+            registry_key=registry_key,
+            http_uri=p.fields.get("http_uri"),
+        ))
+    for name in _eng_names:
+        out[name] = [row[name] for row in eng_rows]
 
     # Build a polars DataFrame in the ARROW_SCHEMA column order
     cols = []

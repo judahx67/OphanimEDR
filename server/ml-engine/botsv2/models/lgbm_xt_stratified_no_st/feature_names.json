@@ -15,6 +15,9 @@
   "event_id",
   "process_id",
   "suricata_alert_severity",
+  "external_ip",
+  "src_ip",
+  "dest_ip",
   "transport",
   "protocol",
   "app_proto",
@@ -36,5 +39,9 @@
   "registry_key",
   "registry_value",
   "suricata_event_type",
-  "suricata_alert_category"
+  "suricata_alert_category",
+  "object_name_ext",
+  "object_basename",
+  "image_basename",
+  "target_dir"
 ]

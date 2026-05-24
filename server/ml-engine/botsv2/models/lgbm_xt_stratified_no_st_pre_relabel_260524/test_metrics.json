@@ -1,0 +1,84 @@
+{
+  "test_n": 1039741,
+  "test_positive_rate": 0.033065926995280555,
+  "roc_auc": 0.9853492961464535,
+  "precision": 0.9813643825621694,
+  "recall": 0.9389470622454915,
+  "f1": 0.959687249160151,
+  "mcc": 0.9585899328525677,
+  "confusion_matrix": [
+    [
+      1004748,
+      613
+    ],
+    [
+      2099,
+      32281
+    ]
+  ],
+  "threshold": 0.95,
+  "per_scenario_recall": {
+    "s400_taedonggang_apt": {
+      "n": 11209,
+      "recall": 0.8446783834418771
+    },
+    "s200_webapp_attack": {
+      "n": 4275,
+      "recall": 0.9494736842105264
+    },
+    "s300_ransomware": {
+      "n": 693,
+      "recall": 0.8845598845598845
+    }
+  },
+  "per_sourcetype_recall": {
+    "pan_traffic": {
+      "n_malicious": 9598,
+      "recall": 0.9998958116274224
+    },
+    "suricata": {
+      "n_malicious": 7726,
+      "recall": 0.9724307533005436
+    },
+    "stream_tcp": {
+      "n_malicious": 5800,
+      "recall": 0.9982758620689656
+    },
+    "stream_ip": {
+      "n_malicious": 5738,
+      "recall": 0.9987800627396305
+    },
+    "stream_http": {
+      "n_malicious": 1929,
+      "recall": 0.9984447900466563
+    },
+    "XmlWinEventLog_Microsoft-Windows-Sysmon_Operational": {
+      "n_malicious": 1310,
+      "recall": 0.999236641221374
+    },
+    "access_combined": {
+      "n_malicious": 962,
+      "recall": 0.0
+    },
+    "apache_error": {
+      "n_malicious": 796,
+      "recall": 0.0
+    },
+    "stream_smb": {
+      "n_malicious": 223,
+      "recall": 0.9865470852017937
+    },
+    "mysql_server_stats": {
+      "n_malicious": 122,
+      "recall": 0.9180327868852459
+    },
+    "mysql_transaction_details": {
+      "n_malicious": 94,
+      "recall": 0.8829787234042553
+    },
+    "ps": {
+      "n_malicious": 77,
+      "recall": 0.0
+    }
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "seed": 42,
+  "target_total": 5200000,
+  "actual_total": 5200000,
+  "malicious_total": 173032,
+  "benign_sampled": 5026968,
+  "ram_limit_gb": 10.0,
+  "columns": [
+    "_time",
+    "app_proto",
+    "bytes",
+    "bytes_in",
+    "bytes_out",
+    "command_line",
+    "dest_ip",
+    "dest_port",
+    "dns_qtype",
+    "dns_query",
+    "dns_rcode",
+    "duration",
+    "edge_type",
+    "event_id",
+    "host",
+    "http_content_length",
+    "http_content_type",
+    "http_method",
+    "http_referrer",
+    "http_status",
+    "http_uri",
+    "http_user_agent",
+    "image",
+    "integrity_level",
+    "label",
+    "object_id",
+    "object_name",
+    "object_type",
+    "packets_in",
+    "packets_out",
+    "parent_command_line",
+    "process_id",
+    "process_name",
+    "protocol",
+    "registry_key",
+    "registry_value",
+    "scenario",
+    "site",
+    "source",
+    "sourcetype",
+    "src_ip",
+    "src_port",
+    "subject_id",
+    "subject_name",
+    "subject_type",
+    "suricata_alert_category",
+    "suricata_alert_severity",
+    "suricata_event_type",
+    "transport",
+    "user"
+  ],
+  "temporal_split": [
+    {
+      "name": "train",
+      "rows": 3120007,
+      "malicious": 33318,
+      "positive_rate": 0.010678822194950203,
+      "time_min": 1501545602,
+      "time_max": 1503249777
+    },
+    {
+      "name": "val",
+      "rows": 1040003,
+      "malicious": 86322,
+      "positive_rate": 0.08300168364898948,
+      "time_min": 1503249778,
+      "time_max": 1503729374
+    },
+    {
+      "name": "test",
+      "rows": 1039990,
+      "malicious": 53392,
+      "positive_rate": 0.05133895518226137,
+      "time_min": 1503729375,
+      "time_max": 1504223999
+    }
+  ],
+  "stratified_split": [
+    {
+      "name": "train",
+      "rows": 3119853,
+      "malicious": 104028,
+      "positive_rate": 0.0333438787019773,
+      "time_min": 1501545602,
+      "time_max": 1504223999
+    },
+    {
+      "name": "val",
+      "rows": 1040406,
+      "malicious": 34624,
+      "positive_rate": 0.03327931595934664,
+      "time_min": 1501545602,
+      "time_max": 1504223999
+    },
+    {
+      "name": "test",
+      "rows": 1039741,
+      "malicious": 34380,
+      "positive_rate": 0.033065926995280555,
+      "time_min": 1501545602,
+      "time_max": 1504223999
+    }
+  ]
+}

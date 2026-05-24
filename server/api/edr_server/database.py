@@ -330,7 +330,6 @@ async def get_node_subgraph(node_id: str, hops: int = 2) -> dict:
               rel.size AS size,
               rel.properties AS properties,
               rel.botsv2_ml_score AS ml_score,
-              rel.botsv2_ml_score_honest AS ml_score_honest,
               rel.botsv2_ml_alert AS ml_alert
             LIMIT 500
             """,
@@ -362,7 +361,6 @@ async def get_node_subgraph(node_id: str, hops: int = 2) -> dict:
                     "size": int(record["size"]) if record["size"] is not None else None,
                     "properties": props,
                     "ml_score": float(record["ml_score"]) if record["ml_score"] is not None else None,
-                    "ml_score_honest": float(record["ml_score_honest"]) if record["ml_score_honest"] is not None else None,
                     "ml_alert": record["ml_alert"],
                 })
     return {"nodes": list(nodes.values()), "edges": edges}
@@ -512,41 +510,39 @@ async def get_ml_edge_findings(
     cypher = f"""
     MATCH (s)-[r]->(o)
     WHERE r.botsv2_ml_score IS NOT NULL
-      AND r.botsv2_ml_score_honest >= $min_score
+      AND r.botsv2_ml_score >= $min_score
       AND r.botsv2_ml_score_quality = 'full'
     {rule_filter}
     {analysis_filter}
     WITH s, o, type(r) AS edge_type,
-         max(r.botsv2_ml_score_honest) AS best_honest
+         max(r.botsv2_ml_score) AS best_score
     MATCH (s)-[r2]->(o)
     WHERE type(r2) = edge_type
-      AND r2.botsv2_ml_score_honest = best_honest
-    WITH r2, s, o, edge_type, best_honest
-    ORDER BY best_honest DESC
+      AND r2.botsv2_ml_score = best_score
+    WITH r2, s, o, edge_type, best_score
+    ORDER BY best_score DESC
     WITH edge_type, collect({{
         event_id: r2.event_id,
-        score_headline: r2.botsv2_ml_score,
-        score_honest: r2.botsv2_ml_score_honest,
+        score: r2.botsv2_ml_score,
         quality: r2.botsv2_ml_score_quality,
         is_alert: r2.botsv2_ml_alert,
         timestamp: r2.timestamp,
         subj_id: s.uuid, subj_name: s.name, subj_label: labels(s)[0],
         obj_id: o.uuid,  obj_name: o.name,  obj_label: labels(o)[0],
         endpoint_id: r2.endpoint_id,
-        best_honest: best_honest
+        best_score: best_score
     }}) AS rows_for_type
     // Cap each edge type at half the global limit. Prevents one high-volume
     // type from monopolising the page while still permitting bursts when
     // only one type is active.
     WITH edge_type, rows_for_type[0..toInteger(($limit + 1) / 2)] AS top_per_type
     UNWIND top_per_type AS row
-    WITH row, edge_type, row.best_honest AS h
+    WITH row, edge_type, row.best_score AS h
     ORDER BY h DESC
     RETURN
         row.event_id        AS event_id,
         edge_type           AS edge_type,
-        row.score_headline  AS score_headline,
-        row.score_honest    AS score_honest,
+        row.score           AS score,
         row.quality         AS quality,
         row.is_alert        AS is_alert,
         row.timestamp       AS timestamp,
@@ -574,13 +570,11 @@ async def get_ml_edge_findings(
         result = await session.run(cypher, limit=limit, min_score=min_score)
         rows = []
         async for rec in result:
-            score_h = rec["score_headline"]
-            score_o = rec["score_honest"]
+            score = rec["score"]
             rows.append({
                 "event_id": rec["event_id"],
                 "edge_type": rec["edge_type"],
-                "score_headline": float(score_h) if score_h is not None else None,
-                "score_honest": float(score_o) if score_o is not None else None,
+                "score": float(score) if score is not None else None,
                 "quality": rec["quality"],
                 "is_alert": rec["is_alert"],
                 "timestamp": rec["timestamp"],
@@ -614,8 +608,7 @@ async def get_ml_edge_by_event_id(event_id: str) -> dict | None:
             RETURN
                 r.event_id        AS event_id,
                 type(r)           AS edge_type,
-                r.botsv2_ml_score         AS score_headline,
-                r.botsv2_ml_score_honest  AS score_honest,
+                r.botsv2_ml_score         AS score,
                 r.botsv2_ml_score_quality AS quality,
                 r.botsv2_ml_alert         AS is_alert,
                 r.timestamp               AS timestamp,
@@ -629,13 +622,11 @@ async def get_ml_edge_by_event_id(event_id: str) -> dict | None:
         rec = await result.single()
         if not rec:
             return None
-        score_h = rec["score_headline"]
-        score_o = rec["score_honest"]
+        score = rec["score"]
         return {
             "event_id": rec["event_id"],
             "edge_type": rec["edge_type"],
-            "score_headline": float(score_h) if score_h is not None else None,
-            "score_honest": float(score_o) if score_o is not None else None,
+            "score": float(score) if score is not None else None,
             "quality": rec["quality"],
             "is_alert": rec["is_alert"],
             "timestamp": rec["timestamp"],
@@ -659,31 +650,24 @@ async def get_ml_edge_summary() -> dict:
             WHERE r.botsv2_ml_score IS NOT NULL
             WITH
                 count(r) AS total,
-                avg(r.botsv2_ml_score) AS mean_headline,
-                avg(r.botsv2_ml_score_honest) AS mean_honest,
-                size([x IN collect(r.botsv2_ml_score) WHERE x >= 0.9]) AS alerts_headline,
-                size([x IN collect(r.botsv2_ml_score_honest) WHERE x >= 0.7]) AS alerts_honest,
+                avg(r.botsv2_ml_score) AS mean_score,
+                size([x IN collect(r.botsv2_ml_score) WHERE x >= 0.85]) AS alerts,
                 size([x IN collect(r.botsv2_ml_score_quality) WHERE x = 'degraded']) AS degraded
-            RETURN total, mean_headline, mean_honest,
-                   alerts_headline, alerts_honest, degraded
+            RETURN total, mean_score, alerts, degraded
             """
         )
         rec = await result.single()
         if not rec or rec["total"] == 0:
             return {
                 "total_scored": 0,
-                "mean_headline": 0.0,
-                "mean_honest": 0.0,
-                "alerts_headline": 0,
-                "alerts_honest": 0,
+                "mean_score": 0.0,
+                "alerts": 0,
                 "degraded": 0,
             }
         return {
             "total_scored": rec["total"],
-            "mean_headline": float(rec["mean_headline"] or 0),
-            "mean_honest": float(rec["mean_honest"] or 0),
-            "alerts_headline": rec["alerts_headline"],
-            "alerts_honest": rec["alerts_honest"],
+            "mean_score": float(rec["mean_score"] or 0),
+            "alerts": rec["alerts"],
             "degraded": rec["degraded"],
         }
 
@@ -704,8 +688,7 @@ async def get_llm_incident(event_id: str) -> dict | None:
                 i.confidence AS confidence,
                 i.analyst_action AS analyst_action,
                 i.false_positive_risk AS false_positive_risk,
-                i.score_headline AS score_headline,
-                i.score_honest AS score_honest,
+                i.score AS score,
                 i.severity AS severity,
                 i.created_at AS created_at,
                 i.endpoint_id AS endpoint_id,

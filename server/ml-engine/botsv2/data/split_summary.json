@@ -1,9 +1,9 @@
 {
   "seed": 42,
   "target_total": 5200000,
-  "actual_total": 5200000,
-  "malicious_total": 173032,
-  "benign_sampled": 5026968,
+  "actual_total": 5199969,
+  "malicious_total": 903459,
+  "benign_sampled": 4296510,
   "ram_limit_gb": 10.0,
   "columns": [
     "_time",
@@ -20,6 +20,7 @@
     "duration",
     "edge_type",
     "event_id",
+    "external_ip",
     "host",
     "http_content_length",
     "http_content_type",
@@ -29,10 +30,13 @@
     "http_uri",
     "http_user_agent",
     "image",
+    "image_basename",
     "integrity_level",
     "label",
+    "object_basename",
     "object_id",
     "object_name",
+    "object_name_ext",
     "object_type",
     "packets_in",
     "packets_out",
@@ -54,59 +58,60 @@
     "suricata_alert_category",
     "suricata_alert_severity",
     "suricata_event_type",
+    "target_dir",
     "transport",
     "user"
   ],
   "temporal_split": [
     {
       "name": "train",
-      "rows": 3120007,
-      "malicious": 33318,
-      "positive_rate": 0.010678822194950203,
+      "rows": 3119983,
+      "malicious": 4872,
+      "positive_rate": 0.0015615469699674647,
       "time_min": 1501545602,
-      "time_max": 1503249777
+      "time_max": 1503559974
     },
     {
       "name": "val",
-      "rows": 1040003,
-      "malicious": 86322,
-      "positive_rate": 0.08300168364898948,
-      "time_min": 1503249778,
-      "time_max": 1503729374
+      "rows": 1039993,
+      "malicious": 0,
+      "positive_rate": 0.0,
+      "time_min": 1503559975,
+      "time_max": 1504114294
     },
     {
       "name": "test",
-      "rows": 1039990,
-      "malicious": 53392,
-      "positive_rate": 0.05133895518226137,
-      "time_min": 1503729375,
-      "time_max": 1504223999
+      "rows": 1039993,
+      "malicious": 898587,
+      "positive_rate": 0.8640317771369616,
+      "time_min": 1504114295,
+      "time_max": 1615686018
     }
   ],
   "stratified_split": [
     {
       "name": "train",
-      "rows": 3119853,
-      "malicious": 104028,
-      "positive_rate": 0.0333438787019773,
+      "rows": 3119910,
+      "malicious": 542165,
+      "positive_rate": 0.17377584609812463,
       "time_min": 1501545602,
-      "time_max": 1504223999
+      "time_max": 1615686018
     },
     {
       "name": "val",
-      "rows": 1040406,
-      "malicious": 34624,
-      "positive_rate": 0.03327931595934664,
+      "rows": 1040103,
+      "malicious": 180664,
+      "positive_rate": 0.17369818181468566,
       "time_min": 1501545602,
-      "time_max": 1504223999
+      "time_max": 1615686018
     },
     {
       "name": "test",
-      "rows": 1039741,
-      "malicious": 34380,
-      "positive_rate": 0.033065926995280555,
+      "rows": 1039956,
+      "malicious": 180630,
+      "positive_rate": 0.17369004073249253,
       "time_min": 1501545602,
-      "time_max": 1504223999
+      "time_max": 1615686018
     }
   ]
 }

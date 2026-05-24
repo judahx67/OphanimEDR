@@ -8,8 +8,7 @@ import axios from 'axios'
 interface EdgeFinding {
     event_id: string
     edge_type: string
-    score_headline: number | null
-    score_honest: number | null
+    score: number | null
     quality: string | null
     is_alert: boolean
     timestamp: number | null
@@ -21,10 +20,8 @@ interface EdgeFinding {
 
 interface EdgeSummary {
     total_scored: number
-    mean_headline: number
-    mean_honest: number
-    alerts_headline: number
-    alerts_honest: number
+    mean_score: number
+    alerts: number
     degraded: number
 }
 
@@ -37,7 +34,6 @@ interface SubgraphEdge {
     size: number | null
     properties: Record<string, unknown>
     ml_score: number | null
-    ml_score_honest: number | null
     ml_alert: boolean | null
 }
 
@@ -337,20 +333,18 @@ export default function Problems() {
                     marginTop: 6, maxWidth: 680, lineHeight: 1.6,
                 }}>
                     Edges scored by frozen LightGBM-XT trained on BOTSv2 (ROC-AUC 0.9877 headline / 0.9135 honest).
-                    The <strong>honest score</strong> excludes sourcetype — use it as the primary signal.
-                    Table shows one row per unique subject→object pair.
+                    Score is from the sourcetype-blind honest LightGBM model (the only model in production
+                    since 2026-05-24). Table shows one row per unique subject→object pair.
                 </p>
             </div>
 
             {/* Summary stat cards — matches Dashboard pattern */}
             {summary && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                     {[
                         { label: 'Edges Scored', value: summary.total_scored.toLocaleString(), sub: 'total' },
-                        { label: 'Mean Headline', value: (summary.mean_headline * 100).toFixed(1) + '%', sub: 'avg score' },
-                        { label: 'Mean Honest', value: (summary.mean_honest * 100).toFixed(1) + '%', sub: 'avg score' },
-                        { label: 'Headline Alerts', value: summary.alerts_headline.toLocaleString(), sub: '≥ 90%' },
-                        { label: 'Honest Alerts', value: summary.alerts_honest.toLocaleString(), sub: '≥ 70%' },
+                        { label: 'Mean Score', value: (summary.mean_score * 100).toFixed(1) + '%', sub: 'honest model' },
+                        { label: 'Alerts', value: summary.alerts.toLocaleString(), sub: '≥ 85%' },
                         { label: 'Degraded', value: summary.degraded, sub: 'no _raw' },
                     ].map(c => (
                         <div key={c.label} style={{
@@ -477,7 +471,7 @@ export default function Problems() {
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ borderBottom: '2px solid var(--border-strong)' }}>
-                                    {['Type', 'Subject', 'Object', 'Honest Score', 'Headline Score', ''].map(h => (
+                                    {['Type', 'Subject', 'Object', 'Score', ''].map(h => (
                                         <th key={h} style={{
                                             padding: '10px 14px', textAlign: 'left',
                                             fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600,
@@ -551,10 +545,7 @@ export default function Problems() {
                                                 <NodeChip label={f.object.label} name={f.object.name || f.object.id} />
                                             </td>
                                             <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                                                <ScoreBar value={f.score_honest} label="" />
-                                            </td>
-                                            <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                                                <ScoreBar value={f.score_headline} label="" />
+                                                <ScoreBar value={f.score} label="" />
                                             </td>
                                             <td style={{ padding: '10px 14px' }}>
                                                 <ArrowRight24Regular style={{ color: 'var(--accent-primary)', fontSize: 14 }} />
@@ -592,8 +583,7 @@ export default function Problems() {
                                 </div>
                             </div>
                             <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <ScoreBar value={selected.score_honest} label="Honest (primary)" />
-                                <ScoreBar value={selected.score_headline} label="Headline" />
+                                <ScoreBar value={selected.score} label="Honest ML score" />
                             </div>
                             <div style={{ marginTop: 8, fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-muted)' }}>
                                 event_id: {selected.event_id?.slice(0, 36)}
@@ -665,13 +655,13 @@ export default function Problems() {
                                                             </span>
                                                         )}
                                                     </span>
-                                                    {e.ml_score_honest !== null && (
+                                                    {e.ml_score !== null && (
                                                         <span style={{
                                                             fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700,
-                                                            color: SEV_COLOR((e.ml_score_honest || 0) * 100),
+                                                            color: SEV_COLOR((e.ml_score || 0) * 100),
                                                             minWidth: 44, textAlign: 'right', flexShrink: 0,
                                                         }}>
-                                                            {formatPct(e.ml_score_honest || 0)}
+                                                            {formatPct(e.ml_score || 0)}
                                                         </span>
                                                     )}
                                                     {e.ml_alert && <span style={{ color: 'var(--status-critical)', fontSize: 12, flexShrink: 0 }}>⚠</span>}

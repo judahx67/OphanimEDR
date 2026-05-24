@@ -96,7 +96,6 @@ def pull_subgraph(driver: Driver, subj_id: str, obj_id: str, hops: int = 2) -> d
             "type": rel.type,
             "event_id": rel.get("event_id", ""),
             "score": rel.get("botsv2_ml_score"),
-            "score_honest": rel.get("botsv2_ml_score_honest"),
             "is_alert": rel.get("botsv2_ml_alert", False),
         })
 
@@ -120,8 +119,7 @@ def subgraph_to_text(subgraph: dict, alert: dict) -> str:
                  f"[{alert.get('subject', {}).get('node_type', '?')}]")
     lines.append(f"  object    : {alert.get('object', {}).get('name', '?')} "
                  f"[{alert.get('object', {}).get('node_type', '?')}]")
-    lines.append(f"  ml_score  : {alert.get('score_headline', '?'):.4f} (headline)  "
-                 f"{alert.get('score_honest', '?'):.4f} (honest)")
+    lines.append(f"  ml_score  : {alert.get('score', 0.0):.4f} (honest, sourcetype-blind)")
     lines.append(f"  sourcetype: {alert.get('sourcetype', 'N/A')}")
     lines.append(f"  endpoint  : {alert.get('endpoint_id', '?')}")
     dedup = alert.get("_dedup_count", 0)
@@ -139,7 +137,7 @@ def subgraph_to_text(subgraph: dict, alert: dict) -> str:
         alert_tag = " *** ALERT ***" if e.get("is_alert") else ""
         score_str = ""
         if e.get("score") is not None:
-            score_str = f"  score={e['score']:.3f}/{e.get('score_honest') or 0:.3f}"
+            score_str = f"  score={e['score']:.3f}"
         lines.append(f"  {e['src'][:12]}..  --[{e['type']}]-->  {e['dst'][:12]}..{score_str}{alert_tag}")
 
     if pruned.collapsed:
