@@ -83,6 +83,11 @@ darpa_data/*.json.9
 # Compressed 150k-line sample (~4 MB) — committed for remote dev
 # darpa_data/theia-sample-150k.json.gz  ← tracked (no ignore rule)
 
+# Vendored FLASH-IDS upstream + ~70 GB raw DARPA THEIA E3 dumps + nested .git.
+# Our deliverable code/weights were migrated out to server/ml-engine/theia/.
+# The training scripts read raw data from here via THEIA_DATA_ROOT (default).
+external/
+
 # Test artifacts
 .pytest_cache/
 .coverage
