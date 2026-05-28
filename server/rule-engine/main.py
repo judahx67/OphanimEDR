@@ -45,7 +45,10 @@ NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
 NEO4J_PASS = os.environ.get("NEO4J_PASS", "edr-thesis")
 
 EXCHANGE    = "edr"
-IN_QUEUE    = "normalized_events"
+# Own queue bound to the normalized-events fanout — sharing graph-builder's
+# queue makes the two compete as rival consumers, so each sees only part of
+# the stream. One queue per consumer is the correct fanout pattern.
+IN_QUEUE    = "normalized_events_rules"
 OUT_QUEUE   = "incidents"
 
 
@@ -127,11 +130,13 @@ def main():
     mq_conn = _connect_rabbitmq()
     channel = mq_conn.channel()
 
-    # Ensure exchange + queues exist
+    # Ensure exchanges + queues exist. Normalized events arrive via the fanout
+    # (one private queue per consumer); incidents go out on the direct exchange.
     channel.exchange_declare(exchange=EXCHANGE, exchange_type="direct", durable=True)
+    channel.exchange_declare(exchange="edr_fanout", exchange_type="fanout", durable=True)
     channel.queue_declare(queue=IN_QUEUE,  durable=True)
     channel.queue_declare(queue=OUT_QUEUE, durable=True)
-    channel.queue_bind(queue=IN_QUEUE,  exchange=EXCHANGE, routing_key=IN_QUEUE)
+    channel.queue_bind(queue=IN_QUEUE,  exchange="edr_fanout")
     channel.queue_bind(queue=OUT_QUEUE, exchange=EXCHANGE, routing_key=OUT_QUEUE)
 
     # Prefetch 1 so we don't buffer too many events
