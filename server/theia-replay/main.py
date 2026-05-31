@@ -138,6 +138,33 @@ def iter_edges(path: Path, type_map: dict, scan_lines: int, gt: set):
                 }
 
 
+def iter_enriched_edges(path: Path):
+    """Stream a pre-parsed enriched edge file (no scan cap, no json parsing).
+
+    Columns (tab-separated, see _build_enriched_edges.py):
+      actorID actor_type objectID object_type action timestamp exec path label
+    This is the data evaluate.py scores (theia_test.txt + add_attributes), so
+    full-graph scoring over it reproduces the offline eval — attack included.
+    """
+    with open(path, encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            p = line.rstrip("\n").split("\t")
+            if len(p) < 9 or not p[0]:
+                continue
+            yield {
+                "dataset": "theia",
+                "actor_id": p[0],
+                "actor_cdm": p[1],
+                "object_id": p[2],
+                "object_cdm": p[3],
+                "action": p[4],
+                "exec": p[6],
+                "path": p[7],
+                "timestamp": p[5],
+                "label": int(p[8]) if p[8].isdigit() else 0,
+            }
+
+
 def connect_rabbitmq() -> pika.BlockingConnection:
     credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
     params = pika.ConnectionParameters(
@@ -170,26 +197,35 @@ def main():
     ap = argparse.ArgumentParser(description="THEIA E3 CDM18 replay")
     ap.add_argument("--file", default="ta1-theia-e3-official-6r.json.8",
                     help="CDM18 split filename under THEIA_DATA_ROOT")
+    ap.add_argument("--edges-file", default="",
+                    help="Pre-parsed enriched edge file (e.g. theia_test_enriched.txt). "
+                         "Bypasses json parsing/scan cap; streams the full eval graph.")
     ap.add_argument("--limit", type=int, default=20000,
-                    help="Max edges to publish (0 = window cap)")
+                    help="Max edges to publish (0 = all)")
     ap.add_argument("--rate", type=int, default=500,
                     help="Approx events/sec; 0 = as fast as possible")
     ap.add_argument("--scan-lines", type=int, default=0,
                     help="Lines to scan for the type map (0 = auto: limit*30)")
     args = ap.parse_args()
 
-    path = DATA_ROOT / args.file
+    use_edges = bool(args.edges_file)
+    path = DATA_ROOT / (args.edges_file if use_edges else args.file)
     if not path.exists():
-        logger.error("CDM18 file not found: %s", path)
+        logger.error("file not found: %s", path)
         return
 
-    scan_lines = args.scan_lines or max(200_000, args.limit * 30)
-    logger.info("=== THEIA replay: %s limit=%d rate=%d ===",
-                path.name, args.limit, args.rate)
-
-    gt = load_gt()
-    logger.info("ground-truth malicious uuids: %d", len(gt))
-    type_map = build_type_map(path, scan_lines)
+    if use_edges:
+        logger.info("=== THEIA replay (enriched edges): %s limit=%d rate=%d ===",
+                    path.name, args.limit, args.rate)
+        edge_iter = iter_enriched_edges(path)
+    else:
+        scan_lines = args.scan_lines or max(200_000, args.limit * 30)
+        logger.info("=== THEIA replay: %s limit=%d rate=%d ===",
+                    path.name, args.limit, args.rate)
+        gt = load_gt()
+        logger.info("ground-truth malicious uuids: %d", len(gt))
+        type_map = build_type_map(path, scan_lines)
+        edge_iter = iter_edges(path, type_map, scan_lines, gt)
 
     conn = connect_rabbitmq()
     channel = conn.channel()
@@ -199,7 +235,7 @@ def main():
     sent = mal = 0
     start = time.time()
     try:
-        for edge in iter_edges(path, type_map, scan_lines, gt):
+        for edge in edge_iter:
             if not running or (args.limit and sent >= args.limit):
                 break
             channel.basic_publish(

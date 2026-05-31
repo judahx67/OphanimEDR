@@ -99,9 +99,17 @@ services:
       NEO4J_PASS: edr-thesis
       THEIA_CODE: /app/theia
       THEIA_WEIGHTS: trained_weights/theia_ours_v3
+      # full = accumulate + score the whole graph like evaluate.py (paper regime).
+      # Set SCORE_MODE=window to revert to the legacy 20k sliding window.
+      SCORE_MODE: full
       WINDOW_EDGES: "20000"
       MIN_EDGES: "300"
-      SCORE_EVERY_SECS: "20"
+      # Full THEIA eval split is ~9.4M edges; periodic re-scoring would thrash.
+      # Keep the periodic interval long so we score once the replay goes idle
+      # (the final full-graph score over everything ingested).
+      SCORE_EVERY_SECS: "3600"
+      IDLE_SECS: "20"
+      BATCH_NODES: "5000"
     volumes:
       - ./ml-engine/theia:/app/theia:ro
     depends_on:
@@ -109,7 +117,7 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_healthy
-    mem_limit: 4g
+    mem_limit: 8g
     restart: unless-stopped
 
   # ── REST API (Neo4j backend) ───────────────────────────────
