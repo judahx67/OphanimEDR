@@ -18,6 +18,7 @@ import time
 import pika
 
 from botsv2_normalizer import normalize_splunk_event
+from theia_normalizer import normalize_theia_event
 
 logging.basicConfig(
     level=logging.INFO,
@@ -93,7 +94,7 @@ def setup_queues(channel: pika.channel.Channel) -> None:
 
 
 def main():
-    logger.info("=== EDR Event Ingest Service (BOTSv2) ===")
+    logger.info("=== EDR Event Ingest Service (BOTSv2 + THEIA) ===")
 
     conn = connect_rabbitmq()
     channel = conn.channel()
@@ -111,7 +112,12 @@ def main():
             datum = json.loads(body)
             stats["received"] += 1
 
-            normalized = normalize_splunk_event(datum)
+            # Route by dataset: THEIA CDM18 edges (from theia-replay) vs the
+            # legacy BOTSv2 Splunk events. The tag is set by the replay/simulator.
+            if datum.get("dataset") == "theia":
+                normalized = normalize_theia_event(datum)
+            else:
+                normalized = normalize_splunk_event(datum)
 
             if normalized:
                 # Single publish to the fanout exchange — every consumer
