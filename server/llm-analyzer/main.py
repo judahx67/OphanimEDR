@@ -24,7 +24,7 @@ from neo4j import GraphDatabase
 from google import genai
 from google.genai import types as genai_types
 
-from subgraph import pull_subgraph, subgraph_to_text
+from subgraph import pull_subgraph, subgraph_to_text, node_subgraph_to_text
 from mitre import load_techniques, select_candidates, format_candidates_for_prompt
 import groq_provider
 
@@ -91,6 +91,33 @@ Without that section, fall back to your own MITRE judgement.
 
 Be concise and precise. Base your analysis only on the provided subgraph data. If the data is insufficient, say so in evidence_summary and set confidence to low."""
 
+# THEIA GNN path: the detector is a graph anomaly seed-finder, not a per-edge
+# classifier. The prompt below replaces the BOTSv2/LightGBM framing so the LLM
+# reasons about the flagged *node* and its provenance context correctly.
+THEIA_SYSTEM_PROMPT = """You are a cybersecurity analyst assistant for a host-provenance intrusion-detection system.
+
+You will be given a provenance subgraph centred on a NODE flagged by a FLASH GraphSAGE + Word2Vec graph-anomaly detector (trained on DARPA TC E3 THEIA host telemetry). The detector runs a 20-shard explain-away ensemble over a sliding provenance window: a node is flagged as an anomaly "seed" when it survives every round (the ensemble cannot confidently explain its embedding given the surrounding graph). Scores are batch-relative, so reason about the node's role in its 1-hop neighbourhood, not an absolute probability.
+
+Your task is to analyse the flagged node + neighbourhood and produce a structured incident analysis.
+
+If a "MITRE Candidates" section is provided in the user message, the
+mitre_technique field MUST be one of those IDs (or null if none fit).
+Without that section, fall back to your own MITRE judgement.
+
+## Output Format (JSON only, no prose outside this structure)
+{
+  "attack_hypothesis": "One sentence describing the likely attack or suspicious behaviour involving this node",
+  "mitre_technique": "e.g. T1059.001 (or null if unclear; if MITRE Candidates section was provided you MUST pick from those IDs)",
+  "mitre_tactic": "e.g. Execution (or null if unclear)",
+  "evidence_summary": "2-4 bullet points of specific indicators from the subgraph",
+  "confidence": "high | medium | low",
+  "analyst_action": "Specific recommended next step for a human analyst",
+  "false_positive_risk": "high | medium | low — likelihood this is benign activity",
+  "yara_rule": "A valid YARA rule string targeting a stable artefact (filename, path, command-line string). Null if the only indicators are dynamic (IPs, ephemeral ports, netflow). MUST be syntactically valid YARA, snake_case name, meta block with author='edr-llm-analyzer' and a reference to the node_id."
+}
+
+Be concise and precise. Base your analysis only on the provided subgraph data. THEIA E3 ground truth is netflow-heavy, so many seeds are network objects — note when a seed is a NetFlow/Socket node and temper false_positive_risk accordingly. If data is insufficient, say so and set confidence to low."""
+
 # ── Shutdown ──────────────────────────────────────────────────────────────
 
 running = True
@@ -121,6 +148,42 @@ def connect_neo4j():
     raise RuntimeError("Could not connect to Neo4j")
 
 
+_NODE_PROPS_CYPHER = """
+MATCH (n {uuid: $node_id})
+RETURN labels(n)[0] AS label, coalesce(n.name, '') AS name,
+       coalesce(n.endpoint_id, '') AS endpoint_id
+LIMIT 1
+"""
+
+
+def enrich_node_alert(driver, alert: dict) -> dict:
+    """Normalise a THEIA GNN node-seed alert into the analyzer's alert shape.
+
+    The GNN scorer publishes {node_id, dataset, detector, timestamp}. We look
+    up the node's label/name from Neo4j and synthesise the subject/object/
+    event_id fields the rest of the pipeline (dedup, prune, MITRE, write) needs.
+    """
+    node_id = alert["node_id"]
+    label, name, endpoint_id = "Node", "", ""
+    with driver.session() as session:
+        rec = session.run(_NODE_PROPS_CYPHER, node_id=node_id).single()
+        if rec is not None:
+            label = rec["label"] or "Node"
+            name = rec["name"] or ""
+            endpoint_id = rec["endpoint_id"] or ""
+    side = {"id": node_id, "name": name, "node_type": label}
+    return {
+        **alert,
+        "is_node_alert": True,
+        "event_id": node_id,
+        "edge_type": alert.get("detector", "gnn"),
+        "subject": side,
+        "object": side,
+        "score": 1.0,
+        "endpoint_id": endpoint_id,
+    }
+
+
 _WRITE_INCIDENT_CYPHER = """
 MERGE (i:Incident {event_id: $event_id, source: 'ml-llm'})
 SET
@@ -149,6 +212,35 @@ MERGE (i)-[:TRIGGERED_BY {edge_event_id: $event_id}]->(s)
 MERGE (i)-[:TRIGGERED_BY {edge_event_id: $event_id}]->(o)
 """
 
+# THEIA node-seed variant: the alert keys on a flagged node (uuid), not an edge.
+_WRITE_NODE_INCIDENT_CYPHER = """
+MERGE (i:Incident {event_id: $event_id, source: 'ml-llm'})
+SET
+  i.title           = $title,
+  i.attack_hypothesis = $attack_hypothesis,
+  i.mitre_technique = $mitre_technique,
+  i.mitre_tactic    = $mitre_tactic,
+  i.evidence_summary = $evidence_summary,
+  i.confidence      = $confidence,
+  i.analyst_action  = $analyst_action,
+  i.false_positive_risk = $false_positive_risk,
+  i.narrative_raw   = $narrative_raw,
+  i.yara_rule       = $yara_rule,
+  i.agreement_status     = $agreement_status,
+  i.secondary_model      = $secondary_model,
+  i.secondary_mitre      = $secondary_mitre,
+  i.secondary_confidence = $secondary_confidence,
+  i.secondary_hypothesis = $secondary_hypothesis,
+  i.score           = $score,
+  i.severity        = $severity,
+  i.created_at      = $created_at,
+  i.endpoint_id     = $endpoint_id,
+  i.detector        = 'gnn_v3'
+WITH i
+MATCH (n {uuid: $event_id})
+MERGE (i)-[:TRIGGERED_BY {node_uuid: $event_id}]->(n)
+"""
+
 
 def write_incident(
     driver,
@@ -160,10 +252,11 @@ def write_incident(
     confidence = analysis.get("confidence", "low")
     severity = {"high": "critical", "medium": "high", "low": "medium"}.get(confidence, "medium")
     agreement = agreement or {}
+    cypher = _WRITE_NODE_INCIDENT_CYPHER if alert.get("is_node_alert") else _WRITE_INCIDENT_CYPHER
 
     with driver.session() as session:
         session.run(
-            _WRITE_INCIDENT_CYPHER,
+            cypher,
             event_id=alert["event_id"],
             title=analysis.get("attack_hypothesis", "ML-detected anomaly")[:120],
             attack_hypothesis=analysis.get("attack_hypothesis", ""),
@@ -193,6 +286,7 @@ def analyze_with_llm(
     client: genai.Client,
     subgraph_text: str,
     mitre_section: str = "",
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> tuple[dict, str, dict]:
     """Call Gemini and request JSON output.
 
@@ -204,7 +298,7 @@ def analyze_with_llm(
     delay; gives up after 3 attempts and propagates the error.
     """
     cfg = genai_types.GenerateContentConfig(
-        system_instruction=SYSTEM_PROMPT,
+        system_instruction=system_prompt,
         response_mime_type="application/json",
         # 800 fits the 7-field schema + a small YARA rule comfortably.
         # 2048 caused gemini-2.5-flash-lite to drift into degenerate token
@@ -371,6 +465,10 @@ def main():
             alert = json.loads(body)
             stats["received"] += 1
 
+            # THEIA GNN scorer emits node-level seeds; normalise to alert shape.
+            if alert.get("node_id") and not alert.get("event_id"):
+                alert = enrich_node_alert(neo4j_driver, alert)
+
             if narratives_written >= MAX_NARRATIVES:
                 logger.info("Reached MAX_NARRATIVES=%d cap, dropping alert", MAX_NARRATIVES)
                 stats["skipped"] += 1
@@ -398,12 +496,15 @@ def main():
             subgraph = pull_subgraph(neo4j_driver, subj_id, obj_id, hops=1)
             # Annotate how many duplicate alerts were suppressed
             alert["_dedup_count"] = dedup_cache[key][1]
-            subgraph_text = subgraph_to_text(subgraph, alert)
+            is_node = alert.get("is_node_alert", False)
+            system_prompt = THEIA_SYSTEM_PROMPT if is_node else SYSTEM_PROMPT
+            subgraph_text = (node_subgraph_to_text(subgraph, alert) if is_node
+                             else subgraph_to_text(subgraph, alert))
 
             mitre_candidates = select_candidates(mitre_techniques, alert, subgraph)
             mitre_section = format_candidates_for_prompt(mitre_candidates)
 
-            analysis, raw, usage = analyze_with_llm(client, subgraph_text, mitre_section)
+            analysis, raw, usage = analyze_with_llm(client, subgraph_text, mitre_section, system_prompt)
 
             agreement: dict | None = None
             if groq_client is not None:
@@ -412,7 +513,7 @@ def main():
                     if mitre_section:
                         user_msg += f"\n\n{mitre_section}"
                     secondary, _, sec_usage = groq_provider.analyze(
-                        groq_client, SYSTEM_PROMPT, user_msg,
+                        groq_client, system_prompt, user_msg,
                     )
                     agreement = groq_provider.compare(analysis, secondary)
                     stats["tokens_total"] += sec_usage.get("total_tokens", 0)

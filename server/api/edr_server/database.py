@@ -113,6 +113,10 @@ def _record_to_incident(record: dict) -> IncidentInDB:
             pass
         elif isinstance(val, str):
             props[field] = datetime.fromisoformat(val)
+        elif isinstance(val, (int, float)):
+            # epoch milliseconds (ml-llm writer) or seconds
+            ts = val / 1000 if val > 1e12 else val
+            props[field] = datetime.fromtimestamp(ts)
         else:
             # neo4j DateTime object
             props[field] = val.to_native()
@@ -138,7 +142,9 @@ async def get_incidents(
 ) -> tuple[list[IncidentInDB], int]:
     driver = get_driver()
     async with driver.session() as session:
-        where_clauses = []
+        # ml-llm narrative incidents have a different schema (served via
+        # /api/ml/incidents) and don't fit IncidentInDB — exclude them here.
+        where_clauses = ["(i.source IS NULL OR i.source <> 'ml-llm')"]
         params: dict = {"limit": limit, "skip": skip}
 
         if status:
@@ -263,7 +269,7 @@ async def get_graph_endpoints() -> list[dict]:
         result = await session.run("""
             MATCH (p:Process)
             WHERE p.endpoint_id IS NOT NULL
-            WITH p.endpoint_id AS eid
+            WITH DISTINCT p.endpoint_id AS eid
             CALL {
                 WITH eid
                 MATCH (n {endpoint_id: eid})

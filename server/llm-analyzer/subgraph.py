@@ -160,3 +160,55 @@ def subgraph_to_text(subgraph: dict, alert: dict) -> str:
                      "absence does not imply benignity)")
 
     return "\n".join(lines)
+
+
+def node_subgraph_to_text(subgraph: dict, alert: dict) -> str:
+    """Render a THEIA GNN node-seed alert + its 1-hop neighbourhood for the LLM.
+
+    Unlike the BOTSv2 edge path, the FLASH GNN flags a *node* (the seed that
+    survived all explain-away rounds), not a single causal edge. The flagged
+    node and its provenance context are what the analyst needs to reason about.
+    """
+    pruned = prune(subgraph, alert)
+    subj = alert.get("subject") or {}
+    lines = []
+
+    lines.append("## Flagged Node (FLASH GNN anomaly seed)")
+    lines.append(f"  node_id   : {alert.get('event_id', '?')}")
+    lines.append(f"  node_type : {subj.get('node_type', '?')}")
+    lines.append(f"  name      : {subj.get('name', '') or '(unnamed)'}")
+    lines.append(f"  detector  : {alert.get('edge_type', 'gnn')} "
+                 f"(20-shard explain-away survivor; batch-relative anomaly)")
+    lines.append(f"  endpoint  : {alert.get('endpoint_id', '?')}")
+    dedup = alert.get("_dedup_count", 0)
+    if dedup:
+        lines.append(f"  NOTE      : {dedup} additional identical seed alerts suppressed (last 5 min)")
+    lines.append("")
+
+    lines.append(f"## 1-hop Neighbourhood Nodes ({len(pruned.nodes)} kept)")
+    for n in pruned.nodes:
+        flag = " <== FLAGGED SEED" if n["id"] == alert.get("event_id") else ""
+        lines.append(f"  [{n['label']}] {n['name']!r}  id={n['id']}{flag}")
+
+    lines.append("")
+    lines.append(f"## 1-hop Edges ({len(pruned.edges)} kept)")
+    for e in pruned.edges:
+        lines.append(f"  {e['src'][:12]}..  --[{e['type']}]-->  {e['dst'][:12]}..")
+
+    if pruned.collapsed:
+        lines.append("")
+        lines.append("## Repeated Patterns (collapsed)")
+        for c in pruned.collapsed:
+            src_lbl, etype, dst_lbl = c["signature"]
+            samples = ", ".join(repr(s) for s in c["sample_dst_names"][:3])
+            lines.append(
+                f"  [{src_lbl}] --[{etype}]--> [{dst_lbl}]  × {c['count']} similar  e.g. {samples}"
+            )
+
+    elided_bits = [f"{k}={v}" for k, v in pruned.dropped.items() if v]
+    if elided_bits:
+        lines.append("")
+        lines.append(f"## Elided\n  {', '.join(elided_bits)}")
+        lines.append("  (LLM note: counts dropped to fit context; absence does not imply benignity)")
+
+    return "\n".join(lines)
