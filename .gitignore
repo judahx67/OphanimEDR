@@ -123,6 +123,9 @@ RESEARCH/
 provenance-website/
 provenance-website-2/
 
+# External reproduction repos + caches/weights (100+ GB — Flash-IDS, kairos)
+external/
+
 CLAUDE.md
 archive/
 darpa_data/

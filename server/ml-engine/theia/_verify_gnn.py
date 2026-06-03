@@ -1,5 +1,5 @@
 """Skeptic's verification of the THEIA FLASH **GNN** result (mirror of
-_verify_lgbm.py, but for the GraphSAGE+Word2Vec model in theia_ours_v3).
+_verify_lgbm.py, but for the GraphSAGE+Word2Vec model).
 
 Runs the exact production inference (20-shard explain-away, evaluate.py /
 theia-gnn-scorer) on the held-out 6r.8 graph and reports, side by side:
@@ -10,7 +10,12 @@ theia-gnn-scorer) on the held-out 6r.8 graph and reports, side by side:
 So the GNN gets the same honest RAW measurement the LGBM already has, making the
 "both FLASH clones collapse without 2-hop" claim airtight.
 
-  RESEARCH/.venv/Scripts/python.exe server/ml-engine/theia/_verify_gnn.py
+Env overrides (used for the shipped-weights re-run, Sprint 0 discrepancy #1):
+  THEIA_WEIGHTS    weights dir (abs ok). default: ours.
+  THEIA_GNN_CACHE  featurized cache path. default: _verify_gnn_feats.pkl (ours).
+                   For shipped weights pass _verify_gnn_feats.flash.pkl.
+
+  PYTHONPATH=external/Flash-IDS python server/ml-engine/theia/_verify_gnn.py
 """
 from __future__ import annotations
 import json, os, pickle, time
@@ -26,9 +31,12 @@ CODE_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path(os.environ.get("THEIA_DATA_ROOT", CODE_ROOT.parents[2] / "external" / "Flash-IDS"))
 TEST_BASE = str(DATA_ROOT / "ta1-theia-e3-official-6r.json")
 TEST_SPLIT = str(DATA_ROOT / "ta1-theia-e3-official-6r.json.8")
-WEIGHTS = CODE_ROOT / os.environ.get("THEIA_WEIGHTS", "trained_weights/theia_ours_v3")
-CACHE = DATA_ROOT / "_verify_gnn_feats.pkl"
-CONF = 0.53
+WEIGHTS = CODE_ROOT / os.environ.get("THEIA_WEIGHTS", "trained_weights/theia_ours")
+CACHE = Path(os.environ.get("THEIA_GNN_CACHE", DATA_ROOT / "_verify_gnn_feats.pkl"))
+# Operating point(s) of the explain-away loop. Single value = canonical run (+2-hop).
+# Comma list (e.g. THEIA_CONF="0.30,0.40,0.53,0.60,0.70") = RAW sensitivity sweep.
+CONF_LIST = [float(c) for c in os.environ.get("THEIA_CONF", "0.53").split(",")]
+CONF = CONF_LIST[0]
 device = torch.device("cpu")
 
 
@@ -70,16 +78,10 @@ def featurize():
     return out
 
 
-def main():
-    t0 = time.time()
-    X, yte, edges, mapp, all_ids = featurize()
-    GT = set(json.load(open(DATA_ROOT / "data_files/theia.json", encoding="utf-8")))
-    print(f"test nodes={len(yte):,}  GT malicious={len(GT):,}  (featurize {time.time()-t0:.0f}s)", flush=True)
-
-    g = Data(x=torch.tensor(X, dtype=torch.float).to(device),
-             y=torch.tensor(yte, dtype=torch.long).to(device),
-             edge_index=torch.tensor(edges, dtype=torch.long).to(device))
-    g.n_id = torch.arange(g.num_nodes)
+def run_explain_away(g, conf, capture_s0=False):
+    """One full 20-shard explain-away pass at threshold `conf`. Returns (flag, s0_pred).
+    Predictions are independent of `conf`, but re-running per conf keeps the cumulative
+    OR-removal semantics exactly faithful to the original (no occurrence caching shortcut)."""
     flag = torch.ones(g.num_nodes, dtype=torch.bool)
     model = fc.GCN(fc.VECTOR_SIZE, 5).to(device)
     s0_pred = None
@@ -90,29 +92,59 @@ def main():
             with torch.no_grad():
                 out = model(subg.x, subg.edge_index)
             s, ind = out.sort(dim=1, descending=True)
-            conf = (s[:, 0] - s[:, 1]) / s[:, 0]
-            conf = (conf - conf.min()) / conf.max()
-            cond = (ind[:, 0] == subg.y) & (conf > CONF)
+            c = (s[:, 0] - s[:, 1]) / s[:, 0]
+            c = (c - c.min()) / c.max()
+            cond = (ind[:, 0] == subg.y) & (c > conf)
             flag[subg.n_id[cond]] = False
-            if m_n == 0:
+            if capture_s0 and m_n == 0:
                 if s0_pred is None:
                     s0_pred = torch.zeros(g.num_nodes, dtype=torch.long)
                 s0_pred[subg.n_id] = ind[:, 0].cpu()
-        print(f"  shard {m_n}: {int(flag.sum().item())} nodes still flagged", flush=True)
+    return flag, s0_pred
+
+
+def raw_metrics(flag, mapp, all_ids, GT):
+    alert_ids = {mapp[x] for x in utils.mask_to_index(flag).tolist()}
+    TP = alert_ids & GT; FP = alert_ids - GT; FN = GT - alert_ids
+    TN = all_ids - (GT | alert_ids)
+    p, r, f = prf(len(TP), len(FP), len(FN))
+    return alert_ids, TP, FP, FN, TN, p, r, f
+
+
+def main():
+    t0 = time.time()
+    print(f"WEIGHTS={WEIGHTS}\nCACHE={CACHE}\nCONF_LIST={CONF_LIST}", flush=True)
+    X, yte, edges, mapp, all_ids = featurize()
+    GT = set(json.load(open(DATA_ROOT / "data_files/theia.json", encoding="utf-8")))
+    print(f"test nodes={len(yte):,}  GT malicious={len(GT):,}  (featurize {time.time()-t0:.0f}s)", flush=True)
+
+    g = Data(x=torch.tensor(X, dtype=torch.float).to(device),
+             y=torch.tensor(yte, dtype=torch.long).to(device),
+             edge_index=torch.tensor(edges, dtype=torch.long).to(device))
+    g.n_id = torch.arange(g.num_nodes)
+
+    if len(CONF_LIST) > 1:
+        # RAW sensitivity sweep: show how the headline F1 moves with the operating point.
+        print("\n=== RAW (no 2-hop) CONF SENSITIVITY SWEEP ===")
+        print("  conf   flagged    TP    FP    FN     P      R      F1")
+        for conf in CONF_LIST:
+            flag, _ = run_explain_away(g, conf)
+            _, TP, FP, FN, _, p, r, f = raw_metrics(flag, mapp, all_ids, GT)
+            print(f"  {conf:0.2f}  {int(flag.sum()):>7}  {len(TP):>4}  {len(FP):>5}  {len(FN):>4}  "
+                  f"{p:0.4f} {r:0.4f} {f:0.4f}", flush=True)
+        return
+
+    conf = CONF_LIST[0]
+    flag, s0_pred = run_explain_away(g, conf, capture_s0=True)
 
     # (a) node-TYPE accuracy of the real model (shard 0)
     type_acc = (s0_pred.numpy() == yte).mean()
     print(f"\n(a) NODE-TYPE classification accuracy (shard0): {type_acc:.4f}  "
           f"-- this is the task the GNN was actually trained on")
 
-    idx = utils.mask_to_index(flag).tolist()
-    alert_ids = {mapp[x] for x in idx}
-
-    # (b) RAW, no 2-hop forgiveness
-    TP = alert_ids & GT; FP = alert_ids - GT; FN = GT - alert_ids
-    TN = all_ids - (GT | alert_ids)
-    p, r, f = prf(len(TP), len(FP), len(FN))
-    print(f"\n(b) RAW (no 2-hop):      TP={len(TP)} FP={len(FP)} FN={len(FN)} TN={len(TN)}  "
+    # (b) RAW, no 2-hop forgiveness  (@conf)
+    alert_ids, TP, FP, FN, TN, p, r, f = raw_metrics(flag, mapp, all_ids, GT)
+    print(f"\n(b) RAW (no 2-hop) @CONF={conf}:  TP={len(TP)} FP={len(FP)} FN={len(FN)} TN={len(TN)}  "
           f"precision={p:.4f} recall={r:.4f} F1={f:.4f}")
 
     # (c) 2-hop adjusted (reproduces evaluate.py headline)
