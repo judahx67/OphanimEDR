@@ -1,0 +1,5 @@
+  + host 0051: 83,940 node-docs (total 83,940)
+  + host 0201: 104,628 node-docs (total 188,568)
+  + host 0501: 304,387 node-docs (total 492,955)
+training Word2Vec dim=20 epochs=50 on 492,955 docs ...
+[done] vocab=52,047 -> J:\THESIS-EDR\server\ml-engine\optc\trained_weights\optc_ours\w2v_optc_ours.model (223s)
