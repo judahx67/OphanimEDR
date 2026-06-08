@@ -209,7 +209,10 @@ class RuleEngine:
         return fired
 
     def _build_incident(self, rule: dict, state: PartialMatch, event: dict) -> dict:
-        incident_id = str(uuid.uuid4())
+        # Deterministic id keyed on (rule, root process) so repeated fires of the
+        # same signature on the same process MERGE into one incident instead of
+        # flooding the list with a fresh uuid per matched edge.
+        incident_id = f"{rule['id']}:{state.root_process_id or 'noroot'}"
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc).isoformat()
 

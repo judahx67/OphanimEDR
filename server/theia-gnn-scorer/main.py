@@ -224,8 +224,9 @@ def run_scoring(scorer, driver, channel, window):
     for u in seeds:
         channel.basic_publish(
             exchange=EXCHANGE, routing_key="ml_alert",
-            body=json.dumps({"node_id": u, "dataset": "theia",
-                             "detector": "gnn_v3", "timestamp": now_ms}),
+            body=json.dumps({"node_id": u, "event_id": u, "dataset": "theia",
+                             "detector": "gnn_v3", "score": 1.0,
+                             "timestamp": now_ms}),
             properties=pika.BasicProperties(delivery_mode=2,
                                             content_type="application/json"),
         )

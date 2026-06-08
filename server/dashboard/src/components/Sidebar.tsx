@@ -279,11 +279,11 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
                 </NavLink>
 
                 <NavLink
-                    to="/ml-scores"
+                    to="/compare"
                     style={({ isActive }) => isActive ? styles.linkActive : styles.link}
                 >
                     <BrainCircuit24Regular style={styles.linkIcon} />
-                    <span>ML Scores</span>
+                    <span>FLASH vs Orthrus</span>
                 </NavLink>
 
             </nav>

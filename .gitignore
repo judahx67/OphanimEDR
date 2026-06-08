@@ -138,3 +138,12 @@ server/ml-engine/experiments
 # OpTC de-blob inference caches + stdout dump (regenerable from gnn_denominator_optc.py)
 server/ml-engine/optc/_deblob_optc_*.pkl
 server/ml-engine/optc/_gnn_denominator_optc.out
+
+# Playwright MCP scratch + UI screenshots (demo verification artifacts)
+.playwright-mcp/
+compare-*.png
+
+# Superseded / unrelated training runs (not wired into the demo stack)
+server/ml-engine/theia/trained_weights/_orthrus_smoke/
+server/ml-engine/theia/trained_weights/orthrus_theia_e3/
+server/ml-engine/theia/trained_weights/theia_novel/

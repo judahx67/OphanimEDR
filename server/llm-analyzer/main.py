@@ -24,7 +24,7 @@ from neo4j import GraphDatabase
 from google import genai
 from google.genai import types as genai_types
 
-from subgraph import pull_subgraph, subgraph_to_text, node_subgraph_to_text
+from subgraph import pull_subgraph, subgraph_to_text, subgraph_to_matched
 from mitre import load_techniques, select_candidates, format_candidates_for_prompt
 import groq_provider
 
@@ -205,11 +205,18 @@ SET
   i.score           = $score,
   i.severity        = $severity,
   i.created_at      = $created_at,
-  i.endpoint_id     = $endpoint_id
+  i.endpoint_id     = $endpoint_id,
+  i.matched_nodes   = $matched_nodes,
+  i.matched_edges   = $matched_edges,
+  i.root_node_id    = $root_node_id
 WITH i
-MATCH (s)-[r {event_id: $event_id}]->(o)
-MERGE (i)-[:TRIGGERED_BY {edge_event_id: $event_id}]->(s)
-MERGE (i)-[:TRIGGERED_BY {edge_event_id: $event_id}]->(o)
+// Root the incident at the flagged node (GNN seed uuid = event_id). Node-rooted,
+// not edge-rooted: the GNN flags a node, so we link the incident to that node and
+// persist its causal neighbourhood as matched_nodes/matched_edges above.
+OPTIONAL MATCH (root {uuid: $root_node_id})
+FOREACH (_ IN CASE WHEN root IS NULL THEN [] ELSE [1] END |
+  MERGE (i)-[:TRIGGERED_BY {node_uuid: $root_node_id}]->(root)
+)
 """
 
 # THEIA node-seed variant: the alert keys on a flagged node (uuid), not an edge.
@@ -248,16 +255,23 @@ def write_incident(
     analysis: dict,
     narrative_raw: str,
     agreement: dict | None = None,
+    subgraph: dict | None = None,
 ) -> None:
     confidence = analysis.get("confidence", "low")
     severity = {"high": "critical", "medium": "high", "low": "medium"}.get(confidence, "medium")
     agreement = agreement or {}
     cypher = _WRITE_NODE_INCIDENT_CYPHER if alert.get("is_node_alert") else _WRITE_INCIDENT_CYPHER
 
+    # Persist the assembled causal subgraph so the dashboard CausalChain has data.
+    matched_nodes, matched_edges = subgraph_to_matched(subgraph or {"nodes": [], "edges": []})
+
     with driver.session() as session:
         session.run(
             cypher,
             event_id=alert["event_id"],
+            matched_nodes=json.dumps(matched_nodes),
+            matched_edges=json.dumps(matched_edges),
+            root_node_id=alert.get("event_id", ""),
             title=analysis.get("attack_hypothesis", "ML-detected anomaly")[:120],
             attack_hypothesis=analysis.get("attack_hypothesis", ""),
             mitre_technique=analysis.get("mitre_technique") or "",
@@ -451,7 +465,12 @@ def main():
     def _dedup_key(alert: dict) -> str:
         subj = alert.get("subject") or {}
         obj = alert.get("object") or {}
-        return f"{subj.get('id','')}|{obj.get('id','')}|{alert.get('edge_type','')}"
+        edge_key = f"{subj.get('id','')}|{obj.get('id','')}|{alert.get('edge_type','')}"
+        # Node-rooted (GNN) alerts carry no subject/object — key on the node id so
+        # distinct seeds aren't collapsed into a single dedup bucket ("||").
+        if edge_key == "||":
+            return alert.get("event_id") or alert.get("node_id") or "||"
+        return edge_key
 
     def _prune_dedup_cache() -> None:
         cutoff = time.time() - DEDUP_WINDOW_SECONDS
@@ -463,6 +482,9 @@ def main():
         nonlocal last_log, narratives_written
         try:
             alert = json.loads(body)
+            # GNN alerts publish node_id only; the rest of the path keys on
+            # event_id. Normalize so a node-rooted alert behaves like an edge one.
+            alert.setdefault("event_id", alert.get("node_id", ""))
             stats["received"] += 1
 
             # THEIA GNN scorer emits node-level seeds; normalise to alert shape.
@@ -489,8 +511,10 @@ def main():
 
             subj = alert.get("subject") or {}
             obj = alert.get("object") or {}
-            subj_id = subj.get("id", "")
-            obj_id = obj.get("id", "")
+            # Node-rooted GNN alerts have no subject/object — root the subgraph at
+            # the flagged node itself so pull_subgraph returns its neighbourhood.
+            subj_id = subj.get("id", "") or alert.get("event_id", "")
+            obj_id = obj.get("id", "") or alert.get("event_id", "")
 
             # 1-hop keeps context manageable; 2-hop can reach 60+ nodes on busy hosts
             subgraph = pull_subgraph(neo4j_driver, subj_id, obj_id, hops=1)
@@ -525,7 +549,7 @@ def main():
                     logger.warning("Groq second-opinion failed: %s", e)
                     agreement = {"agreement_status": "secondary_error"}
 
-            write_incident(neo4j_driver, alert, analysis, raw, agreement)
+            write_incident(neo4j_driver, alert, analysis, raw, agreement, subgraph=subgraph)
 
             narratives_written += 1
             stats["analyzed"] += 1

@@ -24,6 +24,8 @@ from .database import (
     get_ml_edge_by_event_id,
     get_ml_edge_summary,
     get_llm_incident,
+    get_detector_summary,
+    get_detector_comparison,
 )
 from .models import (
     GraphStats,
@@ -258,6 +260,30 @@ async def ml_llm_incident(event_id: str):
     if not result:
         raise HTTPException(status_code=404, detail="No LLM narrative found for this event_id")
     return result
+
+
+# ---------------------------------------------------------------------------
+# Detector comparison  (FLASH GNN vs Orthrus on the same THEIA graph)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/compare/summary", tags=["Compare"])
+async def compare_summary():
+    """Per-label scored/seed counts for FLASH and Orthrus on the shared graph.
+
+    The per-label breakdown is the head-to-head: FLASH floods the abundant
+    node type while flagging 0 Process; Orthrus (once active) flags few/precise.
+    `orthrus_active` is false until the orthrus scorer has written its props.
+    """
+    return await get_detector_summary()
+
+
+@app.get("/api/compare/detectors", tags=["Compare"])
+async def compare_detectors(
+    limit: int = Query(200, ge=1, le=2000),
+    seeds_only: bool = Query(True, description="Only nodes flagged by ≥1 detector"),
+):
+    """Per-node FLASH-vs-Orthrus verdicts on the shared THEIA provenance graph."""
+    return await get_detector_comparison(limit=limit, seeds_only=seeds_only)
 
 
 # ---------------------------------------------------------------------------
