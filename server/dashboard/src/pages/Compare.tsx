@@ -196,7 +196,7 @@ export default function Compare() {
                 }}>
                     Both detectors score the <strong>same THEIA E3 provenance graph</strong> ({t.scored.toLocaleString()} nodes).
                     FLASH (GraphSAGE + Word2Vec, explain-away seeds) over-flags the abundant node
-                    type; Orthrus (temporal encoder-decoder, max-val-loss threshold) is built to
+                    type; Orthrus (GAT encoder + edge-action reconstruction, benign-p99 threshold) is built to
                     flag few, precisely. The per-label flag rate below is the contrast.
                 </p>
             </div>
