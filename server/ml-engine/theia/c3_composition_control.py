@@ -50,10 +50,27 @@ N_EVAL = int(sys.argv[1]) if len(sys.argv) > 1 else 200_000
 CODE2LABEL = {0: "Process", 1: "Memory", 2: "File", 3: "Socket", 4: "User", 5: "User"}
 
 
+def _avg_ranks(x: np.ndarray) -> np.ndarray:
+    """Average (midrank) ranks -- ties get the mean of their rank span.
+    The floor's scores are heavily tied (finite composition table), so plain
+    argsort-argsort ranking assigns arbitrary distinct ranks to ties and
+    biases rho (reviewer critique R3)."""
+    order = np.argsort(x, kind="mergesort")
+    ranks = np.empty(len(x), dtype=np.float64)
+    sx = x[order]
+    i = 0
+    while i < len(sx):
+        j = i
+        while j + 1 < len(sx) and sx[j + 1] == sx[i]:
+            j += 1
+        ranks[order[i:j + 1]] = 0.5 * (i + j)  # midrank of the tie block
+        i = j + 1
+    return ranks
+
+
 def spearman(a: np.ndarray, b: np.ndarray) -> float:
-    """Spearman rho without scipy: Pearson on ranks."""
-    ra = np.argsort(np.argsort(a)).astype(np.float64)
-    rb = np.argsort(np.argsort(b)).astype(np.float64)
+    """Tie-corrected Spearman rho: Pearson on midranks."""
+    ra, rb = _avg_ranks(a), _avg_ranks(b)
     ra -= ra.mean(); rb -= rb.mean()
     denom = np.sqrt((ra * ra).sum() * (rb * rb).sum())
     return float((ra * rb).sum() / denom) if denom else 0.0
