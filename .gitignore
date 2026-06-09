@@ -129,7 +129,8 @@ external/
 CLAUDE.md
 archive/
 darpa_data/
-datasets/
+datasets/*
+!datasets/papers/
 splunk-botsv2_data/
 .claude/
 .github/
@@ -147,3 +148,6 @@ compare-*.png
 server/ml-engine/theia/trained_weights/_orthrus_smoke/
 server/ml-engine/theia/trained_weights/orthrus_theia_e3/
 server/ml-engine/theia/trained_weights/theia_novel/
+
+# Cited paper PDFs (citation stability for the thesis appendix)
+!datasets/papers/

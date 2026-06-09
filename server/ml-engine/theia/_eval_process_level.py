@@ -170,10 +170,13 @@ def main():
 
     explain_away_process(Xw2v, struct[:, 4].astype(int), ymal, isproc, mapp)
 
-    # temporal split at median malicious first-seen ts
-    cut = np.median(ts[ymal])
+    # temporal split. Default cut = median malicious first-seen ts (label-informed
+    # placement -- guarantees positives on both sides). CUT_MODE=agnostic uses the
+    # median of ALL node timestamps instead (label-agnostic sensitivity check).
+    cut_mode = os.environ.get("CUT_MODE", "mal")
+    cut = np.median(ts[ts > 0]) if cut_mode == "agnostic" else np.median(ts[ymal])
     tr, te = ts < cut, ts >= cut
-    print(f"\ntemporal cut @ p50(mal ts): train={tr.sum():,} (pos {int(ymal[tr].sum())}) "
+    print(f"\ntemporal cut [{cut_mode}] @ {int(cut)}: train={tr.sum():,} (pos {int(ymal[tr].sum())}) "
           f"test={te.sum():,} (pos {int(ymal[te].sum())})")
     Xc = Xw2v
     Xcs = np.hstack([Xw2v, struct])
