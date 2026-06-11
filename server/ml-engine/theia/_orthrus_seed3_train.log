@@ -1,0 +1,22 @@
+device=cpu  seed=3
+loading w2v...
+reading benign edges: train=300,000 val=100,000
+  train rows=300,000  val rows=100,000
+  action vocab: 19 classes -> ['EVENT_BOOT', 'EVENT_CLONE', 'EVENT_CONNECT', 'EVENT_EXECUTE', 'EVENT_MMAP', 'EVENT_MODIFY_FILE_ATTRIBUTES', 'EVENT_MPROTECT', 'EVENT_OPEN']...
+building graphs (w2v featurize)...
+  train graph: 9,905 nodes / 300,000 edges
+  val   graph: 4,196 nodes / 100,000 edges
+training (edge-action reconstruction)...
+  epoch   1  loss=3.0225  edge-acc=0.003  (1s)
+  epoch   5  loss=1.5752  edge-acc=0.567  (5s)
+  epoch  10  loss=1.0759  edge-acc=0.705  (9s)
+  epoch  15  loss=0.8275  edge-acc=0.762  (14s)
+  epoch  20  loss=0.7567  edge-acc=0.775  (19s)
+  epoch  25  loss=0.6891  edge-acc=0.781  (24s)
+  epoch  30  loss=0.6679  edge-acc=0.796  (29s)
+  epoch  35  loss=0.6801  edge-acc=0.783  (34s)
+  epoch  40  loss=0.6080  edge-acc=0.801  (39s)
+
+benign val per-node loss: p50=0.0268 p90=3.6419 p99=5.8575 p99.9=11.2325 max=15.2556
+operating threshold (benign p99) = 5.8575
+saved encoder/decoder/meta -> trained_weights/theia_orthrus_s3

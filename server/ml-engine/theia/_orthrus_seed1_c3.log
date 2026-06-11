@@ -1,0 +1,31 @@
+eval edges = 200,000  (train=300,000 calib=100,000)
+loading w2v + weights...
+reading benign train/val...
+  composition table: 5 (actor_type,object_type) pairs
+calibrating p99 on benign val window...
+  orthrus p99 = 6.5047  (meta threshold = 6.5047)
+  floor   p99 = 4.6077
+building eval graph + scoring both detectors...
+
+eval nodes = 7,726  orthrus flags = 414  floor flags = 93
+
+per-label flag counts (flagged / total):
+  label             orthrus            floor
+  Process      30/216    (13.9%)     75/216    (34.7%)
+  File         18/1468   ( 1.2%)     15/1468   ( 1.0%)
+  Socket      363/615    (59.0%)      0/615    ( 0.0%)
+  Memory        2/5426   ( 0.0%)      2/5426   ( 0.0%)
+  User          1/1      (100.0%)      1/1      (100.0%)
+
+overlap of flagged sets: both=45  jaccard=0.097
+  of orthrus flags, floor also flags: 10.9%
+  of floor   flags, orthrus also flags: 48.4%
+spearman rho(orthrus, floor) over ALL eval nodes = 0.412
+
+WITHIN Process (n=216) -- type held constant:
+  orthrus flags=30  floor flags=75  overlap=30
+  spearman rho(orthrus, floor) among processes = 0.792
+
+INTERPRETATION:
+  high rho + high overlap + matching per-label profile -> Orthrus == composition floor (artifact).
+  low within-Process rho / different processes flagged   -> Orthrus adds learned signal.

@@ -37,7 +37,7 @@ import theia_orthrus_common as oc
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 W2V_PATH = os.path.join(HERE, "trained_weights/theia_ours_v3/word2vec_theia_E3.model")
-WEIGHTS = os.path.join(HERE, "trained_weights/theia_orthrus_v1")
+WEIGHTS = os.path.join(HERE, os.environ.get("ORTHRUS_WEIGHTS", "trained_weights/theia_orthrus_v1"))
 EXT = os.path.join(HERE, "../../../external/Flash-IDS")
 TRAIN_TXT = os.path.join(EXT, "theia_train.txt")
 TEST_TXT = os.path.join(EXT, "theia_test.txt")

@@ -44,10 +44,14 @@ def main():
     ap.add_argument("--val-edges", type=int, default=int(os.environ.get("ORTHRUS_VAL_EDGES", 100000)))
     ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--lr", type=float, default=0.005)
+    ap.add_argument("--seed", type=int, default=None,
+                    help="torch RNG seed (init + any sampling); set for multi-seed variance runs")
     args = ap.parse_args()
 
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"device={device}")
+    print(f"device={device}  seed={args.seed}")
 
     print("loading w2v...", flush=True)
     w2v = Word2Vec.load(args.w2v)
@@ -121,6 +125,7 @@ def main():
         "train_edges": args.train_edges,
         "val_edges": args.val_edges,
         "epochs": args.epochs,
+        "seed": args.seed,
     }
     with open(os.path.join(args.out, "meta.json"), "w") as fw:
         json.dump(meta, fw, indent=2)
