@@ -1,0 +1,13 @@
+=== PHASE 3 NOVELTY: benign-real vs uniform-background LightGBM-XT, LOHO, RAW, n_estimators=300 feat_mode=loho ===
+
+[test=0051 train-benign=['0201', '0501']]
+  NODE       pos= 180/ 83940 base=0.0021 PR-AUC=0.0030 ROC=0.5751 lift=1.4x R@10fp=0.000 R@50fp=0.000 R@100fp=0.000
+  PROCESS    pos=   8/  1839 base=0.0044 PR-AUC=0.0158 ROC=0.7027 lift=3.6x R@10fp=0.000 R@50fp=0.125 R@100fp=0.250
+
+[test=0201 train-benign=['0051', '0501']]
+  NODE       pos=  67/104628 base=0.0006 PR-AUC=0.0016 ROC=0.8093 lift=2.5x R@10fp=0.000 R@50fp=0.000 R@100fp=0.000
+  PROCESS    pos=  58/  3355 base=0.0173 PR-AUC=0.0154 ROC=0.4280 lift=0.9x R@10fp=0.000 R@50fp=0.034 R@100fp=0.034
+
+[test=0501 train-benign=['0051', '0201']]
+  NODE       pos= 410/304387 base=0.0013 PR-AUC=0.0136 ROC=0.9452 lift=10.1x R@10fp=0.000 R@50fp=0.000 R@100fp=0.000
+  PROCESS    pos=  33/  7314 base=0.0045 PR-AUC=0.0085 ROC=0.6285 lift=1.9x R@10fp=0.000 R@50fp=0.000 R@100fp=0.000

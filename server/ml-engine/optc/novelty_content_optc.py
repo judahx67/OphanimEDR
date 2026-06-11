@@ -23,15 +23,19 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 CODE_ROOT = Path(__file__).resolve().parent
 GT_TXT = CODE_ROOT.parents[2] / "external" / "Flash-IDS" / "data_files" / "optc.txt"
 TAG = os.environ.get("FEAT_TAG", "ours")
+# FEAT_MODE=loho: per-fold features tagged loho<test_host>, produced from a w2v
+# trained on that fold's two TRAIN hosts only (audit O2 — removes the
+# transductive vocabulary). Default "fixed" = single all-hosts w2v (FLASH-faithful).
+FEAT_MODE = os.environ.get("FEAT_MODE", "fixed")
 N_EST = int(os.environ.get("GNN_ESTIMATORS", "300"))
 HOSTS = ["0051", "0201", "0501"]
 PROCESS = 0
 rng = np.random.default_rng(42)
 
 
-def load_host(host, gt_all):
+def load_host(host, gt_all, tag=TAG):
     c = pickle.load(open(CODE_ROOT / f"_cache_{host}.pkl", "rb"))
-    X = np.load(CODE_ROOT / f"_feat_{host}_{TAG}.npz")["X"].astype(np.float32)
+    X = np.load(CODE_ROOT / f"_feat_{host}_{tag}.npz")["X"].astype(np.float32)
     ybin = np.array([1 if u in gt_all else 0 for u in c["mapp"]], dtype=np.int64)
     ntype = np.array(c["labels"], dtype=np.int64)
     return X, ybin, ntype
@@ -63,11 +67,15 @@ def report(y, score, tag):
 
 def main():
     gt_all = set(GT_TXT.read_text(encoding="utf-8").split())
-    data = {h: load_host(h, gt_all) for h in HOSTS}
     log = [f"=== PHASE 3 NOVELTY: benign-real vs uniform-background LightGBM-XT, LOHO, RAW, "
-           f"n_estimators={N_EST} ==="]
+           f"n_estimators={N_EST} feat_mode={FEAT_MODE} ==="]
+    if FEAT_MODE != "loho":
+        data = {h: load_host(h, gt_all) for h in HOSTS}
     for test_h in HOSTS:
         tr = [h for h in HOSTS if h != test_h]
+        if FEAT_MODE == "loho":
+            # every host featurized with THIS fold's train-hosts-only w2v
+            data = {h: load_host(h, gt_all, tag=f"loho{test_h}") for h in HOSTS}
         Xb = np.vstack([data[h][0][data[h][1] == 0] for h in tr])  # benign-only train
         Xbg = background(Xb, len(Xb))
         Xtr = np.vstack([Xb, Xbg]); ytr = np.r_[np.zeros(len(Xb)), np.ones(len(Xbg))]
@@ -82,8 +90,9 @@ def main():
         log.append(report(yte, s, "NODE"))
         log.append(report(yte[pmask], s[pmask], "PROCESS"))
         print("\n".join(log[-3:]), flush=True)
-    (CODE_ROOT / "_novelty_content_optc.log").write_text("\n".join(log), encoding="utf-8")
-    print("\nDONE -> _novelty_content_optc.log", flush=True)
+    suffix = "_loho_w2v" if FEAT_MODE == "loho" else ""
+    (CODE_ROOT / f"_novelty_content_optc{suffix}.log").write_text("\n".join(log), encoding="utf-8")
+    print(f"\nDONE -> _novelty_content_optc{suffix}.log", flush=True)
 
 
 if __name__ == "__main__":
