@@ -283,7 +283,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
                     style={({ isActive }) => isActive ? styles.linkActive : styles.link}
                 >
                     <BrainCircuit24Regular style={styles.linkIcon} />
-                    <span>FLASH vs Orthrus</span>
+                    <span>FLASH vs Orthrus-style</span>
                 </NavLink>
 
             </nav>

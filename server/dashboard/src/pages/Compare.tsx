@@ -189,26 +189,28 @@ export default function Compare() {
                     fontFamily: 'var(--font-sans)', fontSize: 28, fontWeight: 700,
                     color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.02em',
                     margin: 0,
-                }}>FLASH vs Orthrus</h1>
+                }}>FLASH vs Orthrus-style (ours)</h1>
                 <p style={{
                     fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--text-secondary)',
                     marginTop: 6, maxWidth: 720, lineHeight: 1.6,
                 }}>
                     Both detectors score the <strong>same THEIA E3 provenance graph</strong> ({t.scored.toLocaleString()} nodes).
-                    FLASH (GraphSAGE + Word2Vec, explain-away seeds) over-flags the abundant node
-                    type; Orthrus (GAT encoder + edge-action reconstruction, benign-p99 threshold) is built to
-                    flag few, precisely. The per-label flag rate below is the contrast.
+                    FLASH (GraphSAGE + Word2Vec, explain-away seeds) and our re-implementation of the
+                    Orthrus method (GAT encoder + edge-action reconstruction, benign-p99 threshold)
+                    distribute their flags differently over identical telemetry — different objectives
+                    and operating points, no ground truth on this slice. The per-label flag rate below
+                    is the contrast.
                 </p>
             </div>
 
             {/* Detector headlines */}
             <div style={{ display: 'flex', gap: 16 }}>
                 <DetectorHeadline
-                    name="FLASH (flood)" sub="explain-away seeds" color={FLASH_COLOR}
+                    name="FLASH (reproduction)" sub="explain-away seeds" color={FLASH_COLOR}
                     flags={t.flash_seeds} active
                 />
                 <DetectorHeadline
-                    name="Orthrus (precise)" sub="reconstruction loss" color={ORTHRUS_COLOR}
+                    name="Orthrus-style (ours)" sub="reconstruction loss" color={ORTHRUS_COLOR}
                     flags={t.orthrus_seeds} active={orthrusActive}
                 />
                 <div style={{
@@ -224,7 +226,7 @@ export default function Compare() {
                         color: 'var(--text-primary)', lineHeight: 1,
                     }}>{orthrusActive ? t.both_seeds.toLocaleString() : '—'}</div>
                     <div style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-muted)' }}>
-                        {orthrusActive ? 'nodes flagged by both' : 'awaiting Orthrus scorer'}
+                        {orthrusActive ? 'nodes flagged by both' : 'awaiting Orthrus-style scorer'}
                     </div>
                 </div>
             </div>
@@ -252,7 +254,7 @@ export default function Compare() {
                     <span>Type</span>
                     <span style={{ textAlign: 'right' }}>Scored</span>
                     <span style={{ color: FLASH_COLOR }}>FLASH flags</span>
-                    <span style={{ color: ORTHRUS_COLOR }}>Orthrus flags</span>
+                    <span style={{ color: ORTHRUS_COLOR }}>Orthrus-style flags</span>
                 </div>
                 {summary.per_label.map(row => (
                     <LabelContrastRow key={row.label} row={row} orthrusActive={orthrusActive} />
@@ -271,7 +273,7 @@ export default function Compare() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ borderBottom: '2px solid var(--border-strong)' }}>
-                            {['Type', 'Node', 'FLASH', 'Orthrus', 'Orthrus score'].map(h => (
+                            {['Type', 'Node', 'FLASH', 'Orthrus-style', 'score'].map(h => (
                                 <th key={h} style={{
                                     padding: '10px 14px', textAlign: 'left',
                                     fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600,
