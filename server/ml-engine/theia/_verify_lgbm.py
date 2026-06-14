@@ -21,7 +21,7 @@ DATA_ROOT = Path(os.environ.get("THEIA_DATA_ROOT", CODE_ROOT.parents[2] / "exter
 TEST_BASE = str(DATA_ROOT / "ta1-theia-e3-official-6r.json")
 TEST_SPLIT = str(DATA_ROOT / "ta1-theia-e3-official-6r.json.8")
 LGBM_W = CODE_ROOT / "trained_weights/theia_lgbm"
-W2V = CODE_ROOT / "trained_weights/theia_ours_v2/word2vec_theia_E3.model"
+W2V = CODE_ROOT / "trained_weights/theia_ours_v3/word2vec_theia_E3.model"
 
 
 def conf_margin(proba):

@@ -28,7 +28,7 @@ DATA_ROOT = Path(os.environ.get("THEIA_DATA_ROOT", CODE_ROOT.parents[2] / "exter
 TEST_BASE = str(DATA_ROOT / "ta1-theia-e3-official-6r.json")
 TEST_SPLIT = str(DATA_ROOT / "ta1-theia-e3-official-6r.json.8")
 LGBM_W = CODE_ROOT / "trained_weights/theia_lgbm"
-W2V = CODE_ROOT / "trained_weights/theia_ours_v2/word2vec_theia_E3.model"
+W2V = CODE_ROOT / "trained_weights/theia_ours_v3/word2vec_theia_E3.model"
 CACHE = DATA_ROOT / "_eval_cache.npz"
 GT = set(u for u in json.load(open(DATA_ROOT / "data_files/theia.json", encoding="utf-8")) if u)
 

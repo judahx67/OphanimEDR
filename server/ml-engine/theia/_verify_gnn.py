@@ -31,7 +31,7 @@ CODE_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path(os.environ.get("THEIA_DATA_ROOT", CODE_ROOT.parents[2] / "external" / "Flash-IDS"))
 TEST_BASE = str(DATA_ROOT / "ta1-theia-e3-official-6r.json")
 TEST_SPLIT = str(DATA_ROOT / "ta1-theia-e3-official-6r.json.8")
-WEIGHTS = CODE_ROOT / os.environ.get("THEIA_WEIGHTS", "trained_weights/theia_ours")
+WEIGHTS = CODE_ROOT / os.environ.get("THEIA_WEIGHTS", "trained_weights/theia_ours_v3")
 CACHE = Path(os.environ.get("THEIA_GNN_CACHE", DATA_ROOT / "_verify_gnn_feats.pkl"))
 # Operating point(s) of the explain-away loop. Single value = canonical run (+2-hop).
 # Comma list (e.g. THEIA_CONF="0.30,0.40,0.53,0.60,0.70") = RAW sensitivity sweep.
