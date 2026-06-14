@@ -152,19 +152,10 @@ class Scorer:
         return seeds, set(mapp)
 
 
-# CDM object type -> Neo4j label (mirrors ingest._CDM_NODE + graph-builder.LABELS).
-# Used so the seed write MATCHes per-label and hits the per-label uuid index;
-# a label-less MATCH (n {uuid}) does an AllNodesScan per row -> O(N^2) at scale.
-CDM_LABEL = {
-    "SUBJECT_PROCESS": "Process",
-    "FILE_OBJECT_BLOCK": "File", "FILE_OBJECT_FILE": "File", "FILE_OBJECT_DIR": "File",
-    "NetFlowObject": "Socket",
-    "MemoryObject": "Memory",
-    "UnnamedPipeObject": "Pipe",
-    "PRINCIPAL_LOCAL": "User", "PRINCIPAL_REMOTE": "User",
-}
+# Labels carrying a per-label uuid uniqueness constraint (= usable index). The
+# seed write runs against each in turn and hits the per-label uuid index; a
+# label-less MATCH (n {uuid}) would do an AllNodesScan per row -> O(N^2).
 VALID_LABELS = {"Process", "File", "Socket", "Memory", "Pipe", "User"}
-DEFAULT_LABEL = "File"
 
 # Dynamic label can't be parameterised in Cypher; we group rows by label and
 # interpolate the (enum-restricted) label into the query.
@@ -213,12 +204,6 @@ def run_scoring(scorer, driver, channel, window):
     seeds, scored = scorer.score(df)
     now_ms = int(time.time() * 1000)
 
-    # uuid -> Neo4j label from the window (actorID/actor_cdm, objectID/object_cdm)
-    uuid_label = {}
-    for r in rows:
-        uuid_label[r[0]] = CDM_LABEL.get(r[1], DEFAULT_LABEL)
-        uuid_label[r[2]] = CDM_LABEL.get(r[3], DEFAULT_LABEL)
-
     # Publish seeds FIRST so the metric/LLM don't depend on the (slower) Neo4j
     # write completing.
     for u in seeds:
@@ -231,16 +216,14 @@ def run_scoring(scorer, driver, channel, window):
                                             content_type="application/json"),
         )
 
-    # Group scored nodes by label, write per-label (uses per-label uuid index).
-    by_label = {}
-    for u in scored:
-        by_label.setdefault(uuid_label.get(u, DEFAULT_LABEL), []).append(
-            {"uuid": u, "seed": (u in seeds), "scored_at": now_ms})
+    # Write every scored node under its TRUE label: run the full batch against
+    # each label's uuid index (a uuid matches under exactly one). We no longer
+    # guess the label from the edge — the guess dropped seeds whenever it
+    # disagreed with graph-builder's label. Index lookups keep this O(labels*N).
+    rows_out = [{"uuid": u, "seed": (u in seeds), "scored_at": now_ms} for u in scored]
     with driver.session() as session:
-        for label, wr in by_label.items():
-            if label not in VALID_LABELS:
-                continue
-            session.run(_WRITE_CYPHER.format(label=label), rows=wr)
+        for label in VALID_LABELS:
+            session.run(_WRITE_CYPHER.format(label=label), rows=rows_out)
     logger.info("scored window: edges=%d nodes=%d seeds=%d (%.1fs)",
                 len(rows), len(scored), len(seeds), time.time() - t0)
 

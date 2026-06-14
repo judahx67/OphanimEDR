@@ -117,17 +117,10 @@ class Scorer:
         return seeds, scores
 
 
-# CDM object type -> Neo4j label (mirrors theia-gnn-scorer).
-CDM_LABEL = {
-    "SUBJECT_PROCESS": "Process",
-    "FILE_OBJECT_BLOCK": "File", "FILE_OBJECT_FILE": "File", "FILE_OBJECT_DIR": "File",
-    "NetFlowObject": "Socket",
-    "MemoryObject": "Memory",
-    "UnnamedPipeObject": "Pipe",
-    "PRINCIPAL_LOCAL": "User", "PRINCIPAL_REMOTE": "User",
-}
+# Labels carrying a per-label uuid uniqueness constraint (= usable index).
+# We write the scored batch against each in turn; every uuid matches under
+# exactly one of them.
 VALID_LABELS = {"Process", "File", "Socket", "Memory", "Pipe", "User"}
-DEFAULT_LABEL = "File"
 
 _WRITE_CYPHER = (
     "UNWIND $rows AS row "
@@ -175,20 +168,18 @@ def run_scoring(scorer, driver, window):
     seeds, scores = scorer.score(df)
     now_ms = int(time.time() * 1000)
 
-    uuid_label = {}
-    for r in rows:
-        uuid_label[r[0]] = CDM_LABEL.get(r[1], DEFAULT_LABEL)
-        uuid_label[r[2]] = CDM_LABEL.get(r[3], DEFAULT_LABEL)
-
-    by_label = {}
-    for u, s in scores.items():
-        by_label.setdefault(uuid_label.get(u, DEFAULT_LABEL), []).append(
-            {"uuid": u, "score": s, "seed": (u in seeds), "scored_at": now_ms})
+    # Write every scored node under its TRUE label: run the full batch against
+    # each label's uuid index. A uuid exists under exactly one label, so the
+    # other label-queries are harmless index no-ops. We do NOT guess the label
+    # from the edge anymore — that guess was wrong for ~8% of nodes and silently
+    # dropped ~58% of seeds, so persisted /compare counts undercounted the
+    # scorer's own output. Index lookups (not a label-less AllNodesScan) keep
+    # this O(labels * N), cheap at demo scale.
+    rows_out = [{"uuid": u, "score": s, "seed": (u in seeds), "scored_at": now_ms}
+                for u, s in scores.items()]
     with driver.session() as session:
-        for label, wr in by_label.items():
-            if label not in VALID_LABELS:
-                continue
-            session.run(_WRITE_CYPHER.format(label=label), rows=wr)
+        for label in VALID_LABELS:
+            session.run(_WRITE_CYPHER.format(label=label), rows=rows_out)
     logger.info("scored window: edges=%d nodes=%d seeds=%d (%.1fs)",
                 len(rows), len(scores), len(seeds), time.time() - t0)
 
