@@ -177,9 +177,17 @@ def run_scoring(scorer, driver, window):
     # this O(labels * N), cheap at demo scale.
     rows_out = [{"uuid": u, "score": s, "seed": (u in seeds), "scored_at": now_ms}
                 for u, s in scores.items()]
+
+    def _write(tx):
+        # SORTED label order + managed-txn retry: the gnn and orthrus scorers both
+        # write the same nodes under every label at the same idle tick, so a
+        # consistent lock-acquisition order (sorted, not set-iteration order which
+        # differs per process) plus execute_write's auto-retry on Neo4j
+        # DeadlockDetected (TransientError) stops the two writers deadlocking.
+        for label in sorted(VALID_LABELS):
+            tx.run(_WRITE_CYPHER.format(label=label), rows=rows_out)
     with driver.session() as session:
-        for label in VALID_LABELS:
-            session.run(_WRITE_CYPHER.format(label=label), rows=rows_out)
+        session.execute_write(_write)
     logger.info("scored window: edges=%d nodes=%d seeds=%d (%.1fs)",
                 len(rows), len(scores), len(seeds), time.time() - t0)
 
