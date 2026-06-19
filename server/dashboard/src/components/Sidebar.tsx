@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom'
 import {
     Home24Regular,
     Desktop24Regular,
-    Shield24Regular,
     Warning24Regular,
     Settings24Regular,
     PaintBrush24Regular,
@@ -233,7 +232,7 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
                 <div>
                     <div style={styles.logoText}>Ophanim</div>
                     <div style={styles.logoSubtext}>
-                        {modern ? 'EDR Terminal' : 'EDR Dashboard'}
+                        {modern ? 'IDS Terminal' : 'IDS Dashboard'}
                     </div>
                 </div>
             </div>
@@ -271,19 +270,11 @@ function Sidebar({ theme, onSetTheme }: SidebarProps) {
                 </NavLink>
 
                 <NavLink
-                    to="/problems"
-                    style={({ isActive }) => isActive ? styles.linkActive : styles.link}
-                >
-                    <Shield24Regular style={styles.linkIcon} />
-                    <span>Detections</span>
-                </NavLink>
-
-                <NavLink
                     to="/compare"
                     style={({ isActive }) => isActive ? styles.linkActive : styles.link}
                 >
                     <BrainCircuit24Regular style={styles.linkIcon} />
-                    <span>FLASH vs Orthrus-style</span>
+                    <span>FLASH vs Orthrus</span>
                 </NavLink>
 
             </nav>

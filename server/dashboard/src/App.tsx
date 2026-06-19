@@ -10,9 +10,7 @@ import Header from './components/Header'
 import EndpointsList from './pages/EndpointsList'
 import EndpointDetails from './pages/EndpointDetails'
 import Dashboard from './pages/Dashboard'
-import Problems from './pages/Problems'
 import Incidents from './pages/Incidents'
-import MLScores from './pages/MLScores'
 import Compare from './pages/Compare'
 
 export type ThemeName = 'classic' | 'light' | 'dark'
@@ -78,10 +76,8 @@ function App() {
                             <Route path="/" element={<Dashboard />} />
                             <Route path="/endpoints" element={<EndpointsList />} />
                             <Route path="/endpoints/:id" element={<EndpointDetails />} />
-                            <Route path="/problems" element={<Problems />} />
                             <Route path="/incidents" element={<Incidents />} />
                             <Route path="/compare" element={<Compare />} />
-                            <Route path="/ml-scores" element={<MLScores />} />
                         </Routes>
                     </main>
                 </div>

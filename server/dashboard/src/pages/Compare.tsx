@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Spinner } from '@fluentui/react-components'
 import axios from 'axios'
+import CompareDetail from '../components/CompareDetail'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,7 @@ const NODE_LABEL_COLORS: Record<string, string> = {
 
 const FLASH_COLOR = '#dc2626'   // flood / red
 const ORTHRUS_COLOR = '#16a34a' // precise / green
+const PAGE_SIZE = 50            // flagged-node rows per page
 
 function pct(n: number, d: number): number {
     return d > 0 ? (100 * n) / d : 0
@@ -153,11 +155,16 @@ export default function Compare() {
     const [rows, setRows] = useState<DetectorRow[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    // Click-to-expand a detection into its detail (edges + LLM analysis + Sigma).
+    const [expanded, setExpanded] = useState<string | null>(null)
+    const toggle = (uuid: string) => setExpanded(prev => prev === uuid ? null : uuid)
+    const [page, setPage] = useState(0)
 
     useEffect(() => {
         Promise.all([
             axios.get<Summary>('/api/compare/summary'),
-            axios.get<DetectorRow[]>('/api/compare/detectors?limit=300&seeds_only=true'),
+            // Fetch the full flagged set (≈1k); paginate client-side below.
+            axios.get<DetectorRow[]>('/api/compare/detectors?limit=2000&seeds_only=true'),
         ])
             .then(([s, r]) => { setSummary(s.data); setRows(r.data) })
             .catch(e => setError(String(e)))
@@ -170,6 +177,11 @@ export default function Compare() {
 
     const orthrusActive = summary.orthrus_active
     const t = summary.totals
+
+    const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+    const safePage = Math.min(page, totalPages - 1)
+    const start = safePage * PAGE_SIZE
+    const pageRows = rows.slice(start, start + PAGE_SIZE)
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -189,18 +201,7 @@ export default function Compare() {
                     fontFamily: 'var(--font-sans)', fontSize: 28, fontWeight: 700,
                     color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.02em',
                     margin: 0,
-                }}>FLASH vs Orthrus-style (ours)</h1>
-                <p style={{
-                    fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--text-secondary)',
-                    marginTop: 6, maxWidth: 720, lineHeight: 1.6,
-                }}>
-                    Both detectors score the <strong>same THEIA E3 provenance graph</strong> ({t.scored.toLocaleString()} nodes).
-                    FLASH (GraphSAGE + Word2Vec, explain-away seeds) and our re-implementation of the
-                    Orthrus method (GAT encoder + edge-action reconstruction, benign-p99 threshold)
-                    distribute their flags differently over identical telemetry — different objectives
-                    and operating points, no ground truth on this slice. The per-label flag rate below
-                    is the contrast.
-                </p>
+                }}>FLASH vs Orthrus</h1>
             </div>
 
             {/* Detector headlines */}
@@ -210,7 +211,7 @@ export default function Compare() {
                     flags={t.flash_seeds} active
                 />
                 <DetectorHeadline
-                    name="Orthrus-style (ours)" sub="reconstruction loss" color={ORTHRUS_COLOR}
+                    name="Orthrus" sub="reconstruction loss" color={ORTHRUS_COLOR}
                     flags={t.orthrus_seeds} active={orthrusActive}
                 />
                 <div style={{
@@ -226,7 +227,7 @@ export default function Compare() {
                         color: 'var(--text-primary)', lineHeight: 1,
                     }}>{orthrusActive ? t.both_seeds.toLocaleString() : '—'}</div>
                     <div style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-muted)' }}>
-                        {orthrusActive ? 'nodes flagged by both' : 'awaiting Orthrus-style scorer'}
+                        {orthrusActive ? 'nodes flagged by both' : 'awaiting Orthrus scorer'}
                     </div>
                 </div>
             </div>
@@ -254,7 +255,7 @@ export default function Compare() {
                     <span>Type</span>
                     <span style={{ textAlign: 'right' }}>Scored</span>
                     <span style={{ color: FLASH_COLOR }}>FLASH flags</span>
-                    <span style={{ color: ORTHRUS_COLOR }}>Orthrus-style flags</span>
+                    <span style={{ color: ORTHRUS_COLOR }}>Orthrus flags</span>
                 </div>
                 {summary.per_label.map(row => (
                     <LabelContrastRow key={row.label} row={row} orthrusActive={orthrusActive} />
@@ -269,12 +270,12 @@ export default function Compare() {
                     padding: '14px 18px', borderBottom: '1px solid var(--border-light)',
                     fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600,
                     color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em',
-                }}>Flagged nodes ({rows.length})</div>
+                }}>Flagged nodes ({rows.length.toLocaleString()}) — click a detection for edges, LLM analysis and SIEM export</div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ borderBottom: '2px solid var(--border-strong)' }}>
-                            {['Type', 'Node', 'FLASH', 'Orthrus-style', 'score'].map(h => (
-                                <th key={h} style={{
+                            {['', 'Type', 'Node', 'FLASH', 'Orthrus', 'score'].map((h, i) => (
+                                <th key={i} style={{
                                     padding: '10px 14px', textAlign: 'left',
                                     fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600,
                                     color: 'var(--text-muted)', textTransform: 'uppercase',
@@ -284,39 +285,94 @@ export default function Compare() {
                         </tr>
                     </thead>
                     <tbody>
-                        {rows.map((r, i) => (
-                            <tr key={r.uuid || i} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                                <td style={{ padding: '8px 14px' }}>
-                                    <span style={{
-                                        fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700,
-                                        color: '#fff', background: NODE_LABEL_COLORS[r.label] || '#888',
-                                        padding: '2px 7px',
-                                    }}>{r.label}</span>
-                                </td>
-                                <td style={{
-                                    padding: '8px 14px', fontFamily: 'var(--font-ui)', fontSize: 12,
-                                    color: 'var(--text-primary)', maxWidth: 360, overflow: 'hidden',
-                                    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                }} title={`${r.name}\n${r.uuid}`}>{r.name}</td>
-                                <td style={{ padding: '8px 14px' }}>
-                                    <Verdict on={r.flash_seed} label="FLAG" color={FLASH_COLOR} />
-                                </td>
-                                <td style={{ padding: '8px 14px' }}>
-                                    {r.orthrus_scored
-                                        ? <Verdict on={r.orthrus_seed} label="FLAG" color={ORTHRUS_COLOR} />
-                                        : <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-muted)' }}>pending</span>}
-                                </td>
-                                <td style={{
-                                    padding: '8px 14px', fontFamily: 'var(--font-ui)', fontSize: 11,
-                                    color: 'var(--text-secondary)',
-                                }}>
-                                    {r.orthrus_score != null ? r.orthrus_score.toFixed(4) : '—'}
-                                </td>
-                            </tr>
-                        ))}
+                        {pageRows.map((r, i) => {
+                            const isOpen = expanded === r.uuid
+                            return (
+                                <Fragment key={r.uuid || i}>
+                                    <tr onClick={() => toggle(r.uuid)}
+                                        style={{
+                                            borderBottom: isOpen ? 'none' : '1px solid var(--border-light)',
+                                            cursor: 'pointer',
+                                            background: isOpen ? 'var(--bg-hover)' : 'transparent',
+                                        }}>
+                                        <td style={{ padding: '8px 14px', color: 'var(--accent-primary)' }}>{isOpen ? '▾' : '▸'}</td>
+                                        <td style={{ padding: '8px 14px' }}>
+                                            <span style={{
+                                                fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700,
+                                                color: '#fff', background: NODE_LABEL_COLORS[r.label] || '#888',
+                                                padding: '2px 7px',
+                                            }}>{r.label}</span>
+                                        </td>
+                                        <td style={{
+                                            padding: '8px 14px', fontFamily: 'var(--font-ui)', fontSize: 12,
+                                            color: 'var(--text-primary)', maxWidth: 360, overflow: 'hidden',
+                                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                        }} title={`${r.name}\n${r.uuid}`}>
+                                            {r.name}
+                                        </td>
+                                        <td style={{ padding: '8px 14px' }}>
+                                            <Verdict on={r.flash_seed} label="FLAG" color={FLASH_COLOR} />
+                                        </td>
+                                        <td style={{ padding: '8px 14px' }}>
+                                            {r.orthrus_scored
+                                                ? <Verdict on={r.orthrus_seed} label="FLAG" color={ORTHRUS_COLOR} />
+                                                : <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-muted)' }}>pending</span>}
+                                        </td>
+                                        <td style={{
+                                            padding: '8px 14px', fontFamily: 'var(--font-ui)', fontSize: 11,
+                                            color: 'var(--text-secondary)',
+                                        }}>
+                                            {r.orthrus_score != null ? r.orthrus_score.toFixed(4) : '—'}
+                                        </td>
+                                    </tr>
+                                    {isOpen && (
+                                        <tr style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                            <td colSpan={6} style={{ padding: '4px 18px 16px 34px', background: 'var(--bg-hover)' }}>
+                                                <CompareDetail node={{ uuid: r.uuid, label: r.label, name: r.name }} />
+                                            </td>
+                                        </tr>
+                                    )}
+                                </Fragment>
+                            )
+                        })}
                     </tbody>
                 </table>
+
+                {/* Pager */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 18px', borderTop: '1px solid var(--border-light)',
+                    fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-muted)',
+                }}>
+                    <span>
+                        {rows.length === 0
+                            ? 'no flagged nodes'
+                            : `showing ${start + 1}–${Math.min(start + PAGE_SIZE, rows.length)} of ${rows.length.toLocaleString()}`}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <PagerButton label="‹ Prev" disabled={safePage <= 0} onClick={() => setPage(safePage - 1)} />
+                        <span style={{ minWidth: 90, textAlign: 'center' }}>
+                            page {safePage + 1} / {totalPages}
+                        </span>
+                        <PagerButton label="Next ›" disabled={safePage >= totalPages - 1} onClick={() => setPage(safePage + 1)} />
+                    </div>
+                </div>
             </div>
         </div>
+    )
+}
+
+function PagerButton({ label, disabled, onClick }: {
+    label: string; disabled: boolean; onClick: () => void
+}) {
+    return (
+        <button onClick={onClick} disabled={disabled} style={{
+            fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700,
+            padding: '5px 12px', cursor: disabled ? 'default' : 'pointer',
+            background: disabled ? 'transparent' : 'var(--bg-card)',
+            color: disabled ? 'var(--text-muted)' : 'var(--text-primary)',
+            border: '1px solid var(--border-strong)',
+            opacity: disabled ? 0.5 : 1,
+        }}>{label}</button>
     )
 }

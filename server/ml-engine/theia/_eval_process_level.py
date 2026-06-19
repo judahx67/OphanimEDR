@@ -104,6 +104,13 @@ def report_supervised(name, ytr, Xtr, yte, Xte, isproc_te):
     apr = average_precision_score(yte, s); roc = roc_auc_score(yte, s)
     tp, fp, fn, p, r, f = prf_at(yte, s, thr)
     print(f"  NODE-level    PR-AUC={apr:.4f} ROC-AUC={roc:.4f} | @thr P={p:.3f} R={r:.3f} F1={f:.3f} (TP{tp}/FP{fp}/FN{fn})")
+    # Optional, additive-only: dump (score, label, isproc, thr) for thesis figures.
+    # Gated by DUMP_SCORES so default reproducibility runs stay byte-identical.
+    if os.environ.get("DUMP_SCORES"):
+        fd = CODE_ROOT.parents[2] / "thesis-writing-main" / "src" / "figure-scripts" / "figure-data"
+        fd.mkdir(parents=True, exist_ok=True)
+        slug = name.split()[0].replace("/", "-")
+        np.savez(fd / f"theia-{slug}.npz", score=s, y=yte, isproc=isproc_te, thr=thr)
     # process-level: restrict to process nodes
     pm = isproc_te
     if yte[pm].sum() > 0:

@@ -238,7 +238,16 @@ def main():
             now = time.time()
             due = (now - last_score) >= SCORE_EVERY_SECS
             idle = (now - last_edge) >= IDLE_SECS
-            if len(window) >= MIN_EDGES and stats["edges_since_score"] > 0 and (due or idle):
+            have_graph = len(window) >= MIN_EDGES
+            # `fresh` = score once when the replay just went idle after new edges.
+            # `due`   = periodic catch-up re-score even with NO new edges, so the
+            #           node-property write-back catches up with the slower
+            #           graph-builder (which may not have persisted every scored
+            #           node when the first idle-score ran). Without this the
+            #           partial write froze for SCORE_EVERY_SECS (the /compare
+            #           "Orthrus flagged 0" artifact).
+            fresh = stats["edges_since_score"] > 0 and idle
+            if have_graph and (fresh or due):
                 run_scoring(scorer, driver, window)
                 stats["edges_since_score"] = 0
                 last_score = time.time()

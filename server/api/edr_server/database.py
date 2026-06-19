@@ -62,8 +62,11 @@ def get_driver() -> AsyncDriver:
 async def get_graph_stats() -> GraphStats:
     driver = get_driver()
     async with driver.session() as session:
+        # LlmAnalysis nodes / HAS_LLM_ANALYSIS edges are triage metadata, not
+        # provenance — exclude them so the graph counts reflect the replayed
+        # dataset only (e.g. stable at 20,000 edges regardless of LLM runs).
         result = await session.run("""
-            MATCH (n)
+            MATCH (n) WHERE NOT n:LlmAnalysis
             RETURN labels(n)[0] AS label, count(n) AS cnt
         """)
         node_counts: dict[str, int] = {}
@@ -72,7 +75,9 @@ async def get_graph_stats() -> GraphStats:
             if lbl:
                 node_counts[lbl] = record["cnt"]
 
-        edge_result = await session.run("MATCH ()-[r]->() RETURN count(r) AS cnt")
+        edge_result = await session.run(
+            "MATCH ()-[r]->() WHERE type(r) <> 'HAS_LLM_ANALYSIS' RETURN count(r) AS cnt"
+        )
         edge_record = await edge_result.single()
         total_edges = edge_record["cnt"] if edge_record else 0
 
@@ -378,6 +383,60 @@ async def get_node_subgraph(node_id: str, hops: int = 2) -> dict:
                     "ml_alert": record["ml_alert"],
                 })
     return {"nodes": list(nodes.values()), "edges": edges}
+
+
+# ---------------------------------------------------------------------------
+# Persisted LLM analyses for /compare (so on-demand narratives survive reload).
+# Keyed by (node_uuid, provider); latest run per provider wins.
+# ---------------------------------------------------------------------------
+
+async def save_node_llm_analysis(
+    node_uuid: str, provider: str, model: str, premium: bool,
+    analysis: dict, raw: str,
+) -> None:
+    import json as _json
+    import time as _time
+    driver = get_driver()
+    async with driver.session() as session:
+        await session.run(
+            """
+            MERGE (a:LlmAnalysis {node_uuid: $node_uuid, provider: $provider})
+            SET a.model = $model, a.premium = $premium,
+                a.analysis = $analysis, a.raw = $raw, a.updated_at = $ts
+            WITH a
+            OPTIONAL MATCH (n {uuid: $node_uuid})
+            FOREACH (_ IN CASE WHEN n IS NULL THEN [] ELSE [1] END |
+                MERGE (n)-[:HAS_LLM_ANALYSIS]->(a))
+            """,
+            {
+                "node_uuid": node_uuid, "provider": provider, "model": model,
+                "premium": bool(premium), "analysis": _json.dumps(analysis or {}),
+                "raw": raw or "", "ts": int(_time.time() * 1000),
+            },
+        )
+
+
+async def get_node_llm_analyses(node_uuid: str) -> list[dict]:
+    import json as _json
+    driver = get_driver()
+    async with driver.session() as session:
+        result = await session.run(
+            "MATCH (a:LlmAnalysis {node_uuid: $node_uuid}) RETURN a ORDER BY a.provider",
+            {"node_uuid": node_uuid},
+        )
+        out: list[dict] = []
+        async for record in result:
+            a = dict(record["a"])
+            try:
+                analysis = _json.loads(a.get("analysis", "{}"))
+            except (ValueError, TypeError):
+                analysis = {}
+            out.append({
+                "provider": a.get("provider"), "model": a.get("model"),
+                "premium": a.get("premium", False), "analysis": analysis,
+                "raw": a.get("raw", ""), "updated_at": a.get("updated_at"),
+            })
+        return out
 
 
 async def get_recent_edges(limit: int = 100) -> list[dict]:

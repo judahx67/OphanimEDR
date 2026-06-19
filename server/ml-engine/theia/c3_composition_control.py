@@ -175,6 +175,14 @@ def main():
     n = len(orth)
     print(f"\neval nodes = {n:,}  orthrus flags = {orth_flag.sum():,}  floor flags = {floor_flag.sum():,}")
 
+    # Optional, additive-only dump for the thesis reconstruction-error figure.
+    # Gated by DUMP_SCORES so default reproducibility runs stay byte-identical.
+    if os.environ.get("DUMP_SCORES"):
+        fd = os.path.join(HERE, "../../../thesis-writing-main/src/figure-scripts/figure-data")
+        os.makedirs(fd, exist_ok=True)
+        np.savez(os.path.join(fd, "theia-orthrus-recon.npz"),
+                 benign=orth_va, eval=orth, types=types, thr=orth_thr)
+
     # ---- per-label flag profile ----
     oc_lab = per_label_counts(orth_flag, types)
     fl_lab = per_label_counts(floor_flag, types)

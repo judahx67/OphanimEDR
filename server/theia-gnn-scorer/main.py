@@ -284,11 +284,17 @@ def main():
         while running:
             conn.process_data_events(time_limit=1)
             now = time.time()
-            # Score when there is new data AND we're either due (periodic) or the
-            # stream has gone idle (replay finished -> final full-graph score).
+            # Score when the stream just went idle after new edges (`fresh`), OR
+            # on the periodic `due` tick even with NO new edges — the latter is a
+            # catch-up re-score so the node-property write-back keeps up with the
+            # slower graph-builder (which may not have persisted every scored node
+            # when the first idle-score ran; otherwise the partial write froze for
+            # SCORE_EVERY_SECS, the /compare under-count artifact).
             due = (now - last_score) >= SCORE_EVERY_SECS
             idle = (now - last_edge) >= IDLE_SECS
-            if len(window) >= MIN_EDGES and stats["edges_since_score"] > 0 and (due or idle):
+            have_graph = len(window) >= MIN_EDGES
+            fresh = stats["edges_since_score"] > 0 and idle
+            if have_graph and (fresh or due):
                 run_scoring(scorer, driver, channel, window)
                 stats["scored_runs"] += 1
                 stats["edges_since_score"] = 0

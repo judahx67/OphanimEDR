@@ -233,7 +233,9 @@ class GraphWriter:
             // line (contains a space) is strictly more informative than a
             // bare exe path, which beats a placeholder.
             s.name = CASE
-                WHEN s.name STARTS WITH 'process:' OR s.name STARTS WITH 'file:' OR s.name STARTS WITH 'socket:'
+                // Any "<type>:<hex>" placeholder (process:/file:/socket:/memory:/…)
+                // yields to a real cmdline/path the moment one arrives.
+                WHEN s.name =~ '^[a-z]+:[0-9a-fA-F-]+$'
                     THEN row.subj_name
                 WHEN row.subj_name CONTAINS ' ' AND NOT s.name CONTAINS ' '
                     THEN row.subj_name
@@ -254,7 +256,7 @@ class GraphWriter:
             o.last_seen = CASE WHEN row.timestamp > o.last_seen
                           THEN row.timestamp ELSE o.last_seen END,
             o.name = CASE
-                WHEN o.name STARTS WITH 'process:' OR o.name STARTS WITH 'file:' OR o.name STARTS WITH 'socket:'
+                WHEN o.name =~ '^[a-z]+:[0-9a-fA-F-]+$'
                     THEN row.obj_name
                 WHEN row.obj_name CONTAINS ' ' AND NOT o.name CONTAINS ' '
                     THEN row.obj_name

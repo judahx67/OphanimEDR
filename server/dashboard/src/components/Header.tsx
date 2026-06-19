@@ -16,7 +16,8 @@ function Header({ theme }: HeaderProps) {
     const routeTitles: Record<string, string> = {
         '/': 'Dashboard',
         '/endpoints': 'Endpoints',
-        '/problems': 'Detections',
+        '/incidents': 'Incidents',
+        '/compare': 'FLASH vs Orthrus',
     }
     const pageTitle = routeTitles[currentRoute] || 'Unknown'
 

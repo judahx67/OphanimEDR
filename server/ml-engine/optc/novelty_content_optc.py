@@ -90,6 +90,11 @@ def main():
         log.append(report(yte, s, "NODE"))
         log.append(report(yte[pmask], s[pmask], "PROCESS"))
         print("\n".join(log[-3:]), flush=True)
+        # Optional, additive-only dump for thesis figures (gated by DUMP_SCORES).
+        if os.environ.get("DUMP_SCORES") and test_h == "0501":
+            fd = CODE_ROOT.parents[2] / "thesis-writing-main" / "src" / "figure-scripts" / "figure-data"
+            fd.mkdir(parents=True, exist_ok=True)
+            np.savez(fd / f"optc-novelty-{test_h}.npz", score=s, y=yte, isproc=pmask)
     suffix = "_loho_w2v" if FEAT_MODE == "loho" else ""
     (CODE_ROOT / f"_novelty_content_optc{suffix}.log").write_text("\n".join(log), encoding="utf-8")
     print(f"\nDONE -> _novelty_content_optc{suffix}.log", flush=True)
