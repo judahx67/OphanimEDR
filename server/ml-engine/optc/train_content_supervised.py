@@ -34,6 +34,7 @@ TAG = os.environ.get("FEAT_TAG", "ours")
 N_EST = int(os.environ.get("GNN_ESTIMATORS", "300"))
 HOSTS = ["0051", "0201", "0501"]
 PROCESS = 0  # DUMMIES label for PROCESS-type nodes
+DUMP_SCORES = bool(os.environ.get("DUMP_SCORES"))
 np.random.seed(42)
 
 
@@ -104,7 +105,8 @@ def main():
         spw = (ytr == 0).sum() / max((ytr == 1).sum(), 1)
         clf = LGBMClassifier(boosting_type="gbdt", extra_trees=True, n_estimators=N_EST,
                              learning_rate=0.05, num_leaves=31, min_child_samples=20,
-                             scale_pos_weight=spw, n_jobs=-1, verbose=-1)
+                             scale_pos_weight=spw, n_jobs=-1, verbose=-1,
+                             random_state=42)
         clf.fit(Xtr, ytr)
         s_tr = clf.predict_proba(Xtr)[:, 1]
         s_te = clf.predict_proba(Xte)[:, 1]
@@ -117,6 +119,14 @@ def main():
         pmask = ntype_te == PROCESS
         yp, sp = yte[pmask], s_te[pmask]
         log.append(metrics(yp, sp, "PROCESS", thr))
+        if DUMP_SCORES:
+            np.savez(
+                CODE_ROOT / f"_score_content_supervised_{test_h}.npz",
+                y=yte.astype(np.int8),
+                score=s_te.astype(np.float32),
+                isproc=pmask.astype(bool),
+                threshold=np.float32(thr),
+            )
         print("\n".join(log[-3:]), flush=True)
 
     (CODE_ROOT / "_train_content_supervised.log").write_text("\n".join(log), encoding="utf-8")
