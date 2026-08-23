@@ -3,25 +3,23 @@
     Ophanim EDR — full stack deployment script
 
 .DESCRIPTION
-    Brings up every component of the EDR system as Docker containers:
-      rabbitmq, neo4j, ingest, graph-builder, rule-engine, api, dashboard
+    Brings up the EDR stack as Docker containers:
+      rabbitmq, neo4j, pipeline, theia-gnn-scorer, theia-orthrus-scorer, api, dashboard
 
     Modes
     -----
     server   Start the full Docker stack, then tail all service logs (default)
     down     Stop and remove all containers
 
-    The EDR agent is out of scope for this script — it will be revamped separately.
-
 .PARAMETER Mode
     server | down
 
 .PARAMETER Replay
-    After starting, replay N BOTSv2 events through the pipeline.
-    E.g.  -Replay 30000
+    After starting, replay N DARPA TC E3 THEIA events through the pipeline.
+    Requires the corpus at external/Flash-IDS. E.g.  -Replay 20000
 
 .PARAMETER ReplayRate
-    Simulator events per second (default 2000).
+    Replay events per second (default 500).
 
 .PARAMETER RebuildImages
     Force docker compose build before starting.
@@ -33,11 +31,11 @@
     Do not tail logs after startup (return to prompt immediately).
 
 .EXAMPLE
-    .\scripts\deploy.ps1                          # start stack + tail logs
-    .\scripts\deploy.ps1 -Replay 30000            # start + replay data + tail logs
-    .\scripts\deploy.ps1 -RebuildImages           # rebuild images then start
-    .\scripts\deploy.ps1 -NoLogs                  # start without tailing logs
-    .\scripts\deploy.ps1 -Mode down               # tear everything down
+    .\deploy\deploy.ps1                          # start stack + tail logs
+    .\deploy\deploy.ps1 -Replay 20000            # start + replay data + tail logs
+    .\deploy\deploy.ps1 -RebuildImages           # rebuild images then start
+    .\deploy\deploy.ps1 -NoLogs                  # start without tailing logs
+    .\deploy\deploy.ps1 -Mode down               # tear everything down
 #>
 
 param(
@@ -45,7 +43,7 @@ param(
     [string]$Mode = "server",
 
     [int]$Replay = 0,
-    [int]$ReplayRate = 2000,
+    [int]$ReplayRate = 500,
     [switch]$RebuildImages,
     [switch]$SkipHealthCheck,
     [switch]$NoLogs
@@ -86,26 +84,6 @@ function Require-Command($Name, $Hint) {
     }
 }
 
-function Wait-ServiceHealthy($ContainerName, $MaxSeconds = 90) {
-    Write-Info "Waiting for $ContainerName..."
-    $elapsed = 0
-    while ($elapsed -lt $MaxSeconds) {
-        $health  = docker inspect --format "{{.State.Health.Status}}" $ContainerName 2>$null
-        $running = docker inspect --format "{{.State.Running}}"       $ContainerName 2>$null
-        if ($health -eq "healthy") {
-            Write-Info "$ContainerName  [healthy]"
-            return
-        }
-        if ($running -eq "true" -and ($health -eq "" -or $health -eq $null)) {
-            Write-Info "$ContainerName  [running]"
-            return
-        }
-        Start-Sleep -Seconds 3
-        $elapsed += 3
-    }
-    Write-Warn "$ContainerName did not become healthy within ${MaxSeconds}s — continuing"
-}
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Mode: down
 # ─────────────────────────────────────────────────────────────────────────────
@@ -143,39 +121,30 @@ if ($RebuildImages) {
     docker compose -f $ComposeFile build
 }
 
-docker compose -f $ComposeFile up -d --remove-orphans
-
-if (-not $SkipHealthCheck) {
-    Write-Step "Waiting for services..."
-    Wait-ServiceHealthy "edr-rabbitmq"      90
-    Wait-ServiceHealthy "edr-neo4j"         90
-    Wait-ServiceHealthy "edr-ingest"        45
-    Wait-ServiceHealthy "edr-graph-builder" 45
-    Wait-ServiceHealthy "edr-rule-engine"   45
-    Wait-ServiceHealthy "edr-api"           45
-    Wait-ServiceHealthy "edr-dashboard"     60
-}
+# --wait blocks until every service with a healthcheck reports healthy.
+$waitFlag = if ($SkipHealthCheck) { @() } else { @("--wait", "--wait-timeout", "180") }
+docker compose -f $ComposeFile up -d --remove-orphans @waitFlag
 
 Write-Step "Service status:"
 docker compose -f $ComposeFile ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# BOTSv2 replay (optional)
+# THEIA replay (optional)
 # ─────────────────────────────────────────────────────────────────────────────
 
 if ($Replay -gt 0) {
-    $botsv2Dir = Join-Path $ProjectRoot "datasets\botsv2_labeled"
-    if (-not (Test-Path $botsv2Dir)) {
-        Write-Warn "BOTSv2 labeled dataset not found at:"
-        Write-Warn "  $botsv2Dir"
-        Write-Warn "Skipping replay. Place the dataset there and re-run with -Replay $Replay"
+    $theiaDir = Join-Path $ProjectRoot "external\Flash-IDS"
+    if (-not (Test-Path $theiaDir)) {
+        Write-Warn "DARPA TC E3 THEIA corpus not found at:"
+        Write-Warn "  $theiaDir"
+        Write-Warn "Skipping replay. Place the corpus there and re-run with -Replay $Replay"
     } else {
-        Write-Step "Replaying $Replay BOTSv2 events at ${ReplayRate} events/sec..."
+        Write-Step "Replaying $Replay THEIA events at ${ReplayRate} events/sec..."
         Write-Info "(Runs in the foreground — Ctrl-C to stop early)"
-        docker compose -f $ComposeFile --profile simulator run --rm simulator `
-            --scenario botsv2 `
-            --limit    $Replay `
-            --rate     $ReplayRate
+        docker compose -f $ComposeFile --profile theia-sim run --rm theia-replay `
+            --file  ta1-theia-e3-official-6r.json.8 `
+            --limit $Replay `
+            --rate  $ReplayRate
         Write-Step "Replay complete."
     }
 }
@@ -192,11 +161,11 @@ Write-Info "API / Swagger  http://localhost:8000/docs"
 Write-Info "Neo4j Browser  http://localhost:7474   (neo4j / edr-thesis)"
 Write-Info "RabbitMQ Admin http://localhost:15672  (guest / guest)"
 Write-Host ""
-Write-Host "  Replay BOTSv2 data" -ForegroundColor Yellow
-Write-Info ".\scripts\deploy.ps1 -Replay 30000"
+Write-Host "  Replay THEIA data" -ForegroundColor Yellow
+Write-Info ".\deploy\deploy.ps1 -Replay 20000"
 Write-Host ""
 Write-Host "  Stop everything" -ForegroundColor Yellow
-Write-Info ".\scripts\deploy.ps1 -Mode down"
+Write-Info ".\deploy\deploy.ps1 -Mode down"
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -205,9 +174,9 @@ Write-Host ""
 
 if (-not $NoLogs) {
     Write-Host "  Tailing logs (Ctrl-C to stop)..." -ForegroundColor Yellow
-    Write-Host "  Services: ingest | graph-builder | rule-engine | api" -ForegroundColor Gray
+    Write-Host "  Services: pipeline | theia-gnn-scorer | theia-orthrus-scorer | api" -ForegroundColor Gray
     Write-Host ""
     # docker compose logs --follow streams all services with colour-coded prefixes
     docker compose -f $ComposeFile logs --follow --tail 20 `
-        ingest graph-builder rule-engine api
+        pipeline theia-gnn-scorer theia-orthrus-scorer api
 }

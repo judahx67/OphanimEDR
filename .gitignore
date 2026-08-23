@@ -2,29 +2,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
-.agents/
-.codex/
-AGENTS.md
-
-# C extensions
 *.so
 
-# Distribution / packaging
-.Python
+# Packaging / build
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
 
 # Virtual environments
@@ -32,75 +15,35 @@ venv/
 ENV/
 env/
 .venv/
+
+# Secrets
 .env
-# IDE
+.env.local
+.env.*.local
+
+# IDE / OS
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+.DS_Store
+Thumbs.db
 
-# Jupyter Notebook
+# Jupyter
 .ipynb_checkpoints/
 
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
+# Logs & run output
 logs/
 *.log
-
-# ML Models (large files - use Git LFS or separate storage)
-models/*.joblib
-models/*.pkl
-models/*.onnx
-!models/.gitkeep
-
-# Data directories
-data/raw/
-data/processed/
-!data/.gitkeep
-
-# DARPA THEIA dataset — full shards are 3-4 GB each, not tracked
-# Ignore the raw full shards and archives but NOT the committed sample
-darpa_data/data/
-darpa_data/*.tar.gz
-darpa_data/*.bin
-darpa_data/*.json.0
-darpa_data/*.json.1
-darpa_data/*.json.2
-darpa_data/*.json.3
-darpa_data/*.json.4
-darpa_data/*.json.5
-darpa_data/*.json.6
-darpa_data/*.json.7
-darpa_data/*.json.8
-darpa_data/*.json.9
-# Compressed 150k-line sample (~4 MB) — committed for remote dev
-# darpa_data/theia-sample-150k.json.gz  ← tracked (no ignore rule)
-
-# Vendored FLASH-IDS upstream + ~70 GB raw DARPA THEIA E3 dumps + nested .git.
-# Our deliverable code/weights were migrated out to server/ml-engine/theia/.
-# The training scripts read raw data from here via THEIA_DATA_ROOT (default).
-external/
+*.out
 
 # Test artifacts
 .pytest_cache/
 .coverage
 htmlcov/
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Node.js (dashboard)
+# Node (dashboard)
 node_modules/
 dashboard/dist/
 dashboard/build/
@@ -108,49 +51,38 @@ dashboard/build/
 # Docker
 docker-compose.override.yml
 
-# ============================================
-# LLM Agent / Planning Documents (gitignored)
-# ============================================
+# Agent / tooling scratch
+.agents/
 .agent/
-.llm/
-# ============================================
-# Development Artifacts (gitignored)
-# ============================================
-.env
-PROGRESS.md
-
-docs/
-RESEARCH/
-
-# Provenance website (separate project)
-provenance-website/
-provenance-website-2/
-
-# External reproduction repos + caches/weights (100+ GB — Flash-IDS, kairos)
-external/
-
-CLAUDE.md
-archive/
-darpa_data/
-datasets/*
-!datasets/papers/
-splunk-botsv2_data/
+.codex/
 .claude/
-.github/
-server/ml-engine/experiments
-
-# OpTC de-blob inference caches + stdout dump (regenerable from gnn_denominator_optc.py)
-server/ml-engine/optc/_deblob_optc_*.pkl
-server/ml-engine/optc/_gnn_denominator_optc.out
-
-# Playwright MCP scratch + UI screenshots (demo verification artifacts)
+.llm/
 .playwright-mcp/
-compare-*.png
+AGENTS.md
+CLAUDE.md
 
-# Superseded / unrelated training runs (not wired into the demo stack)
+# ── Datasets & derived data (not tracked — see README) ──────
+# Raw corpora (DARPA TC E3 THEIA, OpTC, Splunk BOTSv2) live outside the repo.
+external/
+darpa_data/
+datasets/
+splunk-botsv2_data/
+
+# Regenerable ML intermediates. Trained weights under trained_weights/ and
+# botsv2/models/ ARE tracked; these caches are rebuilt by the prepare/featurize
+# scripts on first run.
+*.parquet
+server/ml-engine/optc/_cache_*.pkl
+server/ml-engine/optc/_deblob_*.pkl
+server/ml-engine/optc/_feat_*.npz
+server/ml-engine/experiments/
+
+# Superseded training runs (not wired into the stack)
 server/ml-engine/theia/trained_weights/_orthrus_smoke/
 server/ml-engine/theia/trained_weights/orthrus_theia_e3/
-server/ml-engine/theia/trained_weights/theia_novel/
 
-# Cited paper PDFs (citation stability for the thesis appendix)
-!datasets/papers/
+# Experiment stdout captured as provenance — cited by name in docs/provenance/.
+!server/ml-engine/theia/*.log
+!server/ml-engine/theia/*.out
+!server/ml-engine/optc/*.log
+!server/ml-engine/optc/*.out
