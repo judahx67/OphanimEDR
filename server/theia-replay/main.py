@@ -47,6 +47,11 @@ DATA_ROOT = Path(os.environ.get("THEIA_DATA_ROOT", "/data/theia"))
 
 _uuid = re.compile(r'uuid":"(.*?)"')
 _type = re.compile(r'type":"(.*?)"')
+# cmdLine lives on the Subject record (not on Events), netflow endpoint on the
+# NetFlowObject record — harvested in pass A so edges can carry a real name.
+_cmdline = re.compile(r'"cmdLine":\{"string":"(.*?)"\}')
+_raddr = re.compile(r'"remoteAddress":"(.*?)"')
+_rport = re.compile(r'"remotePort":(\d+)')
 # Lines that are not node-defining records (mirror FLASH build_node_map skips).
 _NON_NODE = (".Event", ".Host", ".TimeMarker", ".StartMarker",
              ".UnitDependency", ".EndMarker")
@@ -63,9 +68,15 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 
-def build_type_map(path: Path, scan_lines: int) -> dict:
-    """Pass A: resolve uuid -> cdm_type from node-defining records in a window."""
+def build_type_map(path: Path, scan_lines: int) -> tuple[dict, dict]:
+    """Pass A: resolve uuid -> cdm_type AND uuid -> display name from node records.
+
+    The name map carries the semantics Events drop: a process's cmdLine and a
+    netflow's remoteAddress:port. Without it every node falls back to its uuid,
+    leaving the LLM/Sigma stages nothing to reason about.
+    """
     m: dict[str, str] = {}
+    names: dict[str, str] = {}
     with open(path, encoding="utf-8", errors="ignore") as f:
         for i, line in enumerate(f):
             if i >= scan_lines:
@@ -75,17 +86,27 @@ def build_type_map(path: Path, scan_lines: int) -> dict:
             u = _uuid.findall(line)
             if not u or u[0] in m:
                 continue
+            uid = u[0]
             st = _type.findall(line)
             if st:
-                m[u[0]] = st[0]
+                m[uid] = st[0]
             elif ".MemoryObject" in line:
-                m[u[0]] = "MemoryObject"
+                m[uid] = "MemoryObject"
             elif ".NetFlowObject" in line:
-                m[u[0]] = "NetFlowObject"
+                m[uid] = "NetFlowObject"
             elif ".UnnamedPipeObject" in line:
-                m[u[0]] = "UnnamedPipeObject"
-    logger.info("type map: %d uuids resolved (scanned %d lines)", len(m), scan_lines)
-    return m
+                m[uid] = "UnnamedPipeObject"
+            # Display name: cmdLine for subjects, addr:port for netflows.
+            cmd = _cmdline.search(line)
+            if cmd and cmd.group(1):
+                names[uid] = cmd.group(1)
+            elif m.get(uid) == "NetFlowObject":
+                addr, port = _raddr.search(line), _rport.search(line)
+                if addr and addr.group(1):
+                    names[uid] = f"{addr.group(1)}:{port.group(1)}" if port else addr.group(1)
+    logger.info("type map: %d uuids resolved, %d named (scanned %d lines)",
+                len(m), len(names), scan_lines)
+    return m, names
 
 
 def _dig(d, *keys):
@@ -96,7 +117,7 @@ def _dig(d, *keys):
     return d if isinstance(d, str) else ""
 
 
-def iter_edges(path: Path, type_map: dict, scan_lines: int, gt: set):
+def iter_edges(path: Path, type_map: dict, name_map: dict, scan_lines: int, gt: set):
     """Pass B: yield one structured edge dict per (subject -> object) Event."""
     with open(path, encoding="utf-8", errors="ignore") as f:
         for i, line in enumerate(f):
@@ -116,13 +137,15 @@ def iter_edges(path: Path, type_map: dict, scan_lines: int, gt: set):
                 continue
             action = ev.get("type", "")
             ts = ev.get("timestampNanos", "")
-            cmd = _dig(ev, "properties", "map", "cmdLine")
+            # cmdLine is rarely on the Event; fall back to the Subject's cmdLine.
+            cmd = _dig(ev, "properties", "map", "cmdLine") or name_map.get(actor, "")
             for okey, pkey in (("predicateObject", "predicateObjectPath"),
                                ("predicateObject2", "predicateObject2Path")):
                 obj = _dig(ev, okey, "com.bbn.tc.schema.avro.cdm18.UUID")
                 if not obj:
                     continue
-                path_attr = _dig(ev, pkey, "string")
+                # Event path first, else the object's harvested name (netflow addr).
+                path_attr = _dig(ev, pkey, "string") or name_map.get(obj, "")
                 label = 1 if (actor in gt or obj in gt) else 0
                 yield {
                     "dataset": "theia",
@@ -224,8 +247,8 @@ def main():
                     path.name, args.limit, args.rate)
         gt = load_gt()
         logger.info("ground-truth malicious uuids: %d", len(gt))
-        type_map = build_type_map(path, scan_lines)
-        edge_iter = iter_edges(path, type_map, scan_lines, gt)
+        type_map, name_map = build_type_map(path, scan_lines)
+        edge_iter = iter_edges(path, type_map, name_map, scan_lines, gt)
 
     conn = connect_rabbitmq()
     channel = conn.channel()

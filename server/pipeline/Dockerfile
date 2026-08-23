@@ -18,7 +18,8 @@ COPY botsv2_parsers/ /app/botsv2_parsers/
 COPY ingest/         /app/ingest/
 COPY graph-builder/  /app/graph-builder/
 COPY rule-engine/    /app/rule-engine/
-COPY ml-edge-scorer/ /app/ml-edge-scorer/
+# ml-edge-scorer (legacy BOTSv2 LightGBM) removed from the default pipeline (see
+# supervisord.conf) and relocated to ml-engine/ml-edge-scorer/; no longer copied here.
 
 COPY pipeline/supervisord.conf /app/pipeline/supervisord.conf
 

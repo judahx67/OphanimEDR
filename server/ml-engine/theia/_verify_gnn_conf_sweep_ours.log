@@ -1,0 +1,13 @@
+WEIGHTS=J:\THESIS-EDR\server\ml-engine\theia\trained_weights\theia_ours_v3
+CACHE=J:\THESIS-EDR\external\Flash-IDS\_verify_gnn_feats.pkl
+CONF_LIST=[0.3, 0.4, 0.53, 0.6, 0.7]
+reusing feature cache J:\THESIS-EDR\external\Flash-IDS\_verify_gnn_feats.pkl
+test nodes=344,768  GT malicious=25,359  (featurize 1s)
+
+=== RAW (no 2-hop) CONF SENSITIVITY SWEEP ===
+  conf   flagged    TP    FP    FN     P      R      F1
+  0.30    20996  18079   2917  7280  0.8611 0.7129 0.7800
+  0.40    21649  18219   3430  7140  0.8416 0.7184 0.7751
+  0.53    22684  18443   4241  6916  0.8130 0.7273 0.7678
+  0.60    23348  18475   4873  6884  0.7913 0.7285 0.7586
+  0.70    25709  19783   5926  5576  0.7695 0.7801 0.7748

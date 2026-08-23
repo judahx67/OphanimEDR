@@ -1,0 +1,35 @@
+{
+  "action2id": {
+    "EVENT_BOOT": 1,
+    "EVENT_CLONE": 2,
+    "EVENT_CONNECT": 3,
+    "EVENT_EXECUTE": 4,
+    "EVENT_MMAP": 5,
+    "EVENT_MODIFY_FILE_ATTRIBUTES": 6,
+    "EVENT_MPROTECT": 7,
+    "EVENT_OPEN": 8,
+    "EVENT_READ": 9,
+    "EVENT_READ_SOCKET_PARAMS": 10,
+    "EVENT_RECVFROM": 11,
+    "EVENT_RECVMSG": 12,
+    "EVENT_SENDMSG": 13,
+    "EVENT_SENDTO": 14,
+    "EVENT_SHM": 15,
+    "EVENT_UNLINK": 16,
+    "EVENT_WRITE": 17,
+    "EVENT_WRITE_SOCKET_PARAMS": 18
+  },
+  "n_actions": 19,
+  "threshold": 6.504716396331787,
+  "calibration": {
+    "p99": 6.504716396331787,
+    "p999": 14.983321189880371,
+    "max_val_loss": 20.03062629699707
+  },
+  "emb_dim": 32,
+  "vector_size": 30,
+  "train_edges": 300000,
+  "val_edges": 100000,
+  "epochs": 40,
+  "seed": 1
+}

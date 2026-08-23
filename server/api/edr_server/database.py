@@ -62,8 +62,11 @@ def get_driver() -> AsyncDriver:
 async def get_graph_stats() -> GraphStats:
     driver = get_driver()
     async with driver.session() as session:
+        # LlmAnalysis nodes / HAS_LLM_ANALYSIS edges are triage metadata, not
+        # provenance — exclude them so the graph counts reflect the replayed
+        # dataset only (e.g. stable at 20,000 edges regardless of LLM runs).
         result = await session.run("""
-            MATCH (n)
+            MATCH (n) WHERE NOT n:LlmAnalysis
             RETURN labels(n)[0] AS label, count(n) AS cnt
         """)
         node_counts: dict[str, int] = {}
@@ -72,7 +75,9 @@ async def get_graph_stats() -> GraphStats:
             if lbl:
                 node_counts[lbl] = record["cnt"]
 
-        edge_result = await session.run("MATCH ()-[r]->() RETURN count(r) AS cnt")
+        edge_result = await session.run(
+            "MATCH ()-[r]->() WHERE type(r) <> 'HAS_LLM_ANALYSIS' RETURN count(r) AS cnt"
+        )
         edge_record = await edge_result.single()
         total_edges = edge_record["cnt"] if edge_record else 0
 
@@ -106,6 +111,15 @@ async def get_graph_stats() -> GraphStats:
 def _record_to_incident(record: dict) -> IncidentInDB:
     i = record["i"]
     props = dict(i)
+    # Normalize the GNN/LLM incident schema (event_id, no rule_*, string
+    # confidence) onto the rule-engine IncidentInDB contract. Rule-engine
+    # incidents already carry these fields, so setdefault is a no-op for them.
+    props.setdefault("incident_id", props.get("event_id") or getattr(i, "element_id", "gnn"))
+    props.setdefault("rule_id", props.get("detector", "gnn"))
+    props.setdefault("rule_name", props.get("title", props.get("detector", "GNN anomaly")))
+    conf = props.get("confidence")
+    if isinstance(conf, str):
+        props["confidence"] = {"low": 0.4, "medium": 0.6, "high": 0.85}.get(conf.lower(), 0.6)
     # Convert neo4j DateTime / ISO string -> python datetime
     for field in ("created_at", "updated_at"):
         val = props.get(field)
@@ -114,9 +128,8 @@ def _record_to_incident(record: dict) -> IncidentInDB:
         elif isinstance(val, str):
             props[field] = datetime.fromisoformat(val)
         elif isinstance(val, (int, float)):
-            # epoch milliseconds (ml-llm writer) or seconds
-            ts = val / 1000 if val > 1e12 else val
-            props[field] = datetime.fromtimestamp(ts)
+            # epoch timestamp — ms (13-digit) from the GNN/LLM path, else seconds
+            props[field] = datetime.fromtimestamp(val / 1000 if val > 1e12 else val)
         else:
             # neo4j DateTime object
             props[field] = val.to_native()
@@ -370,6 +383,60 @@ async def get_node_subgraph(node_id: str, hops: int = 2) -> dict:
                     "ml_alert": record["ml_alert"],
                 })
     return {"nodes": list(nodes.values()), "edges": edges}
+
+
+# ---------------------------------------------------------------------------
+# Persisted LLM analyses for /compare (so on-demand narratives survive reload).
+# Keyed by (node_uuid, provider); latest run per provider wins.
+# ---------------------------------------------------------------------------
+
+async def save_node_llm_analysis(
+    node_uuid: str, provider: str, model: str, premium: bool,
+    analysis: dict, raw: str,
+) -> None:
+    import json as _json
+    import time as _time
+    driver = get_driver()
+    async with driver.session() as session:
+        await session.run(
+            """
+            MERGE (a:LlmAnalysis {node_uuid: $node_uuid, provider: $provider})
+            SET a.model = $model, a.premium = $premium,
+                a.analysis = $analysis, a.raw = $raw, a.updated_at = $ts
+            WITH a
+            OPTIONAL MATCH (n {uuid: $node_uuid})
+            FOREACH (_ IN CASE WHEN n IS NULL THEN [] ELSE [1] END |
+                MERGE (n)-[:HAS_LLM_ANALYSIS]->(a))
+            """,
+            {
+                "node_uuid": node_uuid, "provider": provider, "model": model,
+                "premium": bool(premium), "analysis": _json.dumps(analysis or {}),
+                "raw": raw or "", "ts": int(_time.time() * 1000),
+            },
+        )
+
+
+async def get_node_llm_analyses(node_uuid: str) -> list[dict]:
+    import json as _json
+    driver = get_driver()
+    async with driver.session() as session:
+        result = await session.run(
+            "MATCH (a:LlmAnalysis {node_uuid: $node_uuid}) RETURN a ORDER BY a.provider",
+            {"node_uuid": node_uuid},
+        )
+        out: list[dict] = []
+        async for record in result:
+            a = dict(record["a"])
+            try:
+                analysis = _json.loads(a.get("analysis", "{}"))
+            except (ValueError, TypeError):
+                analysis = {}
+            out.append({
+                "provider": a.get("provider"), "model": a.get("model"),
+                "premium": a.get("premium", False), "analysis": analysis,
+                "raw": a.get("raw", ""), "updated_at": a.get("updated_at"),
+            })
+        return out
 
 
 async def get_recent_edges(limit: int = 100) -> list[dict]:
@@ -737,3 +804,117 @@ async def get_ml_summary() -> dict:
             "max": float(record["max"] or 0),
             "high": record["high"],
         }
+
+
+# ---------------------------------------------------------------------------
+# Detector comparison — FLASH (GNN) vs Orthrus on the same THEIA substrate
+#
+# Both detectors score the SAME provenance nodes and tag them:
+#   FLASH   : n.gnn_seed (bool), n.gnn_scored_at (epoch ms)
+#   Orthrus : n.orthrus_seed (bool), n.orthrus_score (float), n.orthrus_scored_at
+# A node is "scored" by a detector if that detector wrote its *_scored_at.
+# The per-label breakdown is the thesis contrast: FLASH floods the abundant
+# node type (File) and flags 0 Process; Orthrus flags few, precisely.
+# ---------------------------------------------------------------------------
+
+async def get_detector_summary() -> dict:
+    """Per-label scored/seed counts for each detector + overlap.
+
+    Orthrus columns are 0 until the orthrus scorer writes its properties — the
+    panel renders that as a 'pending' state rather than an error.
+    """
+    driver = get_driver()
+    async with driver.session() as session:
+        result = await session.run(
+            """
+            MATCH (n)
+            WHERE n.gnn_scored_at IS NOT NULL OR n.orthrus_scored_at IS NOT NULL
+            WITH labels(n)[0] AS label,
+                 coalesce(n.gnn_seed, false)     AS g,
+                 coalesce(n.orthrus_seed, false) AS o,
+                 (n.orthrus_scored_at IS NOT NULL) AS o_scored
+            RETURN label,
+                   count(*)                                  AS scored,
+                   sum(CASE WHEN g THEN 1 ELSE 0 END)        AS flash_seeds,
+                   sum(CASE WHEN o_scored THEN 1 ELSE 0 END) AS orthrus_scored,
+                   sum(CASE WHEN o THEN 1 ELSE 0 END)        AS orthrus_seeds,
+                   sum(CASE WHEN g AND o THEN 1 ELSE 0 END)  AS both_seeds
+            ORDER BY scored DESC
+            """
+        )
+        per_label = []
+        totals = {"scored": 0, "flash_seeds": 0, "orthrus_scored": 0,
+                  "orthrus_seeds": 0, "both_seeds": 0}
+        async for rec in result:
+            row = {
+                "label": rec["label"],
+                "scored": rec["scored"],
+                "flash_seeds": rec["flash_seeds"],
+                "orthrus_scored": rec["orthrus_scored"],
+                "orthrus_seeds": rec["orthrus_seeds"],
+                "both_seeds": rec["both_seeds"],
+            }
+            per_label.append(row)
+            for k in totals:
+                totals[k] += row[k]
+    return {
+        "per_label": per_label,
+        "totals": totals,
+        "orthrus_active": totals["orthrus_scored"] > 0,
+    }
+
+
+async def get_detector_comparison(
+    limit: int = 200, seeds_only: bool = True
+) -> list[dict]:
+    """Per-node detector verdicts on the shared THEIA graph.
+
+    seeds_only=True returns only nodes flagged by at least one detector (the
+    analyst-facing view). seeds_only=False returns all scored nodes.
+    """
+    driver = get_driver()
+    flag_filter = (
+        "AND (coalesce(n.gnn_seed,false) OR coalesce(n.orthrus_seed,false))"
+        if seeds_only else ""
+    )
+    async with driver.session() as session:
+        result = await session.run(
+            f"""
+            MATCH (n)
+            WHERE (n.gnn_scored_at IS NOT NULL OR n.orthrus_scored_at IS NOT NULL)
+            {flag_filter}
+            WITH n,
+                 coalesce(n.gnn_seed, false)     AS g,
+                 coalesce(n.orthrus_seed, false) AS o
+            RETURN
+                n.uuid          AS uuid,
+                labels(n)[0]    AS label,
+                coalesce(n.name, n.uuid) AS name,
+                g               AS flash_seed,
+                o               AS orthrus_seed,
+                n.orthrus_score AS orthrus_score,
+                (n.orthrus_scored_at IS NOT NULL) AS orthrus_scored
+            // Surface the analyst-relevant rows first: agreements, then
+            // Orthrus-only catches (incl. the Process nodes FLASH misses),
+            // then the FLASH flood. Otherwise 766 File flash-seeds bury them.
+            ORDER BY (CASE WHEN g AND o THEN 0 WHEN o THEN 1 WHEN g THEN 2 ELSE 3 END),
+                     coalesce(n.orthrus_score, 0) DESC, label, name
+            LIMIT $limit
+            """,
+            {"limit": limit},
+        )
+        rows = []
+        async for rec in result:
+            rows.append({
+                "uuid": rec["uuid"],
+                "label": rec["label"],
+                "name": rec["name"],
+                "flash_seed": rec["flash_seed"],
+                "orthrus_seed": rec["orthrus_seed"],
+                "orthrus_score": (
+                    float(rec["orthrus_score"])
+                    if rec["orthrus_score"] is not None else None
+                ),
+                "orthrus_scored": rec["orthrus_scored"],
+            })
+    return rows

@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Spinner } from '@fluentui/react-components'
+import SigmaGenerator from '../components/SigmaGenerator'
+import { CausalChain, NodeLegend, type MatchedNode, type MatchedEdge } from '../components/CausalChain'
 import {
     Search24Regular,
     Warning24Regular,
@@ -13,13 +15,6 @@ import axios from 'axios'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-interface MatchedNode { id: string; type: string; name: string }
-interface MatchedEdge {
-    event_id: string; edge_type: string
-    subject_id: string; subject_name: string
-    object_id: string; object_name: string
-    timestamp: number
-}
 interface Incident {
     incident_id: string; rule_id: string; rule_name: string
     severity: 'low' | 'medium' | 'high' | 'critical'
@@ -38,13 +33,6 @@ interface IncidentStats {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const NODE_COLORS: Record<string, string> = {
-    PROCESS: '#eab308', FILE: '#6366f1', SOCKET: '#06b6d4',
-    MEMORY: '#f97316', PIPE: '#8b5cf6', REGISTRY: '#ec4899',
-}
-const NODE_TEXT_COLOR: Record<string, string> = {
-    PROCESS: '#0a0a0a',
-}
 const SEV_COLORS: Record<string, string> = {
     critical: '#dc2626', high: '#ea580c', medium: '#ca8a04', low: '#16a34a',
 }
@@ -55,94 +43,6 @@ const STATUS_NEXT: Record<string, { label: string; value: string }> = {
     false_positive:{ label: 'Reopen',             value: 'new' },
 }
 
-// ── Causal chain SVG ───────────────────────────────────────────────────────
-
-function CausalChain({ edges, nodes }: { edges: MatchedEdge[]; nodes: MatchedNode[] }) {
-    if (edges.length === 0)
-        return <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontFamily: 'var(--font-ui)' }}>No edge data</span>
-
-    const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]))
-
-    // Build a compact linear chain: subject → edge → object for each edge
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {edges.map((edge, i) => {
-                const subjType = nodeMap[edge.subject_id]?.type || 'PROCESS'
-                const objType  = nodeMap[edge.object_id]?.type  || 'FILE'
-                const subjName = edge.subject_name || edge.subject_id?.slice(0, 12) || '?'
-                const objName  = edge.object_name  || edge.object_id?.slice(0, 12)  || '?'
-
-                const pillBase: React.CSSProperties = {
-                    display: 'inline-block', padding: '3px 10px',
-                    fontFamily: 'var(--font-ui)', fontSize: '11px', fontWeight: 700,
-                    maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap' as const,
-                }
-                const subjStyle: React.CSSProperties = {
-                    ...pillBase,
-                    background: NODE_COLORS[subjType] || '#888',
-                    color: NODE_TEXT_COLOR[subjType] || '#fff',
-                }
-                const objStyle: React.CSSProperties = {
-                    ...pillBase,
-                    background: NODE_COLORS[objType] || '#888',
-                    color: NODE_TEXT_COLOR[objType] || '#fff',
-                }
-                const edgeStyle: React.CSSProperties = {
-                    display: 'flex', alignItems: 'center', gap: '4px',
-                    fontFamily: 'var(--font-ui)', fontSize: '10px', fontWeight: 700,
-                    color: 'var(--accent-primary)', whiteSpace: 'nowrap' as const,
-                    padding: '0 4px',
-                }
-
-                return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                        {/* step number */}
-                        <span style={{
-                            width: '18px', height: '18px', borderRadius: '50%',
-                            background: 'var(--border-strong)', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center',
-                            fontFamily: 'var(--font-ui)', fontSize: '9px',
-                            fontWeight: 700, color: 'var(--text-muted)', flexShrink: 0,
-                        }}>{i + 1}</span>
-                        <span style={subjStyle} title={subjName} >{subjName}</span>
-                        <span style={edgeStyle}>
-                            <span style={{ color: 'var(--border-strong)' }}>──</span>
-                            {edge.edge_type}
-                            <span style={{ color: 'var(--accent-primary)' }}>──▶</span>
-                        </span>
-                        <span style={objStyle} title={objName}>{objName}</span>
-                    </div>
-                )
-            })}
-        </div>
-    )
-}
-
-// ── Node legend ────────────────────────────────────────────────────────────
-
-function NodeLegend({ nodes }: { nodes: MatchedNode[] }) {
-    const byType: Record<string, MatchedNode[]> = {}
-    nodes.forEach(n => { byType[n.type] = byType[n.type] || []; byType[n.type].push(n) })
-    if (Object.keys(byType).length === 0) return null
-
-    return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-            {Object.entries(byType).map(([type, ns]) => (
-                ns.map((n, i) => (
-                    <span key={i} style={{
-                        padding: '2px 8px', fontFamily: 'var(--font-ui)', fontSize: '10px',
-                        background: NODE_COLORS[type] || '#888',
-                        color: NODE_TEXT_COLOR[type] || '#fff',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                    }} title={`${type}: ${n.name}`}>
-                        {type[0]}: {n.name.length > 24 ? '...' + n.name.slice(-20) : n.name}
-                    </span>
-                ))
-            ))}
-        </div>
-    )
-}
 
 // ── Expanded detail panel ──────────────────────────────────────────────────
 
@@ -150,6 +50,24 @@ function IncidentDetail({ incident, onStatusChange }: {
     incident: Incident
     onStatusChange: (id: string, status: string) => void
 }) {
+    // Export-to-SIEM: deterministic template path (the LLM path lives in the
+    // reusable SigmaGenerator below). Both are integration claims, not detection.
+    const [exporting, setExporting] = useState(false)
+    const [exportMsg, setExportMsg] = useState<string | null>(null)
+
+    const exportToSiem = async () => {
+        setExporting(true); setExportMsg(null)
+        try {
+            const { data } = await axios.post('/api/wazuh/export-rule',
+                { incident_id: incident.incident_id })
+            setExportMsg(data.ok
+                ? `✓ Rule ${data.rule_id} delivered to Wazuh — ${data.filename}`
+                : `✗ Wazuh rejected the rule (HTTP ${data.put_status})`)
+        } catch {
+            setExportMsg('✗ Export failed — is the Wazuh manager running?')
+        } finally { setExporting(false) }
+    }
+
     const panel: React.CSSProperties = {
         padding: '0', background: 'var(--bg-secondary)',
         borderBottom: '2px solid var(--border-strong)',
@@ -203,27 +121,50 @@ function IncidentDetail({ incident, onStatusChange }: {
                             </table>
                         </div>
 
-                        <div style={{ ...label, marginTop: '14px' }}>// What this means</div>
-                        <div style={{ ...meta, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                            {incident.description}
-                        </div>
-
-                        {/* Status action */}
-                        {next && (
+                        {/* Actions: status transition + export to SIEM */}
+                        <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' as const }}>
+                            {next && (
+                                <button
+                                    onClick={() => onStatusChange(incident.incident_id, next.value)}
+                                    style={{
+                                        padding: '7px 16px', background: 'transparent',
+                                        border: '2px solid var(--border-strong)',
+                                        fontFamily: 'var(--font-ui)', fontSize: '11px', fontWeight: 600,
+                                        color: 'var(--text-primary)', textTransform: 'uppercase' as const,
+                                        letterSpacing: '0.05em', cursor: 'pointer',
+                                    }}
+                                >
+                                    {next.label}
+                                </button>
+                            )}
                             <button
-                                onClick={() => onStatusChange(incident.incident_id, next.value)}
+                                onClick={exportToSiem}
+                                disabled={exporting}
+                                title="Convert to a Sigma rule and push it to the Wazuh SIEM"
                                 style={{
-                                    marginTop: '16px', padding: '7px 16px',
-                                    background: 'transparent',
-                                    border: '2px solid var(--border-strong)',
+                                    padding: '7px 16px', background: 'transparent',
+                                    border: '2px solid var(--accent-primary)',
                                     fontFamily: 'var(--font-ui)', fontSize: '11px', fontWeight: 600,
-                                    color: 'var(--text-primary)', textTransform: 'uppercase' as const,
-                                    letterSpacing: '0.05em', cursor: 'pointer',
+                                    color: 'var(--accent-primary)', textTransform: 'uppercase' as const,
+                                    letterSpacing: '0.05em', cursor: exporting ? 'wait' : 'pointer',
+                                    opacity: exporting ? 0.6 : 1,
                                 }}
                             >
-                                {next.label}
+                                {exporting ? 'Exporting…' : 'Export to SIEM'}
                             </button>
-                        )}
+                            {exportMsg && (
+                                <span style={{
+                                    fontFamily: 'var(--font-ui)', fontSize: '11px',
+                                    color: exportMsg.startsWith('✓') ? 'var(--status-good, #16a34a)' : 'var(--status-critical, #dc2626)',
+                                }}>{exportMsg}</span>
+                            )}
+                        </div>
+
+                        {/* LLM-authored Sigma: generate → review → push (human-in-the-loop) */}
+                        <div style={{ marginTop: '16px' }}>
+                            <div style={{ ...label, marginBottom: '8px' }}>// Or generate the rule with an LLM</div>
+                            <SigmaGenerator incidentId={incident.incident_id} />
+                        </div>
                     </div>
                 </div>
             </td>
@@ -457,7 +398,7 @@ function Incidents() {
                         <div style={S.emptyText}>
                             {sevFilter !== 'all' || statusFilter !== 'all'
                                 ? 'No incidents match the current filters.'
-                                : 'Run the simulator — the rule engine will detect attack patterns.'}
+                                : 'Run the THEIA replay — the rule engine will detect attack patterns.'}
                         </div>
                     </div>
                 ) : (

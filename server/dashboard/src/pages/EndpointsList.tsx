@@ -101,7 +101,7 @@ function EndpointsList() {
                 {endpoints.length === 0 ? (
                     <div style={S.empty}>
                         <div style={S.emptyTitle}>No graph data yet</div>
-                        <div style={S.emptyText}>Run the simulator to replay BOTSv2 events into the pipeline.</div>
+                        <div style={S.emptyText}>Run the THEIA replay to stream provenance events into the pipeline.</div>
                     </div>
                 ) : (
                     <table style={S.table}>

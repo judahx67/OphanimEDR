@@ -1,0 +1,30 @@
+cache hit: J:\THESIS-EDR\external\Flash-IDS\_eval_cache.npz
+J:\THESIS-EDR\RESEARCH\.venv\Lib\site-packages\sklearn\utils\validation.py:2749: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+J:\THESIS-EDR\RESEARCH\.venv\Lib\site-packages\sklearn\utils\validation.py:2749: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+J:\THESIS-EDR\RESEARCH\.venv\Lib\site-packages\sklearn\utils\validation.py:2749: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+J:\THESIS-EDR\RESEARCH\.venv\Lib\site-packages\sklearn\utils\validation.py:2749: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+
+nodes=344,768  malicious=25,319  processes=12,937  malicious-processes=23
+
+[explain-away FLASH boosters] PROCESS-level RAW (no 2-hop):
+  malicious processes in graph=23  flagged=23  total proc flagged=12,937/12,937
+
+temporal cut [agnostic] @ 1523550284546328064: train=172,384 (pos 3202) test=172,384 (pos 22117)
+
+[content-only (w2v30)] supervised, temporal split  (train pos=3,202 test pos=22,117)
+  NODE-level    PR-AUC=0.9929 ROC-AUC=0.9992 | @thr P=0.997 R=0.771 F1=0.869 (TP17055/FP58/FN5062)
+  PROCESS-level PR-AUC=0.0489 (proc nodes=7,040, mal proc=23) | @thr P=1.000 R=0.043 F1=0.083 (TP1/FP0/FN22)
+
+[content+structural] supervised, temporal split  (train pos=3,202 test pos=22,117)
+  NODE-level    PR-AUC=0.9930 ROC-AUC=0.9991 | @thr P=0.999 R=0.540 F1=0.701 (TP11938/FP15/FN10179)
+  PROCESS-level PR-AUC=0.0461 (proc nodes=7,040, mal proc=23) | @thr P=0.000 R=0.000 F1=0.000 (TP0/FP0/FN23)
+
+[incident structure] union-find connected components:
+  GT malicious nodes=25,319 span 1 components
+  largest malicious component holds 25,319 GT nodes (100.0% of all GT)
+  that component total size=344,768 nodes, of which malicious-processes=23
+  -> if ~one component holds the GT, the attack IS one triage-able incident

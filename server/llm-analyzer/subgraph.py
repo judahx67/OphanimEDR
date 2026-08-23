@@ -97,9 +97,39 @@ def pull_subgraph(driver: Driver, subj_id: str, obj_id: str, hops: int = 2) -> d
             "event_id": rel.get("event_id", ""),
             "score": rel.get("botsv2_ml_score"),
             "is_alert": rel.get("botsv2_ml_alert", False),
+            "timestamp": rel.get("timestamp", 0),
         })
 
     return {"nodes": nodes, "edges": edges}
+
+
+def subgraph_to_matched(subgraph: dict, max_edges: int = 15) -> tuple[list[dict], list[dict]]:
+    """Map the compact subgraph onto the dashboard's matched_nodes/matched_edges
+    contract (Incidents.tsx CausalChain). Feeds the causal-chain viz for GNN->LLM
+    incidents the same way the rule-engine populates it — the assembly is already
+    pulled for the prompt, this just persists it instead of discarding it."""
+    name_by_id = {n["id"]: (n.get("name") or n["id"]) for n in subgraph.get("nodes", [])}
+    matched_nodes = [
+        {
+            "id": n["id"],
+            "type": (n.get("label") or "Unknown").upper(),
+            "name": n.get("name") or n["id"],
+        }
+        for n in subgraph.get("nodes", [])
+    ]
+    matched_edges = [
+        {
+            "event_id": e.get("event_id", ""),
+            "edge_type": e.get("type", ""),
+            "subject_id": e.get("src", ""),
+            "subject_name": name_by_id.get(e.get("src", ""), e.get("src", "")),
+            "object_id": e.get("dst", ""),
+            "object_name": name_by_id.get(e.get("dst", ""), e.get("dst", "")),
+            "timestamp": e.get("timestamp", 0),
+        }
+        for e in subgraph.get("edges", [])[:max_edges]
+    ]
+    return matched_nodes, matched_edges
 
 
 def subgraph_to_text(subgraph: dict, alert: dict) -> str:

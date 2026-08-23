@@ -1,0 +1,29 @@
+eval edges = 200,000  budgets = [0.9, 0.95, 0.99, 0.995, 0.999]  weights = J:\THESIS-EDR\server\ml-engine\theia\trained_weights/theia_orthrus_v1
+loading w2v + weights...
+benign composition table + calibration scores...
+eval graph scores (computed once)...
+
+eval nodes = 7,726  Process n = 216  within-Process rho = 0.849 (budget-independent)
+
+budget   orth-thr floor-thr | Proc: orth floor overlap VIOLATIONS | total: orth floor
+  p90.0     2.942    2.267 |    112    154     108          4 |   1241    780
+  p95.0     4.176    3.161 |     80    101      79          1 |    533    293
+  p99.0     6.785    4.608 |     31     75      31          0 |    316     93
+  p99.5     8.325    5.421 |     30      0       0         30 |     46     18
+  p99.9    10.735    7.300 |      0      0       0          0 |     11      5
+
+per-label at p90.0 (flagged/total)  orthrus | floor:
+  Process     112/216    |    154/216   
+  File        282/1468   |    159/1468  
+  Socket      528/615    |    464/615   
+  Memory      318/5426   |      2/5426  
+  User          1/1      |      1/1     
+
+per-label at p99.9 (flagged/total)  orthrus | floor:
+  Process       0/216    |      0/216   
+  File          9/1468   |      2/1468  
+  Socket        0/615    |      0/615   
+  Memory        2/5426   |      2/5426  
+  User          0/1      |      1/1     
+
+INTERPRETATION: VIOLATIONS == 0 at every budget -> the strict-subset finding is budget-independent; >0 -> report at which budgets it breaks.

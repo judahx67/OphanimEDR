@@ -1,0 +1,41 @@
+
+[fold] test=0051 train=['0201', '0501']
+    epoch 0: loss=30.378
+    epoch 20: loss=23.004
+    epoch 40: loss=19.100
+    epoch 60: loss=13.502
+    epoch 80: loss=14.420
+    epoch 99: loss=15.147
+
+[fold test=0051] nodes=83,940 GT=180 base_rate=0.00214  PR-AUC=0.0031 ROC-AUC=0.5746 lift=1.5x (479s)
+  @top-180 (=#GT): host 0051: nodes=83,940 GT=180 alerts=180 
+  RAW   TP=2 FP=178 FN=178  P=0.0111 R=0.0111 F1=0.0111
+  2HOP  TP=144 FP=14 FN=36  P=0.9114 R=0.8000 F1=0.8521  (forgave 164 FP, promoted 142 FN->TP)
+
+[fold] test=0201 train=['0051', '0501']
+    epoch 0: loss=30.912
+    epoch 20: loss=24.928
+    epoch 40: loss=23.482
+    epoch 60: loss=24.961
+    epoch 80: loss=23.032
+    epoch 99: loss=22.868
+
+[fold test=0201] nodes=104,628 GT=67 base_rate=0.00064  PR-AUC=0.0355 ROC-AUC=0.3350 lift=55.5x (317s)
+  @top-67 (=#GT): host 0201: nodes=104,628 GT=67 alerts=67 
+  RAW   TP=4 FP=63 FN=63  P=0.0597 R=0.0597 F1=0.0597
+  2HOP  TP=61 FP=10 FN=6  P=0.8592 R=0.9104 F1=0.8841  (forgave 53 FP, promoted 57 FN->TP)
+
+[fold] test=0501 train=['0051', '0201']
+    epoch 0: loss=16.821
+    epoch 20: loss=15.543
+    epoch 40: loss=14.720
+    epoch 60: loss=14.274
+    epoch 80: loss=14.558
+    epoch 99: loss=14.132
+
+[fold test=0501] nodes=304,387 GT=410 base_rate=0.00135  PR-AUC=0.0035 ROC-AUC=0.5331 lift=2.6x (143s)
+  @top-410 (=#GT): host 0501: nodes=304,387 GT=410 alerts=410 
+  RAW   TP=6 FP=404 FN=404  P=0.0146 R=0.0146 F1=0.0146
+  2HOP  TP=400 FP=5 FN=10  P=0.9877 R=0.9756 F1=0.9816  (forgave 399 FP, promoted 394 FN->TP)
+
+DONE

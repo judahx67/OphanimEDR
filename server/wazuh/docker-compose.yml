@@ -1,0 +1,67 @@
+# Wazuh monitoring overlay for the EDR thesis stack.
+#
+# Lightweight deployment: a Wazuh manager + one Ubuntu endpoint running the
+# Wazuh agent. The heavy indexer/dashboard tier is intentionally omitted — the
+# host has limited RAM and the manager alone demonstrates a monitored endpoint
+# (agent enrollment, FIM/syscheck, log-based alerts in alerts.json).
+#
+# Joins the same `edr-network` as the main stack so the two can interoperate.
+#
+# Usage:
+#   docker compose -f wazuh/docker-compose.yml up -d --build
+#   docker exec wazuh-manager /var/ossec/bin/agent_control -l   # see endpoint
+#   docker exec wazuh-manager tail -f /var/ossec/logs/alerts/alerts.json
+#
+#   manager registration : localhost:1515
+#   manager agent comms   : localhost:1514
+#   manager REST API      : https://localhost:55000
+
+services:
+  # ── Wazuh manager (analysis engine + enrollment service) ────
+  wazuh-manager:
+    image: wazuh/wazuh-manager:4.9.2
+    container_name: wazuh-manager
+    hostname: wazuh-manager
+    ports:
+      - "1514:1514"     # agent ↔ manager comms
+      - "1515:1515"     # agent enrollment (authd)
+      - "55000:55000"   # manager REST API
+    environment:
+      INDEXER_URL: ""           # no indexer in this lightweight overlay
+      FILEBEAT_SSL_VERIFICATION_MODE: none
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile:  { soft: 655360, hard: 655360 }
+    volumes:
+      - wazuh-manager-config:/var/ossec/etc
+      - wazuh-manager-logs:/var/ossec/logs
+      - wazuh-manager-queue:/var/ossec/queue
+    mem_limit: 1500m
+    restart: unless-stopped
+
+  # ── Monitored Ubuntu endpoint (Wazuh agent) ────────────────
+  ubuntu-endpoint:
+    build:
+      context: ./agent
+    container_name: ubuntu-endpoint
+    hostname: ubuntu-endpoint
+    environment:
+      WAZUH_MANAGER: wazuh-manager
+      WAZUH_AGENT_NAME: ubuntu-endpoint
+    cap_add:
+      - AUDIT_WRITE
+      - AUDIT_CONTROL
+    depends_on:
+      - wazuh-manager
+    mem_limit: 400m
+    restart: unless-stopped
+
+volumes:
+  wazuh-manager-config:
+  wazuh-manager-logs:
+  wazuh-manager-queue:
+
+networks:
+  default:
+    name: edr-network
+    external: true

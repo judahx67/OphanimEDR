@@ -152,19 +152,10 @@ class Scorer:
         return seeds, set(mapp)
 
 
-# CDM object type -> Neo4j label (mirrors ingest._CDM_NODE + graph-builder.LABELS).
-# Used so the seed write MATCHes per-label and hits the per-label uuid index;
-# a label-less MATCH (n {uuid}) does an AllNodesScan per row -> O(N^2) at scale.
-CDM_LABEL = {
-    "SUBJECT_PROCESS": "Process",
-    "FILE_OBJECT_BLOCK": "File", "FILE_OBJECT_FILE": "File", "FILE_OBJECT_DIR": "File",
-    "NetFlowObject": "Socket",
-    "MemoryObject": "Memory",
-    "UnnamedPipeObject": "Pipe",
-    "PRINCIPAL_LOCAL": "User", "PRINCIPAL_REMOTE": "User",
-}
+# Labels carrying a per-label uuid uniqueness constraint (= usable index). The
+# seed write runs against each in turn and hits the per-label uuid index; a
+# label-less MATCH (n {uuid}) would do an AllNodesScan per row -> O(N^2).
 VALID_LABELS = {"Process", "File", "Socket", "Memory", "Pipe", "User"}
-DEFAULT_LABEL = "File"
 
 # Dynamic label can't be parameterised in Cypher; we group rows by label and
 # interpolate the (enum-restricted) label into the query.
@@ -213,33 +204,34 @@ def run_scoring(scorer, driver, channel, window):
     seeds, scored = scorer.score(df)
     now_ms = int(time.time() * 1000)
 
-    # uuid -> Neo4j label from the window (actorID/actor_cdm, objectID/object_cdm)
-    uuid_label = {}
-    for r in rows:
-        uuid_label[r[0]] = CDM_LABEL.get(r[1], DEFAULT_LABEL)
-        uuid_label[r[2]] = CDM_LABEL.get(r[3], DEFAULT_LABEL)
-
     # Publish seeds FIRST so the metric/LLM don't depend on the (slower) Neo4j
     # write completing.
     for u in seeds:
         channel.basic_publish(
             exchange=EXCHANGE, routing_key="ml_alert",
-            body=json.dumps({"node_id": u, "dataset": "theia",
-                             "detector": "gnn_v3", "timestamp": now_ms}),
+            body=json.dumps({"node_id": u, "event_id": u, "dataset": "theia",
+                             "detector": "gnn_v3", "score": 1.0,
+                             "timestamp": now_ms}),
             properties=pika.BasicProperties(delivery_mode=2,
                                             content_type="application/json"),
         )
 
-    # Group scored nodes by label, write per-label (uses per-label uuid index).
-    by_label = {}
-    for u in scored:
-        by_label.setdefault(uuid_label.get(u, DEFAULT_LABEL), []).append(
-            {"uuid": u, "seed": (u in seeds), "scored_at": now_ms})
+    # Write every scored node under its TRUE label: run the full batch against
+    # each label's uuid index (a uuid matches under exactly one). We no longer
+    # guess the label from the edge — the guess dropped seeds whenever it
+    # disagreed with graph-builder's label. Index lookups keep this O(labels*N).
+    rows_out = [{"uuid": u, "seed": (u in seeds), "scored_at": now_ms} for u in scored]
+
+    def _write(tx):
+        # SORTED label order + managed-txn retry: the gnn and orthrus scorers both
+        # write the same nodes under every label at the same idle tick, so a
+        # consistent lock-acquisition order (sorted, not set-iteration order which
+        # differs per process) plus execute_write's auto-retry on Neo4j
+        # DeadlockDetected (TransientError) stops the two writers deadlocking.
+        for label in sorted(VALID_LABELS):
+            tx.run(_WRITE_CYPHER.format(label=label), rows=rows_out)
     with driver.session() as session:
-        for label, wr in by_label.items():
-            if label not in VALID_LABELS:
-                continue
-            session.run(_WRITE_CYPHER.format(label=label), rows=wr)
+        session.execute_write(_write)
     logger.info("scored window: edges=%d nodes=%d seeds=%d (%.1fs)",
                 len(rows), len(scored), len(seeds), time.time() - t0)
 
@@ -292,11 +284,17 @@ def main():
         while running:
             conn.process_data_events(time_limit=1)
             now = time.time()
-            # Score when there is new data AND we're either due (periodic) or the
-            # stream has gone idle (replay finished -> final full-graph score).
+            # Score when the stream just went idle after new edges (`fresh`), OR
+            # on the periodic `due` tick even with NO new edges — the latter is a
+            # catch-up re-score so the node-property write-back keeps up with the
+            # slower graph-builder (which may not have persisted every scored node
+            # when the first idle-score ran; otherwise the partial write froze for
+            # SCORE_EVERY_SECS, the /compare under-count artifact).
             due = (now - last_score) >= SCORE_EVERY_SECS
             idle = (now - last_edge) >= IDLE_SECS
-            if len(window) >= MIN_EDGES and stats["edges_since_score"] > 0 and (due or idle):
+            have_graph = len(window) >= MIN_EDGES
+            fresh = stats["edges_since_score"] > 0 and idle
+            if have_graph and (fresh or due):
                 run_scoring(scorer, driver, channel, window)
                 stats["scored_runs"] += 1
                 stats["edges_since_score"] = 0

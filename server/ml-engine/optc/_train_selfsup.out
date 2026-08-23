@@ -1,0 +1,29 @@
+training self-sup GNN on hosts=['0201'] epochs=100
+  epoch 0: loss=24.479
+  epoch 10: loss=16.135
+  epoch 20: loss=15.966
+  epoch 30: loss=15.947
+  epoch 40: loss=15.970
+  epoch 50: loss=15.955
+  epoch 60: loss=15.992
+  epoch 70: loss=15.980
+  epoch 80: loss=15.995
+  epoch 90: loss=16.008
+  epoch 99: loss=15.995
+trained (85s) -> J:\THESIS-EDR\server\ml-engine\optc\trained_weights\optc_ours\gnn_selfsup_optc.pth
+
+[host 0051]
+host ?: nodes=83,940 GT=180 alerts=1376 type-acc=0.9836
+  RAW   TP=17 FP=1359 FN=163  P=0.0124 R=0.0944 F1=0.0219
+  2HOP  TP=142 FP=32 FN=38  P=0.8161 R=0.7889 F1=0.8023  (forgave 1327 FP, promoted 125 FN->TP)
+
+[host 0201]
+host ?: nodes=104,628 GT=67 alerts=488 type-acc=0.9953
+  RAW   TP=5 FP=483 FN=62  P=0.0102 R=0.0746 F1=0.0180
+  2HOP  TP=62 FP=27 FN=5  P=0.6966 R=0.9254 F1=0.7949  (forgave 456 FP, promoted 57 FN->TP)
+
+[host 0501]
+host ?: nodes=304,387 GT=410 alerts=1974 type-acc=0.9935
+  RAW   TP=25 FP=1949 FN=385  P=0.0127 R=0.0610 F1=0.0210
+  2HOP  TP=410 FP=9 FN=0  P=0.9785 R=1.0000 F1=0.9891  (forgave 1940 FP, promoted 385 FN->TP)
+DONE
